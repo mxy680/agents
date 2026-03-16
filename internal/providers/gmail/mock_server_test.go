@@ -321,6 +321,112 @@ func withLabelsMock(mux *http.ServeMux) {
 	})
 }
 
+// withDraftsMock registers all draft-related mock handlers on mux.
+func withDraftsMock(mux *http.ServeMux) {
+	// drafts.list (GET) and drafts.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/drafts", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]any{
+				"id": "draft1",
+				"message": map[string]any{
+					"id": "draftmsg1",
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"drafts": []map[string]any{
+				{
+					"id": "draft1",
+					"message": map[string]any{
+						"id":      "draftmsg1",
+						"snippet": "Draft preview...",
+						"payload": map[string]any{
+							"headers": []map[string]string{
+								{"name": "From", "value": "user@example.com"},
+								{"name": "To", "value": "recipient@example.com"},
+								{"name": "Subject", "value": "Draft Subject"},
+								{"name": "Date", "value": "Mon, 16 Mar 2026 10:00:00 -0500"},
+							},
+						},
+					},
+				},
+				{
+					"id": "draft2",
+					"message": map[string]any{
+						"id":      "draftmsg2",
+						"snippet": "Another draft preview...",
+						"payload": map[string]any{
+							"headers": []map[string]string{
+								{"name": "From", "value": "user@example.com"},
+								{"name": "To", "value": "other@example.com"},
+								{"name": "Subject", "value": "Another Draft"},
+								{"name": "Date", "value": "Mon, 16 Mar 2026 11:00:00 -0500"},
+							},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// drafts.get, drafts.update (PUT), drafts.delete (DELETE) for draft1
+	mux.HandleFunc("/gmail/v1/users/me/drafts/draft1", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case http.MethodPut:
+			resp := map[string]any{
+				"id": "draft1",
+				"message": map[string]any{
+					"id": "draftmsg1-updated",
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		default:
+			// GET
+			resp := map[string]any{
+				"id": "draft1",
+				"message": map[string]any{
+					"id":      "draftmsg1",
+					"snippet": "Draft preview...",
+					"payload": map[string]any{
+						"headers": []map[string]string{
+							{"name": "From", "value": "user@example.com"},
+							{"name": "To", "value": "recipient@example.com"},
+							{"name": "Subject", "value": "Draft Subject"},
+							{"name": "Date", "value": "Mon, 16 Mar 2026 10:00:00 -0500"},
+						},
+						"mimeType": "text/plain",
+						"body": map[string]string{
+							"data": "RHJhZnQgYm9keSBjb250ZW50", // base64url of "Draft body content"
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		}
+	})
+
+	// drafts.send
+	mux.HandleFunc("/gmail/v1/users/me/drafts/send", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{
+			"id":       "sentmsg1",
+			"threadId": "thread-sentmsg1",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -342,6 +448,7 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withMessagesMock(mux)
 	withThreadsMock(mux)
 	withLabelsMock(mux)
+	withDraftsMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -356,6 +463,18 @@ func buildTestThreadsCmd(factory ServiceFactory) *cobra.Command {
 	threadsCmd.AddCommand(newThreadsDeleteCmd(factory))
 	threadsCmd.AddCommand(newThreadsModifyCmd(factory))
 	return threadsCmd
+}
+
+// buildTestDraftsCmd creates a `drafts` subcommand tree for use in tests.
+func buildTestDraftsCmd(factory ServiceFactory) *cobra.Command {
+	draftsCmd := &cobra.Command{Use: "drafts"}
+	draftsCmd.AddCommand(newDraftsListCmd(factory))
+	draftsCmd.AddCommand(newDraftsGetCmd(factory))
+	draftsCmd.AddCommand(newDraftsCreateCmd(factory))
+	draftsCmd.AddCommand(newDraftsUpdateCmd(factory))
+	draftsCmd.AddCommand(newDraftsSendCmd(factory))
+	draftsCmd.AddCommand(newDraftsDeleteCmd(factory))
+	return draftsCmd
 }
 
 // buildTestLabelsCmd creates a `labels` subcommand tree for use in tests.

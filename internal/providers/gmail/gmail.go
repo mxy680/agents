@@ -82,5 +82,18 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	labelsCmd.AddCommand(newLabelsDeleteCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(labelsCmd)
 
+	draftsCmd := &cobra.Command{
+		Use:     "drafts",
+		Short:   "Manage Gmail drafts",
+		Aliases: []string{"draft"},
+	}
+	draftsCmd.AddCommand(newDraftsListCmd(p.ServiceFactory))
+	draftsCmd.AddCommand(newDraftsGetCmd(p.ServiceFactory))
+	draftsCmd.AddCommand(newDraftsCreateCmd(p.ServiceFactory))
+	draftsCmd.AddCommand(newDraftsUpdateCmd(p.ServiceFactory))
+	draftsCmd.AddCommand(newDraftsSendCmd(p.ServiceFactory))
+	draftsCmd.AddCommand(newDraftsDeleteCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(draftsCmd)
+
 	parent.AddCommand(gmailCmd)
 }

@@ -739,6 +739,10 @@ func TestIntegration_Labels_List(t *testing.T) {
 	}
 }
 
+func integrationDraftsCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestDraftsCmd(factory)
+}
+
 func TestIntegration_Labels_CRUD(t *testing.T) {
 	requireEnv(t)
 
@@ -833,4 +837,184 @@ func TestIntegration_Labels_CRUD(t *testing.T) {
 		t.Fatalf("labels delete failed: %v", deleteErr)
 	}
 	t.Logf("deleted label id=%s", labelID)
+}
+
+// --- drafts ---
+
+func TestIntegration_Drafts_CRUD(t *testing.T) {
+	requireEnv(t)
+
+	// Create a draft
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var createOutput string
+	var createErr error
+	createOutput = captureStdout(t, func() {
+		root1.SetArgs([]string{
+			"drafts", "create",
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test Draft",
+			"--body=Draft body for integration test",
+			"--json",
+		})
+		createErr = root1.Execute()
+	})
+	if createErr != nil {
+		t.Fatalf("drafts create failed: %v", createErr)
+	}
+
+	var createResult map[string]string
+	if err := json.Unmarshal([]byte(createOutput), &createResult); err != nil {
+		t.Fatalf("invalid create JSON: %v\noutput: %s", err, createOutput)
+	}
+	draftID := createResult["id"]
+	if draftID == "" {
+		t.Fatal("created draft has empty ID")
+	}
+	t.Logf("created draft id=%s", draftID)
+
+	// List drafts — verify our draft appears
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var listOutput string
+	var listErr error
+	listOutput = captureStdout(t, func() {
+		root2.SetArgs([]string{"drafts", "list", "--json"})
+		listErr = root2.Execute()
+	})
+	if listErr != nil {
+		t.Fatalf("drafts list failed: %v", listErr)
+	}
+
+	var drafts []DraftSummary
+	if err := json.Unmarshal([]byte(listOutput), &drafts); err != nil {
+		t.Fatalf("invalid list JSON: %v\noutput: %s", err, listOutput)
+	}
+	found := false
+	for _, d := range drafts {
+		if d.ID == draftID {
+			found = true
+			t.Logf("found draft in list: id=%s subject=%q", d.ID, d.Subject)
+		}
+	}
+	if !found {
+		t.Errorf("created draft id=%s not found in drafts list", draftID)
+	}
+
+	// Get draft
+	root3 := integrationRootCmd()
+	root3.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var getOutput string
+	var getErr error
+	getOutput = captureStdout(t, func() {
+		root3.SetArgs([]string{"drafts", "get", "--id=" + draftID, "--json"})
+		getErr = root3.Execute()
+	})
+	if getErr != nil {
+		t.Fatalf("drafts get failed: %v", getErr)
+	}
+
+	var detail DraftDetail
+	if err := json.Unmarshal([]byte(getOutput), &detail); err != nil {
+		t.Fatalf("invalid get JSON: %v\noutput: %s", err, getOutput)
+	}
+	if detail.ID != draftID {
+		t.Errorf("expected ID=%s, got %s", draftID, detail.ID)
+	}
+	t.Logf("fetched draft: id=%s subject=%q", detail.ID, detail.Subject)
+
+	// Update draft
+	root4 := integrationRootCmd()
+	root4.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var updateErr error
+	captureStdout(t, func() {
+		root4.SetArgs([]string{
+			"drafts", "update",
+			"--id=" + draftID,
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test Draft (updated)",
+			"--body=Updated draft body",
+			"--json",
+		})
+		updateErr = root4.Execute()
+	})
+	if updateErr != nil {
+		t.Fatalf("drafts update failed: %v", updateErr)
+	}
+	t.Logf("updated draft id=%s", draftID)
+
+	// Send draft
+	root5 := integrationRootCmd()
+	root5.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var sendOutput string
+	var sendErr error
+	sendOutput = captureStdout(t, func() {
+		root5.SetArgs([]string{"drafts", "send", "--id=" + draftID, "--json"})
+		sendErr = root5.Execute()
+	})
+	if sendErr != nil {
+		t.Fatalf("drafts send failed: %v", sendErr)
+	}
+
+	var sendResult map[string]string
+	if err := json.Unmarshal([]byte(sendOutput), &sendResult); err != nil {
+		t.Fatalf("invalid send JSON: %v\noutput: %s", err, sendOutput)
+	}
+	if sendResult["status"] != "sent" {
+		t.Errorf("expected status=sent, got %s", sendResult["status"])
+	}
+	t.Logf("sent draft: message id=%s threadId=%s", sendResult["id"], sendResult["threadId"])
+}
+
+func TestIntegration_Drafts_Delete(t *testing.T) {
+	requireEnv(t)
+
+	// Create a draft to delete
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var createOutput string
+	var createErr error
+	createOutput = captureStdout(t, func() {
+		root1.SetArgs([]string{
+			"drafts", "create",
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test Draft (to be deleted)",
+			"--body=This draft will be deleted",
+			"--json",
+		})
+		createErr = root1.Execute()
+	})
+	if createErr != nil {
+		t.Fatalf("drafts create failed: %v", createErr)
+	}
+
+	var createResult map[string]string
+	if err := json.Unmarshal([]byte(createOutput), &createResult); err != nil {
+		t.Fatalf("invalid create JSON: %v\noutput: %s", err, createOutput)
+	}
+	draftID := createResult["id"]
+	if draftID == "" {
+		t.Fatal("created draft has empty ID")
+	}
+	t.Logf("created draft id=%s for deletion", draftID)
+
+	// Delete the draft
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationDraftsCmd(realFactory()))
+
+	var deleteErr error
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"drafts", "delete", "--id=" + draftID, "--confirm", "--json"})
+		deleteErr = root2.Execute()
+	})
+	if deleteErr != nil {
+		t.Fatalf("drafts delete failed: %v", deleteErr)
+	}
+	t.Logf("deleted draft id=%s", draftID)
 }
