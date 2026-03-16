@@ -12,11 +12,14 @@ make lint           # go vet
 
 ## Commands
 ```
-integrations gmail list-unread [--limit=N] [--since=Xh] [--json]
-integrations gmail read --id=MESSAGE_ID [--json]
-integrations gmail send --to=EMAIL --subject=SUBJECT [--body=TEXT | --body-file=PATH] [--cc=EMAIL] [--reply-to=MSG_ID] [--dry-run]
-integrations gmail search --query=QUERY [--limit=N] [--json]
+integrations gmail messages list [--query=QUERY] [--limit=N] [--since=Xh] [--page-token=TOKEN] [--json]
+integrations gmail messages get --id=MESSAGE_ID [--json]
+integrations gmail messages send --to=EMAIL --subject=SUBJECT [--body=TEXT | --body-file=PATH] [--cc=EMAIL] [--reply-to=MSG_ID] [--dry-run] [--json]
 ```
+
+`messages` has alias `msg`. The old `list-unread` and `search` commands are unified into `messages list`:
+- Unread: `messages list --query=is:unread --since=24h`
+- Search: `messages list --query=from:boss`
 
 ## Architecture
 - `cmd/integrations/main.go` — entrypoint, registers providers
@@ -25,10 +28,23 @@ integrations gmail search --query=QUERY [--limit=N] [--json]
 - `internal/providers/gmail/` — Gmail provider with injectable ServiceFactory
 - `internal/providers/provider.go` — Provider interface
 
+## Architecture — Gmail Package Layout
+```
+internal/providers/gmail/
+  gmail.go              # Provider struct, RegisterCommands (nested: gmail → messages → list/get/send)
+  helpers.go            # Shared types (EmailSummary, EmailDetail, SendResult) and shared functions
+  messages.go           # messages list, messages get, messages send commands
+  helpers_test.go       # Unit tests for helpers (parseSinceDuration, truncate, extractHeaders, etc.)
+  messages_test.go      # Integration tests for all messages sub-commands
+  mock_server_test.go   # httptest mock server helpers, captureStdout, newTestRootCmd
+  gmail_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+  integration_test.go   # Real Gmail API tests (build tag: integration)
+```
+
 ## Testing
 - Gmail commands use `ServiceFactory` for dependency injection
-- Tests use `httptest.NewServer` to mock the Gmail API
-- Coverage target: 80%+ (currently 87.8%)
+- Tests use `httptest.NewServer` to mock the Gmail API via `newFullMockServer(t)`
+- Coverage target: 80%+ (currently 93.2% gmail package)
 
 ## Environment Variables
 ```
