@@ -18,8 +18,8 @@ var EnvConfig = struct {
 	AccessToken  string
 	RefreshToken string
 }{
-	ClientID:     "GOOGLE_CLIENT_ID",
-	ClientSecret: "GOOGLE_CLIENT_SECRET",
+	ClientID:     "GOOGLE_DESKTOP_CLIENT_ID",
+	ClientSecret: "GOOGLE_DESKTOP_CLIENT_SECRET",
 	AccessToken:  "GMAIL_ACCESS_TOKEN",
 	RefreshToken: "GMAIL_REFRESH_TOKEN",
 }

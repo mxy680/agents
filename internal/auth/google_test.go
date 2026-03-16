@@ -7,8 +7,8 @@ import (
 
 func setEnvVars(t *testing.T) {
 	t.Helper()
-	t.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
-	t.Setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_ID", "test-client-id")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_SECRET", "test-client-secret")
 	t.Setenv("GMAIL_ACCESS_TOKEN", "test-access-token")
 	t.Setenv("GMAIL_REFRESH_TOKEN", "test-refresh-token")
 }
@@ -29,22 +29,22 @@ func TestNewOAuthConfig_Success(t *testing.T) {
 }
 
 func TestNewOAuthConfig_MissingClientID(t *testing.T) {
-	t.Setenv("GOOGLE_CLIENT_ID", "")
-	t.Setenv("GOOGLE_CLIENT_SECRET", "secret")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_ID", "")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_SECRET", "secret")
 
 	_, err := NewOAuthConfig()
 	if err == nil {
-		t.Fatal("expected error for missing GOOGLE_CLIENT_ID")
+		t.Fatal("expected error for missing GOOGLE_DESKTOP_CLIENT_ID")
 	}
 }
 
 func TestNewOAuthConfig_MissingClientSecret(t *testing.T) {
-	t.Setenv("GOOGLE_CLIENT_ID", "id")
-	t.Setenv("GOOGLE_CLIENT_SECRET", "")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_ID", "id")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_SECRET", "")
 
 	_, err := NewOAuthConfig()
 	if err == nil {
-		t.Fatal("expected error for missing GOOGLE_CLIENT_SECRET")
+		t.Fatal("expected error for missing GOOGLE_DESKTOP_CLIENT_SECRET")
 	}
 }
 
@@ -92,8 +92,8 @@ func TestReadEnv_Unset(t *testing.T) {
 }
 
 func TestNewGmailService_MissingCredentials(t *testing.T) {
-	t.Setenv("GOOGLE_CLIENT_ID", "")
-	t.Setenv("GOOGLE_CLIENT_SECRET", "")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_ID", "")
+	t.Setenv("GOOGLE_DESKTOP_CLIENT_SECRET", "")
 	t.Setenv("GMAIL_ACCESS_TOKEN", "")
 	t.Setenv("GMAIL_REFRESH_TOKEN", "")
 
