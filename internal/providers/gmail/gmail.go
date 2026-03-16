@@ -56,7 +56,20 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	messagesCmd.AddCommand(newMessagesBatchDeleteCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(messagesCmd)
 
-	// Future: threadsCmd, labelsCmd, draftsCmd, etc. will be added here.
+	threadsCmd := &cobra.Command{
+		Use:     "threads",
+		Short:   "Manage Gmail threads",
+		Aliases: []string{"thread"},
+	}
+	threadsCmd.AddCommand(newThreadsListCmd(p.ServiceFactory))
+	threadsCmd.AddCommand(newThreadsGetCmd(p.ServiceFactory))
+	threadsCmd.AddCommand(newThreadsTrashCmd(p.ServiceFactory))
+	threadsCmd.AddCommand(newThreadsUntrashCmd(p.ServiceFactory))
+	threadsCmd.AddCommand(newThreadsDeleteCmd(p.ServiceFactory))
+	threadsCmd.AddCommand(newThreadsModifyCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(threadsCmd)
+
+	// Future: labelsCmd, draftsCmd, etc. will be added here.
 
 	parent.AddCommand(gmailCmd)
 }

@@ -142,6 +142,81 @@ func withMessagesMock(mux *http.ServeMux) {
 	})
 }
 
+// withThreadsMock registers all thread-related mock handlers on mux.
+func withThreadsMock(mux *http.ServeMux) {
+	// threads.list
+	mux.HandleFunc("/gmail/v1/users/me/threads", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"threads": []map[string]any{
+				{"id": "thread1", "snippet": "First thread snippet", "historyId": "100"},
+				{"id": "thread2", "snippet": "Second thread snippet", "historyId": "200"},
+			},
+			"resultSizeEstimate": 2,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// threads.get thread1 (also handles DELETE for threads.delete)
+	mux.HandleFunc("/gmail/v1/users/me/threads/thread1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		thread := map[string]any{
+			"id":        "thread1",
+			"historyId": "100",
+			"messages": []map[string]any{
+				{
+					"id":      "msg1",
+					"snippet": "Hello world",
+					"payload": map[string]any{
+						"headers": []map[string]string{
+							{"name": "From", "value": "alice@example.com"},
+							{"name": "Subject", "value": "Test Email"},
+							{"name": "Date", "value": "Mon, 16 Mar 2026 10:00:00 -0500"},
+						},
+					},
+				},
+				{
+					"id":      "msg2",
+					"snippet": "Second email",
+					"payload": map[string]any{
+						"headers": []map[string]string{
+							{"name": "From", "value": "charlie@example.com"},
+							{"name": "Subject", "value": "Re: Test Email"},
+							{"name": "Date", "value": "Mon, 16 Mar 2026 11:00:00 -0500"},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(thread)
+	})
+
+	// threads.trash
+	mux.HandleFunc("/gmail/v1/users/me/threads/thread1/trash", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{"id": "thread1"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// threads.untrash
+	mux.HandleFunc("/gmail/v1/users/me/threads/thread1/untrash", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{"id": "thread1"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// threads.modify
+	mux.HandleFunc("/gmail/v1/users/me/threads/thread1/modify", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{"id": "thread1"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -161,8 +236,21 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	withMessagesMock(mux)
+	withThreadsMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
+}
+
+// buildTestThreadsCmd creates a `threads` subcommand tree for use in tests.
+func buildTestThreadsCmd(factory ServiceFactory) *cobra.Command {
+	threadsCmd := &cobra.Command{Use: "threads"}
+	threadsCmd.AddCommand(newThreadsListCmd(factory))
+	threadsCmd.AddCommand(newThreadsGetCmd(factory))
+	threadsCmd.AddCommand(newThreadsTrashCmd(factory))
+	threadsCmd.AddCommand(newThreadsUntrashCmd(factory))
+	threadsCmd.AddCommand(newThreadsDeleteCmd(factory))
+	threadsCmd.AddCommand(newThreadsModifyCmd(factory))
+	return threadsCmd
 }
 
 // newTestServiceFactory returns a ServiceFactory that creates a *gmail.Service

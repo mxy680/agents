@@ -43,6 +43,10 @@ func integrationMessagesCmd(factory ServiceFactory) *cobra.Command {
 	return buildTestMessagesCmd(factory)
 }
 
+func integrationThreadsCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestThreadsCmd(factory)
+}
+
 // --- messages list (unread) ---
 
 func TestIntegration_ListUnread_JSON(t *testing.T) {
@@ -489,4 +493,207 @@ func TestIntegration_SendThenSearch(t *testing.T) {
 	if !found {
 		t.Logf("sent message not found in search yet (Gmail indexing delay is normal)")
 	}
+}
+
+// --- threads list ---
+
+func TestIntegration_Threads_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationThreadsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"threads", "list", "--limit=3", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("threads list failed: %v", execErr)
+	}
+
+	var summaries []ThreadSummary
+	if err := json.Unmarshal([]byte(output), &summaries); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d threads", len(summaries))
+	for _, s := range summaries {
+		t.Logf("  [%s] snippet=%q", s.ID, s.Snippet)
+		if s.ID == "" {
+			t.Error("thread has empty ID")
+		}
+	}
+}
+
+// --- threads get ---
+
+func TestIntegration_Threads_Get(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	svc, err := realFactory()(ctx)
+	if err != nil {
+		t.Fatalf("creating service: %v", err)
+	}
+	resp, err := svc.Users.Threads.List("me").MaxResults(1).Do()
+	if err != nil {
+		t.Fatalf("listing threads: %v", err)
+	}
+	if len(resp.Threads) == 0 {
+		t.Skip("no threads in mailbox")
+	}
+	threadID := resp.Threads[0].Id
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationThreadsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"threads", "get", "--id=" + threadID, "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("threads get failed: %v", execErr)
+	}
+
+	var detail ThreadDetail
+	if err := json.Unmarshal([]byte(output), &detail); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if detail.ID != threadID {
+		t.Errorf("expected ID=%s, got %s", threadID, detail.ID)
+	}
+	t.Logf("thread %s has %d messages", detail.ID, len(detail.Messages))
+}
+
+// --- threads trash/untrash ---
+
+func TestIntegration_Threads_TrashUntrash(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	// Send a message to self to get a thread to work with
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationMessagesCmd(realFactory()))
+
+	var sendOutput string
+	var sendErr error
+	sendOutput = captureStdout(t, func() {
+		root1.SetArgs([]string{
+			"messages", "send",
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test Threads TrashUntrash",
+			"--body=thread-trash-untrash test",
+			"--json",
+		})
+		sendErr = root1.Execute()
+	})
+	if sendErr != nil {
+		t.Fatalf("send failed: %v", sendErr)
+	}
+
+	var sendResult SendResult
+	if err := json.Unmarshal([]byte(sendOutput), &sendResult); err != nil {
+		t.Fatalf("invalid send JSON: %v", err)
+	}
+
+	// Get the threadId from the sent message
+	threadID := sendResult.ThreadID
+	if threadID == "" {
+		// Fall back to listing threads
+		svc, err := realFactory()(ctx)
+		if err != nil {
+			t.Fatalf("creating service: %v", err)
+		}
+		resp, err := svc.Users.Threads.List("me").MaxResults(1).Do()
+		if err != nil {
+			t.Fatalf("listing threads: %v", err)
+		}
+		if len(resp.Threads) == 0 {
+			t.Skip("no threads in mailbox to trash")
+		}
+		threadID = resp.Threads[0].Id
+	}
+	t.Logf("using thread id=%s for trash/untrash test", threadID)
+
+	// Trash the thread
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationThreadsCmd(realFactory()))
+	var execErr error
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"threads", "trash", "--id=" + threadID, "--json"})
+		execErr = root2.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("threads trash failed: %v", execErr)
+	}
+	t.Logf("trashed thread id=%s", threadID)
+
+	// Untrash the thread
+	root3 := integrationRootCmd()
+	root3.AddCommand(integrationThreadsCmd(realFactory()))
+	captureStdout(t, func() {
+		root3.SetArgs([]string{"threads", "untrash", "--id=" + threadID, "--json"})
+		execErr = root3.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("threads untrash failed: %v", execErr)
+	}
+	t.Logf("untrashed thread id=%s", threadID)
+}
+
+// --- threads modify ---
+
+func TestIntegration_Threads_Modify(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	svc, err := realFactory()(ctx)
+	if err != nil {
+		t.Fatalf("creating service: %v", err)
+	}
+
+	resp, err := svc.Users.Threads.List("me").MaxResults(1).Do()
+	if err != nil {
+		t.Fatalf("listing threads: %v", err)
+	}
+	if len(resp.Threads) == 0 {
+		t.Skip("no threads in mailbox to modify")
+	}
+	threadID := resp.Threads[0].Id
+	t.Logf("using thread id=%s for modify test", threadID)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationThreadsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"threads", "modify", "--id=" + threadID, "--add-labels=STARRED", "--json"})
+		execErr = root.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("threads modify failed: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if result["status"] != "modified" {
+		t.Errorf("expected status=modified, got %v", result["status"])
+	}
+	t.Logf("modified thread: id=%s", result["id"])
+
+	// Restore: remove the STARRED label
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationThreadsCmd(realFactory()))
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"threads", "modify", "--id=" + threadID, "--remove-labels=STARRED", "--json"})
+		root2.Execute() //nolint:errcheck
+	})
 }
