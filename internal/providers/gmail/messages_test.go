@@ -522,11 +522,687 @@ func TestMessagesSendBodyFileMissing(t *testing.T) {
 	}
 }
 
+// ---- messages trash ----
+
+func TestMessagesTrashJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "trash", "--id=msg1", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["id"] != "msg1" {
+		t.Errorf("expected id=msg1, got %s", result["id"])
+	}
+	if result["status"] != "trashed" {
+		t.Errorf("expected status=trashed, got %s", result["status"])
+	}
+}
+
+func TestMessagesTrashText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "trash", "--id=msg1"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesTrashDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "trash", "--id=msg1", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages untrash ----
+
+func TestMessagesUntrashJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "untrash", "--id=msg1", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["id"] != "msg1" {
+		t.Errorf("expected id=msg1, got %s", result["id"])
+	}
+	if result["status"] != "untrashed" {
+		t.Errorf("expected status=untrashed, got %s", result["status"])
+	}
+}
+
+func TestMessagesUntrashText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "untrash", "--id=msg1"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesUntrashDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "untrash", "--id=msg1", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages delete ----
+
+func TestMessagesDeleteJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "delete", "--id=msg1", "--confirm", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["id"] != "msg1" {
+		t.Errorf("expected id=msg1, got %s", result["id"])
+	}
+	if result["status"] != "deleted" {
+		t.Errorf("expected status=deleted, got %s", result["status"])
+	}
+}
+
+func TestMessagesDeleteText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "delete", "--id=msg1", "--confirm"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesDeleteDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "delete", "--id=msg1", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+func TestMessagesDeleteRequiresConfirm(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	root.SetArgs([]string{"messages", "delete", "--id=msg1"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when --confirm not provided")
+	}
+}
+
+// ---- messages modify ----
+
+func TestMessagesModifyJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "modify", "--id=msg1", "--add-labels=STARRED", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["id"] != "msg1" {
+		t.Errorf("expected id=msg1, got %v", result["id"])
+	}
+	if result["status"] != "modified" {
+		t.Errorf("expected status=modified, got %v", result["status"])
+	}
+}
+
+func TestMessagesModifyText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "modify", "--id=msg1", "--add-labels=STARRED"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesModifyDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "modify", "--id=msg1", "--add-labels=STARRED", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages import ----
+
+func TestMessagesImportJSON(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "import", "--raw-file=" + tmpFile.Name(), "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["status"] != "imported" {
+		t.Errorf("expected status=imported, got %s", result["status"])
+	}
+}
+
+func TestMessagesImportText(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "import", "--raw-file=" + tmpFile.Name()})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesImportDryRun(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "import", "--raw-file=" + tmpFile.Name(), "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages insert ----
+
+func TestMessagesInsertJSON(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "insert", "--raw-file=" + tmpFile.Name(), "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]string
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["status"] != "inserted" {
+		t.Errorf("expected status=inserted, got %s", result["status"])
+	}
+}
+
+func TestMessagesInsertText(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "insert", "--raw-file=" + tmpFile.Name()})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesInsertDryRun(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "raw-*.eml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.WriteString("From: test@example.com\r\nSubject: Test\r\n\r\nBody")
+	tmpFile.Close()
+
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "insert", "--raw-file=" + tmpFile.Name(), "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages batch-modify ----
+
+func TestMessagesBatchModifyJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-modify", "--ids=msg1,msg2", "--add-labels=STARRED", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["status"] != "modified" {
+		t.Errorf("expected status=modified, got %v", result["status"])
+	}
+}
+
+func TestMessagesBatchModifyText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-modify", "--ids=msg1,msg2", "--add-labels=STARRED"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesBatchModifyDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-modify", "--ids=msg1,msg2", "--add-labels=STARRED", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+// ---- messages batch-delete ----
+
+func TestMessagesBatchDeleteJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-delete", "--ids=msg1,msg2", "--confirm", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("expected JSON output, got: %s", output)
+	}
+	if result["status"] != "deleted" {
+		t.Errorf("expected status=deleted, got %v", result["status"])
+	}
+}
+
+func TestMessagesBatchDeleteText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestServiceFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-delete", "--ids=msg1,msg2", "--confirm"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected non-empty text output")
+	}
+}
+
+func TestMessagesBatchDeleteDryRun(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "batch-delete", "--ids=msg1,msg2", "--dry-run"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("unexpected error: %v", execErr)
+	}
+	if output == "" {
+		t.Error("expected dry-run output")
+	}
+}
+
+func TestMessagesBatchDeleteRequiresConfirm(t *testing.T) {
+	factory := newTestServiceFactory(newFullMockServer(t))
+	root := newTestRootCmd()
+	root.AddCommand(buildTestMessagesCmd(factory))
+
+	root.SetArgs([]string{"messages", "batch-delete", "--ids=msg1,msg2"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error when --confirm not provided")
+	}
+}
+
 // buildTestMessagesCmd creates a `messages` subcommand tree for use in tests.
 func buildTestMessagesCmd(factory ServiceFactory) *cobra.Command {
 	messagesCmd := &cobra.Command{Use: "messages"}
 	messagesCmd.AddCommand(newMessagesListCmd(factory))
 	messagesCmd.AddCommand(newMessagesGetCmd(factory))
 	messagesCmd.AddCommand(newMessagesSendCmd(factory))
+	messagesCmd.AddCommand(newMessagesTrashCmd(factory))
+	messagesCmd.AddCommand(newMessagesUntrashCmd(factory))
+	messagesCmd.AddCommand(newMessagesDeleteCmd(factory))
+	messagesCmd.AddCommand(newMessagesModifyCmd(factory))
+	messagesCmd.AddCommand(newMessagesImportCmd(factory))
+	messagesCmd.AddCommand(newMessagesInsertCmd(factory))
+	messagesCmd.AddCommand(newMessagesBatchModifyCmd(factory))
+	messagesCmd.AddCommand(newMessagesBatchDeleteCmd(factory))
 	return messagesCmd
 }

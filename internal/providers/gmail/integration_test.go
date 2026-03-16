@@ -241,6 +241,186 @@ func TestIntegration_Search_JSON(t *testing.T) {
 	}
 }
 
+// --- messages trash/untrash ---
+
+func TestIntegration_Messages_TrashUntrash(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	// Send a message to self to get an ID to work with
+	svc, err := realFactory()(ctx)
+	if err != nil {
+		t.Fatalf("creating service: %v", err)
+	}
+
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationMessagesCmd(realFactory()))
+
+	var sendOutput string
+	captureStdout(t, func() {
+		root1.SetArgs([]string{
+			"messages", "send",
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test TrashUntrash",
+			"--body=trash-untrash test",
+			"--json",
+		})
+		root1.Execute() //nolint:errcheck
+	})
+
+	// Use the most recent message in inbox as the test target
+	resp, err := svc.Users.Messages.List("me").MaxResults(1).Do()
+	if err != nil {
+		t.Fatalf("listing messages: %v", err)
+	}
+	if len(resp.Messages) == 0 {
+		t.Skip("no messages in mailbox to trash")
+	}
+	msgID := resp.Messages[0].Id
+	t.Logf("using message id=%s for trash/untrash test", msgID)
+	_ = sendOutput
+
+	// Trash it
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationMessagesCmd(realFactory()))
+	var execErr error
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"messages", "trash", "--id=" + msgID, "--json"})
+		execErr = root2.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("messages trash failed: %v", execErr)
+	}
+	t.Logf("trashed message id=%s", msgID)
+
+	// Untrash it
+	root3 := integrationRootCmd()
+	root3.AddCommand(integrationMessagesCmd(realFactory()))
+	captureStdout(t, func() {
+		root3.SetArgs([]string{"messages", "untrash", "--id=" + msgID, "--json"})
+		execErr = root3.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("messages untrash failed: %v", execErr)
+	}
+	t.Logf("untrashed message id=%s", msgID)
+}
+
+// --- messages modify ---
+
+func TestIntegration_Messages_Modify(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	svc, err := realFactory()(ctx)
+	if err != nil {
+		t.Fatalf("creating service: %v", err)
+	}
+
+	resp, err := svc.Users.Messages.List("me").MaxResults(1).Do()
+	if err != nil {
+		t.Fatalf("listing messages: %v", err)
+	}
+	if len(resp.Messages) == 0 {
+		t.Skip("no messages in mailbox to modify")
+	}
+	msgID := resp.Messages[0].Id
+	t.Logf("using message id=%s for modify test", msgID)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationMessagesCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"messages", "modify", "--id=" + msgID, "--add-labels=STARRED", "--json"})
+		execErr = root.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("messages modify failed: %v", execErr)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if result["status"] != "modified" {
+		t.Errorf("expected status=modified, got %v", result["status"])
+	}
+	t.Logf("modified message: id=%s labelIds=%v", result["id"], result["labelIds"])
+
+	// Remove the STARRED label to restore state
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationMessagesCmd(realFactory()))
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"messages", "modify", "--id=" + msgID, "--remove-labels=STARRED", "--json"})
+		root2.Execute() //nolint:errcheck
+	})
+}
+
+// --- messages delete ---
+
+func TestIntegration_Messages_Delete(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	// Send a message to self first so we have something to delete
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationMessagesCmd(realFactory()))
+
+	var sendOutput string
+	var sendErr error
+	sendOutput = captureStdout(t, func() {
+		root1.SetArgs([]string{
+			"messages", "send",
+			"--to=omniclaw680@gmail.com",
+			"--subject=Integration Test Delete (to be deleted)",
+			"--body=this message will be permanently deleted",
+			"--json",
+		})
+		sendErr = root1.Execute()
+	})
+	if sendErr != nil {
+		t.Fatalf("send failed: %v", sendErr)
+	}
+
+	var sendResult SendResult
+	if err := json.Unmarshal([]byte(sendOutput), &sendResult); err != nil {
+		t.Fatalf("invalid send JSON: %v", err)
+	}
+
+	// Use the sent message ID if available; otherwise take the most recent inbox message
+	msgID := sendResult.ID
+	if msgID == "" {
+		svc, err := realFactory()(ctx)
+		if err != nil {
+			t.Fatalf("creating service: %v", err)
+		}
+		resp, err := svc.Users.Messages.List("me").MaxResults(1).Do()
+		if err != nil {
+			t.Fatalf("listing messages: %v", err)
+		}
+		if len(resp.Messages) == 0 {
+			t.Skip("no messages in mailbox to delete")
+		}
+		msgID = resp.Messages[0].Id
+	}
+	t.Logf("deleting message id=%s", msgID)
+
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationMessagesCmd(realFactory()))
+
+	var execErr error
+	captureStdout(t, func() {
+		root2.SetArgs([]string{"messages", "delete", "--id=" + msgID, "--confirm", "--json"})
+		execErr = root2.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("messages delete failed: %v", execErr)
+	}
+	t.Logf("permanently deleted message id=%s", msgID)
+}
+
 // --- round-trip: send then search ---
 
 func TestIntegration_SendThenSearch(t *testing.T) {

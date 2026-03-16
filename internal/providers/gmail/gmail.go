@@ -46,6 +46,14 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	messagesCmd.AddCommand(newMessagesListCmd(p.ServiceFactory))
 	messagesCmd.AddCommand(newMessagesGetCmd(p.ServiceFactory))
 	messagesCmd.AddCommand(newMessagesSendCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesTrashCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesUntrashCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesDeleteCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesModifyCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesImportCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesInsertCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesBatchModifyCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesBatchDeleteCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(messagesCmd)
 
 	// Future: threadsCmd, labelsCmd, draftsCmd, etc. will be added here.

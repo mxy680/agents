@@ -15,8 +15,18 @@ import (
 
 // withMessagesMock registers all message-related mock handlers on mux.
 func withMessagesMock(mux *http.ServeMux) {
-	// messages.list
+	// messages.list (GET) and messages.insert (POST)
 	mux.HandleFunc("/gmail/v1/users/me/messages", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			// messages.insert
+			resp := map[string]string{
+				"id":       "inserted1",
+				"threadId": "thread-inserted1",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
 		resp := map[string]any{
 			"messages": []map[string]string{
 				{"id": "msg1", "threadId": "thread1"},
@@ -28,8 +38,12 @@ func withMessagesMock(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode(resp)
 	})
 
-	// messages.get msg1
+	// messages.get msg1 (also handles DELETE for messages.delete)
 	mux.HandleFunc("/gmail/v1/users/me/messages/msg1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		msg := map[string]any{
 			"id":       "msg1",
 			"snippet":  "Hello world",
@@ -80,6 +94,48 @@ func withMessagesMock(mux *http.ServeMux) {
 		resp := map[string]string{
 			"id":       "sent1",
 			"threadId": "thread-sent1",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// messages.batchModify
+	mux.HandleFunc("/gmail/v1/users/me/messages/batchModify", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// messages.batchDelete
+	mux.HandleFunc("/gmail/v1/users/me/messages/batchDelete", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// messages.import
+	mux.HandleFunc("/gmail/v1/users/me/messages/import", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{
+			"id":       "imported1",
+			"threadId": "thread-imported1",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// messages.trash, messages.untrash, messages.modify, messages.delete for msg1
+	mux.HandleFunc("/gmail/v1/users/me/messages/msg1/trash", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{"id": "msg1"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	mux.HandleFunc("/gmail/v1/users/me/messages/msg1/untrash", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]string{"id": "msg1"}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	mux.HandleFunc("/gmail/v1/users/me/messages/msg1/modify", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"id":       "msg1",
+			"labelIds": []string{"INBOX", "STARRED"},
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
