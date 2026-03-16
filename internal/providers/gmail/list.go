@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/emdash-projects/agents/internal/auth"
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 	api "google.golang.org/api/gmail/v1"
@@ -20,11 +19,11 @@ type EmailSummary struct {
 	Date    string `json:"date"`
 }
 
-func newListUnreadCmd() *cobra.Command {
+func newListUnreadCmd(factory ServiceFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list-unread",
 		Short: "List unread emails from inbox",
-		RunE:  runListUnread,
+		RunE:  makeRunListUnread(factory),
 	}
 	cmd.Flags().Int("limit", 20, "Maximum number of messages to return")
 	cmd.Flags().String("since", "24h", "Only messages newer than this duration (e.g. 24h, 7d)")
@@ -45,35 +44,37 @@ func parseSinceDuration(s string) (time.Duration, error) {
 	return time.ParseDuration(s)
 }
 
-func runListUnread(cmd *cobra.Command, _ []string) error {
-	ctx := context.Background()
-	limit, _ := cmd.Flags().GetInt("limit")
-	since, _ := cmd.Flags().GetString("since")
+func makeRunListUnread(factory ServiceFactory) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := context.Background()
+		limit, _ := cmd.Flags().GetInt("limit")
+		since, _ := cmd.Flags().GetString("since")
 
-	dur, err := parseSinceDuration(since)
-	if err != nil {
-		return fmt.Errorf("invalid --since value: %w", err)
+		dur, err := parseSinceDuration(since)
+		if err != nil {
+			return fmt.Errorf("invalid --since value: %w", err)
+		}
+
+		svc, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		afterEpoch := time.Now().Add(-dur).Unix()
+		query := fmt.Sprintf("is:unread after:%d", afterEpoch)
+
+		resp, err := svc.Users.Messages.List("me").Q(query).MaxResults(int64(limit)).Do()
+		if err != nil {
+			return fmt.Errorf("listing messages: %w", err)
+		}
+
+		summaries, err := fetchSummaries(ctx, svc, resp.Messages)
+		if err != nil {
+			return err
+		}
+
+		return printSummaries(cmd, summaries)
 	}
-
-	svc, err := auth.NewGmailService(ctx)
-	if err != nil {
-		return err
-	}
-
-	afterEpoch := time.Now().Add(-dur).Unix()
-	query := fmt.Sprintf("is:unread after:%d", afterEpoch)
-
-	resp, err := svc.Users.Messages.List("me").Q(query).MaxResults(int64(limit)).Do()
-	if err != nil {
-		return fmt.Errorf("listing messages: %w", err)
-	}
-
-	summaries, err := fetchSummaries(ctx, svc, resp.Messages)
-	if err != nil {
-		return err
-	}
-
-	return printSummaries(cmd, summaries)
 }
 
 func fetchSummaries(_ context.Context, svc *api.Service, msgs []*api.Message) ([]EmailSummary, error) {

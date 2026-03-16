@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/emdash-projects/agents/internal/auth"
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 	api "google.golang.org/api/gmail/v1"
@@ -20,11 +19,11 @@ type SendResult struct {
 	Status   string `json:"status"`
 }
 
-func newSendCmd() *cobra.Command {
+func newSendCmd(factory ServiceFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send",
 		Short: "Send an email via Gmail",
-		RunE:  runSend,
+		RunE:  makeRunSend(factory),
 	}
 	cmd.Flags().String("to", "", "Recipient email address (required)")
 	cmd.Flags().String("subject", "", "Email subject (required)")
@@ -37,75 +36,77 @@ func newSendCmd() *cobra.Command {
 	return cmd
 }
 
-func runSend(cmd *cobra.Command, _ []string) error {
-	ctx := context.Background()
-	to, _ := cmd.Flags().GetString("to")
-	subject, _ := cmd.Flags().GetString("subject")
-	body, _ := cmd.Flags().GetString("body")
-	bodyFile, _ := cmd.Flags().GetString("body-file")
-	cc, _ := cmd.Flags().GetString("cc")
-	replyTo, _ := cmd.Flags().GetString("reply-to")
+func makeRunSend(factory ServiceFactory) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := context.Background()
+		to, _ := cmd.Flags().GetString("to")
+		subject, _ := cmd.Flags().GetString("subject")
+		body, _ := cmd.Flags().GetString("body")
+		bodyFile, _ := cmd.Flags().GetString("body-file")
+		cc, _ := cmd.Flags().GetString("cc")
+		replyTo, _ := cmd.Flags().GetString("reply-to")
 
-	if body == "" && bodyFile == "" {
-		return fmt.Errorf("either --body or --body-file is required")
-	}
+		if body == "" && bodyFile == "" {
+			return fmt.Errorf("either --body or --body-file is required")
+		}
 
-	if bodyFile != "" {
-		data, err := os.ReadFile(bodyFile)
+		if bodyFile != "" {
+			data, err := os.ReadFile(bodyFile)
+			if err != nil {
+				return fmt.Errorf("reading body file: %w", err)
+			}
+			body = string(data)
+		}
+
+		raw, err := composeMessage(ctx, factory, to, subject, body, cc, replyTo)
 		if err != nil {
-			return fmt.Errorf("reading body file: %w", err)
+			return err
 		}
-		body = string(data)
-	}
 
-	raw, err := composeMessage(ctx, cmd, to, subject, body, cc, replyTo)
-	if err != nil {
-		return err
-	}
+		if cli.IsDryRun(cmd) {
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(map[string]string{
+					"status":  "dry-run",
+					"raw":     raw,
+					"to":      to,
+					"subject": subject,
+				})
+			}
+			fmt.Println("[DRY RUN] Would send:")
+			fmt.Println(raw)
+			return nil
+		}
 
-	if cli.IsDryRun(cmd) {
+		svc, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		msg := &api.Message{
+			Raw: base64.URLEncoding.EncodeToString([]byte(raw)),
+		}
+
+		sent, err := svc.Users.Messages.Send("me", msg).Do()
+		if err != nil {
+			return fmt.Errorf("sending message: %w", err)
+		}
+
+		result := SendResult{
+			ID:       sent.Id,
+			ThreadID: sent.ThreadId,
+			Status:   "sent",
+		}
+
 		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{
-				"status":  "dry-run",
-				"raw":     raw,
-				"to":      to,
-				"subject": subject,
-			})
+			return cli.PrintJSON(result)
 		}
-		fmt.Println("[DRY RUN] Would send:")
-		fmt.Println(raw)
+
+		fmt.Printf("Email sent to %s (id: %s)\n", to, sent.Id)
 		return nil
 	}
-
-	svc, err := auth.NewGmailService(ctx)
-	if err != nil {
-		return err
-	}
-
-	msg := &api.Message{
-		Raw: base64.URLEncoding.EncodeToString([]byte(raw)),
-	}
-
-	sent, err := svc.Users.Messages.Send("me", msg).Do()
-	if err != nil {
-		return fmt.Errorf("sending message: %w", err)
-	}
-
-	result := SendResult{
-		ID:       sent.Id,
-		ThreadID: sent.ThreadId,
-		Status:   "sent",
-	}
-
-	if cli.IsJSONOutput(cmd) {
-		return cli.PrintJSON(result)
-	}
-
-	fmt.Printf("Email sent to %s (id: %s)\n", to, sent.Id)
-	return nil
 }
 
-func composeMessage(ctx context.Context, cmd *cobra.Command, to, subject, body, cc, replyTo string) (string, error) {
+func composeMessage(ctx context.Context, factory ServiceFactory, to, subject, body, cc, replyTo string) (string, error) {
 	var headers []string
 	headers = append(headers, fmt.Sprintf("To: %s", to))
 	headers = append(headers, fmt.Sprintf("Subject: %s", subject))
@@ -118,7 +119,7 @@ func composeMessage(ctx context.Context, cmd *cobra.Command, to, subject, body, 
 
 	if replyTo != "" {
 		// Fetch the original message to get headers for threading
-		svc, err := auth.NewGmailService(ctx)
+		svc, err := factory(ctx)
 		if err != nil {
 			return "", err
 		}

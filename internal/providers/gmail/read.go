@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/emdash-projects/agents/internal/auth"
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 	api "google.golang.org/api/gmail/v1"
@@ -22,47 +21,49 @@ type EmailDetail struct {
 	Body    string `json:"body"`
 }
 
-func newReadCmd() *cobra.Command {
+func newReadCmd(factory ServiceFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "read",
 		Short: "Read a full email by message ID",
-		RunE:  runRead,
+		RunE:  makeRunRead(factory),
 	}
 	cmd.Flags().String("id", "", "Message ID to read (required)")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }
 
-func runRead(cmd *cobra.Command, _ []string) error {
-	ctx := context.Background()
-	msgID, _ := cmd.Flags().GetString("id")
+func makeRunRead(factory ServiceFactory) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ctx := context.Background()
+		msgID, _ := cmd.Flags().GetString("id")
 
-	svc, err := auth.NewGmailService(ctx)
-	if err != nil {
-		return err
+		svc, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		msg, err := svc.Users.Messages.Get("me", msgID).Format("full").Do()
+		if err != nil {
+			return fmt.Errorf("getting message %s: %w", msgID, err)
+		}
+
+		detail := extractDetail(msg)
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(detail)
+		}
+
+		lines := []string{
+			fmt.Sprintf("From:    %s", detail.From),
+			fmt.Sprintf("To:      %s", detail.To),
+			fmt.Sprintf("Subject: %s", detail.Subject),
+			fmt.Sprintf("Date:    %s", detail.Date),
+			"",
+			detail.Body,
+		}
+		cli.PrintText(lines)
+		return nil
 	}
-
-	msg, err := svc.Users.Messages.Get("me", msgID).Format("full").Do()
-	if err != nil {
-		return fmt.Errorf("getting message %s: %w", msgID, err)
-	}
-
-	detail := extractDetail(msg)
-
-	if cli.IsJSONOutput(cmd) {
-		return cli.PrintJSON(detail)
-	}
-
-	lines := []string{
-		fmt.Sprintf("From:    %s", detail.From),
-		fmt.Sprintf("To:      %s", detail.To),
-		fmt.Sprintf("Subject: %s", detail.Subject),
-		fmt.Sprintf("Date:    %s", detail.Date),
-		"",
-		detail.Body,
-	}
-	cli.PrintText(lines)
-	return nil
 }
 
 func extractDetail(msg *api.Message) EmailDetail {
