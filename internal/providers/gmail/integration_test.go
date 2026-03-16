@@ -1033,6 +1033,65 @@ func formatUint64(v uint64) string {
 	return strings.TrimSpace(fmt.Sprintf("%d", v))
 }
 
+func integrationSettingsCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestSettingsCmd(factory)
+}
+
+// --- settings get-vacation (read-only, safe) ---
+
+func TestIntegration_Settings_GetVacation(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "get-vacation", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings get-vacation failed: %v", execErr)
+	}
+
+	var info VacationInfo
+	if err := json.Unmarshal([]byte(output), &info); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("vacation settings: enableAutoReply=%v subject=%q", info.EnableAutoReply, info.ResponseSubject)
+}
+
+// --- settings get-language (read-only, safe) ---
+
+func TestIntegration_Settings_GetLanguage(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "get-language", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings get-language failed: %v", execErr)
+	}
+
+	var info LanguageInfo
+	if err := json.Unmarshal([]byte(output), &info); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	if info.DisplayLanguage == "" {
+		t.Error("expected non-empty displayLanguage")
+	}
+	t.Logf("display language: %s", info.DisplayLanguage)
+}
+
 func TestIntegration_Drafts_Delete(t *testing.T) {
 	requireEnv(t)
 

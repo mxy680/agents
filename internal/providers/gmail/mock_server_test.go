@@ -470,6 +470,67 @@ func withHistoryMock(mux *http.ServeMux) {
 	})
 }
 
+// withSettingsMock registers all settings-related mock handlers on mux.
+func withSettingsMock(mux *http.ServeMux) {
+	// settings.getVacation (GET) and settings.updateVacation (PUT)
+	// The Gmail API serialises startTime/endTime as JSON strings (int64 with ,string tag).
+	mux.HandleFunc("/gmail/v1/users/me/settings/vacation", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"enableAutoReply":       true,
+			"responseSubject":       "Out of office",
+			"responseBodyPlainText": "I am out of office.",
+			"restrictToContacts":    false,
+			"restrictToDomain":      false,
+			"startTime":             "1700000000000",
+			"endTime":               "1700086400000",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// settings.getAutoForwarding (GET) and settings.updateAutoForwarding (PUT)
+	mux.HandleFunc("/gmail/v1/users/me/settings/autoForwarding", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"enabled":      true,
+			"emailAddress": "forward@example.com",
+			"disposition":  "leaveInInbox",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// settings.getImap (GET) and settings.updateImap (PUT)
+	mux.HandleFunc("/gmail/v1/users/me/settings/imap", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"enabled":         true,
+			"autoExpunge":     true,
+			"expungeBehavior": "archive",
+			"maxFolderSize":   int64(0),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// settings.getPop (GET) and settings.updatePop (PUT)
+	mux.HandleFunc("/gmail/v1/users/me/settings/pop", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"accessWindow": "allMail",
+			"disposition":  "leaveInInbox",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// settings.getLanguage (GET) and settings.updateLanguage (PUT)
+	mux.HandleFunc("/gmail/v1/users/me/settings/language", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"displayLanguage": "en",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -494,6 +555,7 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withDraftsMock(mux)
 	withAttachmentsMock(mux)
 	withHistoryMock(mux)
+	withSettingsMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -546,6 +608,22 @@ func buildTestHistoryCmd(factory ServiceFactory) *cobra.Command {
 	historyCmd := &cobra.Command{Use: "history"}
 	historyCmd.AddCommand(newHistoryListCmd(factory))
 	return historyCmd
+}
+
+// buildTestSettingsCmd creates a `settings` subcommand tree for use in tests.
+func buildTestSettingsCmd(factory ServiceFactory) *cobra.Command {
+	settingsCmd := &cobra.Command{Use: "settings"}
+	settingsCmd.AddCommand(newSettingsGetVacationCmd(factory))
+	settingsCmd.AddCommand(newSettingsSetVacationCmd(factory))
+	settingsCmd.AddCommand(newSettingsGetAutoForwardingCmd(factory))
+	settingsCmd.AddCommand(newSettingsSetAutoForwardingCmd(factory))
+	settingsCmd.AddCommand(newSettingsGetImapCmd(factory))
+	settingsCmd.AddCommand(newSettingsSetImapCmd(factory))
+	settingsCmd.AddCommand(newSettingsGetPopCmd(factory))
+	settingsCmd.AddCommand(newSettingsSetPopCmd(factory))
+	settingsCmd.AddCommand(newSettingsGetLanguageCmd(factory))
+	settingsCmd.AddCommand(newSettingsSetLanguageCmd(factory))
+	return settingsCmd
 }
 
 // newTestServiceFactory returns a ServiceFactory that creates a *gmail.Service

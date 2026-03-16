@@ -110,5 +110,21 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	historyCmd.AddCommand(newHistoryListCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(historyCmd)
 
+	settingsCmd := &cobra.Command{
+		Use:   "settings",
+		Short: "Manage Gmail account settings",
+	}
+	settingsCmd.AddCommand(newSettingsGetVacationCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsSetVacationCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsGetAutoForwardingCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsSetAutoForwardingCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsGetImapCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsSetImapCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsGetPopCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsSetPopCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsGetLanguageCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(newSettingsSetLanguageCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(settingsCmd)
+
 	parent.AddCommand(gmailCmd)
 }
