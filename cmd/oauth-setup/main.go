@@ -34,7 +34,7 @@ func main() {
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "http://localhost:8089/callback",
 		Scopes: []string{
-			gmail.GmailModifyScope,
+			gmail.MailGoogleComScope,
 			gmail.GmailSettingsBasicScope,
 			gmail.GmailSettingsSharingScope,
 		},

@@ -407,6 +407,16 @@ func TestIntegration_Messages_Delete(t *testing.T) {
 	}
 	t.Logf("deleting message id=%s", msgID)
 
+	// Trash first, then delete — Gmail's backend needs the message settled before permanent delete
+	svc, svcErr := realFactory()(ctx)
+	if svcErr != nil {
+		t.Fatalf("creating service: %v", svcErr)
+	}
+	_, trashErr := svc.Users.Messages.Trash("me", msgID).Do()
+	if trashErr != nil {
+		t.Fatalf("trash failed: %v", trashErr)
+	}
+
 	root2 := integrationRootCmd()
 	root2.AddCommand(integrationMessagesCmd(realFactory()))
 

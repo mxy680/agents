@@ -49,7 +49,7 @@ func NewOAuthConfig() (*oauth2.Config, error) {
 		ClientSecret: clientSecret,
 		Endpoint:     google.Endpoint,
 		Scopes: []string{
-			gmail.GmailModifyScope,
+			gmail.MailGoogleComScope,
 			gmail.GmailSettingsBasicScope,
 			gmail.GmailSettingsSharingScope,
 		},
