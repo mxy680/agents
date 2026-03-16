@@ -697,3 +697,140 @@ func TestIntegration_Threads_Modify(t *testing.T) {
 		root2.Execute() //nolint:errcheck
 	})
 }
+
+// --- labels ---
+
+func integrationLabelsCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestLabelsCmd(factory)
+}
+
+func TestIntegration_Labels_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"labels", "list", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("labels list failed: %v", execErr)
+	}
+
+	var labels []LabelInfo
+	if err := json.Unmarshal([]byte(output), &labels); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d labels", len(labels))
+
+	inboxFound := false
+	for _, l := range labels {
+		t.Logf("  [%s] name=%s type=%s", l.ID, l.Name, l.Type)
+		if l.ID == "INBOX" {
+			inboxFound = true
+		}
+	}
+	if !inboxFound {
+		t.Error("expected INBOX label to exist")
+	}
+}
+
+func TestIntegration_Labels_CRUD(t *testing.T) {
+	requireEnv(t)
+
+	labelName := "IntegrationTestLabel-" + t.Name()
+
+	// Create
+	root1 := integrationRootCmd()
+	root1.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var createOutput string
+	var createErr error
+	createOutput = captureStdout(t, func() {
+		root1.SetArgs([]string{"labels", "create", "--name=" + labelName, "--json"})
+		createErr = root1.Execute()
+	})
+	if createErr != nil {
+		t.Fatalf("labels create failed: %v", createErr)
+	}
+
+	var createResult map[string]string
+	if err := json.Unmarshal([]byte(createOutput), &createResult); err != nil {
+		t.Fatalf("invalid create JSON: %v\noutput: %s", err, createOutput)
+	}
+	labelID := createResult["id"]
+	if labelID == "" {
+		t.Fatal("created label has empty ID")
+	}
+	t.Logf("created label id=%s name=%s", labelID, labelID)
+
+	// Get
+	root2 := integrationRootCmd()
+	root2.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var getOutput string
+	var getErr error
+	getOutput = captureStdout(t, func() {
+		root2.SetArgs([]string{"labels", "get", "--id=" + labelID, "--json"})
+		getErr = root2.Execute()
+	})
+	if getErr != nil {
+		t.Fatalf("labels get failed: %v", getErr)
+	}
+
+	var info LabelInfo
+	if err := json.Unmarshal([]byte(getOutput), &info); err != nil {
+		t.Fatalf("invalid get JSON: %v\noutput: %s", err, getOutput)
+	}
+	if info.ID != labelID {
+		t.Errorf("expected ID=%s, got %s", labelID, info.ID)
+	}
+	t.Logf("fetched label: id=%s name=%s", info.ID, info.Name)
+
+	// Update name
+	updatedName := labelName + "-updated"
+	root3 := integrationRootCmd()
+	root3.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var updateErr error
+	captureStdout(t, func() {
+		root3.SetArgs([]string{"labels", "update", "--id=" + labelID, "--name=" + updatedName, "--json"})
+		updateErr = root3.Execute()
+	})
+	if updateErr != nil {
+		t.Fatalf("labels update failed: %v", updateErr)
+	}
+	t.Logf("updated label id=%s to name=%s", labelID, updatedName)
+
+	// Patch visibility
+	root4 := integrationRootCmd()
+	root4.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var patchErr error
+	captureStdout(t, func() {
+		root4.SetArgs([]string{"labels", "patch", "--id=" + labelID, "--label-list-visibility=labelShow", "--json"})
+		patchErr = root4.Execute()
+	})
+	if patchErr != nil {
+		t.Fatalf("labels patch failed: %v", patchErr)
+	}
+	t.Logf("patched label id=%s visibility", labelID)
+
+	// Delete
+	root5 := integrationRootCmd()
+	root5.AddCommand(integrationLabelsCmd(realFactory()))
+
+	var deleteErr error
+	captureStdout(t, func() {
+		root5.SetArgs([]string{"labels", "delete", "--id=" + labelID, "--confirm", "--json"})
+		deleteErr = root5.Execute()
+	})
+	if deleteErr != nil {
+		t.Fatalf("labels delete failed: %v", deleteErr)
+	}
+	t.Logf("deleted label id=%s", labelID)
+}

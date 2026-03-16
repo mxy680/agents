@@ -69,7 +69,18 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	threadsCmd.AddCommand(newThreadsModifyCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(threadsCmd)
 
-	// Future: labelsCmd, draftsCmd, etc. will be added here.
+	labelsCmd := &cobra.Command{
+		Use:     "labels",
+		Short:   "Manage Gmail labels",
+		Aliases: []string{"label"},
+	}
+	labelsCmd.AddCommand(newLabelsListCmd(p.ServiceFactory))
+	labelsCmd.AddCommand(newLabelsGetCmd(p.ServiceFactory))
+	labelsCmd.AddCommand(newLabelsCreateCmd(p.ServiceFactory))
+	labelsCmd.AddCommand(newLabelsUpdateCmd(p.ServiceFactory))
+	labelsCmd.AddCommand(newLabelsPatchCmd(p.ServiceFactory))
+	labelsCmd.AddCommand(newLabelsDeleteCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(labelsCmd)
 
 	parent.AddCommand(gmailCmd)
 }

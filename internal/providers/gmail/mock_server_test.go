@@ -217,6 +217,110 @@ func withThreadsMock(mux *http.ServeMux) {
 	})
 }
 
+// withLabelsMock registers all label-related mock handlers on mux.
+func withLabelsMock(mux *http.ServeMux) {
+	// labels.list (GET) and labels.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/labels", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]any{
+				"id":             "Label_created1",
+				"name":           "NewLabel",
+				"type":           "user",
+				"messagesTotal":  0,
+				"messagesUnread": 0,
+				"threadsTotal":   0,
+				"threadsUnread":  0,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"labels": []map[string]any{
+				{
+					"id":             "INBOX",
+					"name":           "INBOX",
+					"type":           "system",
+					"messagesTotal":  42,
+					"messagesUnread": 5,
+					"threadsTotal":   38,
+					"threadsUnread":  4,
+				},
+				{
+					"id":             "SENT",
+					"name":           "SENT",
+					"type":           "system",
+					"messagesTotal":  100,
+					"messagesUnread": 0,
+					"threadsTotal":   95,
+					"threadsUnread":  0,
+				},
+				{
+					"id":             "Label_1",
+					"name":           "TestLabel",
+					"type":           "user",
+					"messagesTotal":  3,
+					"messagesUnread": 1,
+					"threadsTotal":   3,
+					"threadsUnread":  1,
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// labels.get, labels.update (PUT), labels.patch (PATCH), labels.delete (DELETE) for Label_1
+	mux.HandleFunc("/gmail/v1/users/me/labels/Label_1", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case http.MethodPut:
+			resp := map[string]any{
+				"id":             "Label_1",
+				"name":           "UpdatedLabel",
+				"type":           "user",
+				"messagesTotal":  3,
+				"messagesUnread": 1,
+				"threadsTotal":   3,
+				"threadsUnread":  1,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		case http.MethodPatch:
+			resp := map[string]any{
+				"id":             "Label_1",
+				"name":           "PatchedLabel",
+				"type":           "user",
+				"messagesTotal":  3,
+				"messagesUnread": 1,
+				"threadsTotal":   3,
+				"threadsUnread":  1,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		default:
+			// GET
+			resp := map[string]any{
+				"id":                    "Label_1",
+				"name":                  "TestLabel",
+				"type":                  "user",
+				"messagesTotal":         3,
+				"messagesUnread":        1,
+				"threadsTotal":          3,
+				"threadsUnread":         1,
+				"labelListVisibility":   "labelShow",
+				"messageListVisibility": "show",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		}
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -237,6 +341,7 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	mux := http.NewServeMux()
 	withMessagesMock(mux)
 	withThreadsMock(mux)
+	withLabelsMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -251,6 +356,18 @@ func buildTestThreadsCmd(factory ServiceFactory) *cobra.Command {
 	threadsCmd.AddCommand(newThreadsDeleteCmd(factory))
 	threadsCmd.AddCommand(newThreadsModifyCmd(factory))
 	return threadsCmd
+}
+
+// buildTestLabelsCmd creates a `labels` subcommand tree for use in tests.
+func buildTestLabelsCmd(factory ServiceFactory) *cobra.Command {
+	labelsCmd := &cobra.Command{Use: "labels"}
+	labelsCmd.AddCommand(newLabelsListCmd(factory))
+	labelsCmd.AddCommand(newLabelsGetCmd(factory))
+	labelsCmd.AddCommand(newLabelsCreateCmd(factory))
+	labelsCmd.AddCommand(newLabelsUpdateCmd(factory))
+	labelsCmd.AddCommand(newLabelsPatchCmd(factory))
+	labelsCmd.AddCommand(newLabelsDeleteCmd(factory))
+	return labelsCmd
 }
 
 // newTestServiceFactory returns a ServiceFactory that creates a *gmail.Service
