@@ -1037,6 +1037,64 @@ func integrationSettingsCmd(factory ServiceFactory) *cobra.Command {
 	return buildTestSettingsCmd(factory)
 }
 
+// --- settings filters list (read-only, safe) ---
+
+func TestIntegration_Settings_Filters_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "filters", "list", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings filters list failed: %v", execErr)
+	}
+
+	var filters []FilterInfo
+	if err := json.Unmarshal([]byte(output), &filters); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d filters", len(filters))
+	for _, f := range filters {
+		t.Logf("  [%s] from=%s subject=%s", f.ID, f.Criteria.From, f.Criteria.Subject)
+	}
+}
+
+// --- settings forwarding-addresses list (read-only, safe) ---
+
+func TestIntegration_Settings_ForwardingAddresses_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "forwarding-addresses", "list", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings forwarding-addresses list failed: %v", execErr)
+	}
+
+	var addresses []ForwardingAddressInfo
+	if err := json.Unmarshal([]byte(output), &addresses); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d forwarding addresses", len(addresses))
+	for _, a := range addresses {
+		t.Logf("  email=%s status=%s", a.ForwardingEmail, a.VerificationStatus)
+	}
+}
+
 // --- settings get-vacation (read-only, safe) ---
 
 func TestIntegration_Settings_GetVacation(t *testing.T) {

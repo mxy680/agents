@@ -124,6 +124,29 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	settingsCmd.AddCommand(newSettingsSetPopCmd(p.ServiceFactory))
 	settingsCmd.AddCommand(newSettingsGetLanguageCmd(p.ServiceFactory))
 	settingsCmd.AddCommand(newSettingsSetLanguageCmd(p.ServiceFactory))
+
+	filtersCmd := &cobra.Command{
+		Use:     "filters",
+		Short:   "Manage Gmail email filters",
+		Aliases: []string{"filter"},
+	}
+	filtersCmd.AddCommand(newSettingsFiltersListCmd(p.ServiceFactory))
+	filtersCmd.AddCommand(newSettingsFiltersGetCmd(p.ServiceFactory))
+	filtersCmd.AddCommand(newSettingsFiltersCreateCmd(p.ServiceFactory))
+	filtersCmd.AddCommand(newSettingsFiltersDeleteCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(filtersCmd)
+
+	forwardingCmd := &cobra.Command{
+		Use:     "forwarding-addresses",
+		Short:   "Manage Gmail forwarding addresses",
+		Aliases: []string{"forwarding"},
+	}
+	forwardingCmd.AddCommand(newSettingsForwardingListCmd(p.ServiceFactory))
+	forwardingCmd.AddCommand(newSettingsForwardingGetCmd(p.ServiceFactory))
+	forwardingCmd.AddCommand(newSettingsForwardingCreateCmd(p.ServiceFactory))
+	forwardingCmd.AddCommand(newSettingsForwardingDeleteCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(forwardingCmd)
+
 	gmailCmd.AddCommand(settingsCmd)
 
 	parent.AddCommand(gmailCmd)

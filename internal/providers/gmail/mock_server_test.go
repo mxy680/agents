@@ -531,6 +531,112 @@ func withSettingsMock(mux *http.ServeMux) {
 	})
 }
 
+// withFiltersMock registers all filter-related mock handlers on mux.
+func withFiltersMock(mux *http.ServeMux) {
+	// filters.list (GET) and filters.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/settings/filters", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]any{
+				"id": "filter_created1",
+				"criteria": map[string]string{
+					"from": "sender@example.com",
+				},
+				"action": map[string]any{
+					"addLabelIds": []string{"STARRED"},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"filter": []map[string]any{
+				{
+					"id": "filter1",
+					"criteria": map[string]string{
+						"from": "newsletter@example.com",
+					},
+					"action": map[string]any{
+						"addLabelIds":    []string{"Label_1"},
+						"removeLabelIds": []string{"INBOX"},
+					},
+				},
+				{
+					"id": "filter2",
+					"criteria": map[string]string{
+						"subject": "Invoice",
+					},
+					"action": map[string]any{
+						"addLabelIds": []string{"STARRED"},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// filters.get and filters.delete for filter1
+	mux.HandleFunc("/gmail/v1/users/me/settings/filters/filter1", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		resp := map[string]any{
+			"id": "filter1",
+			"criteria": map[string]string{
+				"from": "newsletter@example.com",
+			},
+			"action": map[string]any{
+				"addLabelIds":    []string{"Label_1"},
+				"removeLabelIds": []string{"INBOX"},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withForwardingMock registers all forwarding-address-related mock handlers on mux.
+func withForwardingMock(mux *http.ServeMux) {
+	// forwardingAddresses.list (GET) and forwardingAddresses.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/settings/forwardingAddresses", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]string{
+				"forwardingEmail":    "fwd@example.com",
+				"verificationStatus": "pending",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"forwardingAddresses": []map[string]string{
+				{
+					"forwardingEmail":    "fwd@example.com",
+					"verificationStatus": "accepted",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// forwardingAddresses.get and forwardingAddresses.delete for fwd@example.com
+	mux.HandleFunc("/gmail/v1/users/me/settings/forwardingAddresses/fwd@example.com", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		resp := map[string]string{
+			"forwardingEmail":    "fwd@example.com",
+			"verificationStatus": "accepted",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -556,6 +662,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withAttachmentsMock(mux)
 	withHistoryMock(mux)
 	withSettingsMock(mux)
+	withFiltersMock(mux)
+	withForwardingMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -623,7 +731,29 @@ func buildTestSettingsCmd(factory ServiceFactory) *cobra.Command {
 	settingsCmd.AddCommand(newSettingsSetPopCmd(factory))
 	settingsCmd.AddCommand(newSettingsGetLanguageCmd(factory))
 	settingsCmd.AddCommand(newSettingsSetLanguageCmd(factory))
+	settingsCmd.AddCommand(buildTestSettingsFiltersCmd(factory))
+	settingsCmd.AddCommand(buildTestSettingsForwardingCmd(factory))
 	return settingsCmd
+}
+
+// buildTestSettingsFiltersCmd creates a `filters` subcommand tree for use in tests.
+func buildTestSettingsFiltersCmd(factory ServiceFactory) *cobra.Command {
+	filtersCmd := &cobra.Command{Use: "filters", Aliases: []string{"filter"}}
+	filtersCmd.AddCommand(newSettingsFiltersListCmd(factory))
+	filtersCmd.AddCommand(newSettingsFiltersGetCmd(factory))
+	filtersCmd.AddCommand(newSettingsFiltersCreateCmd(factory))
+	filtersCmd.AddCommand(newSettingsFiltersDeleteCmd(factory))
+	return filtersCmd
+}
+
+// buildTestSettingsForwardingCmd creates a `forwarding-addresses` subcommand tree for use in tests.
+func buildTestSettingsForwardingCmd(factory ServiceFactory) *cobra.Command {
+	forwardingCmd := &cobra.Command{Use: "forwarding-addresses", Aliases: []string{"forwarding"}}
+	forwardingCmd.AddCommand(newSettingsForwardingListCmd(factory))
+	forwardingCmd.AddCommand(newSettingsForwardingGetCmd(factory))
+	forwardingCmd.AddCommand(newSettingsForwardingCreateCmd(factory))
+	forwardingCmd.AddCommand(newSettingsForwardingDeleteCmd(factory))
+	return forwardingCmd
 }
 
 // newTestServiceFactory returns a ServiceFactory that creates a *gmail.Service
