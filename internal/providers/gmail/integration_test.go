@@ -1150,6 +1150,64 @@ func TestIntegration_Settings_GetLanguage(t *testing.T) {
 	t.Logf("display language: %s", info.DisplayLanguage)
 }
 
+// --- settings send-as list (read-only, safe) ---
+
+func TestIntegration_Settings_SendAs_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "send-as", "list", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings send-as list failed: %v", execErr)
+	}
+
+	var aliases []SendAsInfo
+	if err := json.Unmarshal([]byte(output), &aliases); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d send-as aliases", len(aliases))
+	for _, a := range aliases {
+		t.Logf("  email=%s displayName=%q isPrimary=%v verificationStatus=%s", a.SendAsEmail, a.DisplayName, a.IsPrimary, a.VerificationStatus)
+	}
+}
+
+// --- settings delegates list (read-only, safe) ---
+
+func TestIntegration_Settings_Delegates_List(t *testing.T) {
+	requireEnv(t)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationSettingsCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"settings", "delegates", "list", "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("settings delegates list failed: %v", execErr)
+	}
+
+	var delegates []DelegateInfo
+	if err := json.Unmarshal([]byte(output), &delegates); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d delegates", len(delegates))
+	for _, d := range delegates {
+		t.Logf("  email=%s verificationStatus=%s", d.DelegateEmail, d.VerificationStatus)
+	}
+}
+
 func TestIntegration_Drafts_Delete(t *testing.T) {
 	requireEnv(t)
 

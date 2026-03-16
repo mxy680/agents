@@ -147,6 +147,31 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	forwardingCmd.AddCommand(newSettingsForwardingDeleteCmd(p.ServiceFactory))
 	settingsCmd.AddCommand(forwardingCmd)
 
+	sendAsCmd := &cobra.Command{
+		Use:     "send-as",
+		Short:   "Manage Gmail send-as aliases",
+		Aliases: []string{"sendas"},
+	}
+	sendAsCmd.AddCommand(newSettingsSendAsListCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsGetCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsCreateCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsUpdateCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsPatchCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsDeleteCmd(p.ServiceFactory))
+	sendAsCmd.AddCommand(newSettingsSendAsVerifyCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(sendAsCmd)
+
+	delegatesCmd := &cobra.Command{
+		Use:     "delegates",
+		Short:   "Manage Gmail delegates",
+		Aliases: []string{"delegate"},
+	}
+	delegatesCmd.AddCommand(newSettingsDelegatesListCmd(p.ServiceFactory))
+	delegatesCmd.AddCommand(newSettingsDelegatesGetCmd(p.ServiceFactory))
+	delegatesCmd.AddCommand(newSettingsDelegatesCreateCmd(p.ServiceFactory))
+	delegatesCmd.AddCommand(newSettingsDelegatesDeleteCmd(p.ServiceFactory))
+	settingsCmd.AddCommand(delegatesCmd)
+
 	gmailCmd.AddCommand(settingsCmd)
 
 	parent.AddCommand(gmailCmd)

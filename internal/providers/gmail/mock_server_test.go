@@ -637,6 +637,128 @@ func withForwardingMock(mux *http.ServeMux) {
 	})
 }
 
+// withSendAsMock registers all send-as-related mock handlers on mux.
+func withSendAsMock(mux *http.ServeMux) {
+	// sendAs.list (GET) and sendAs.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/settings/sendAs", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]any{
+				"sendAsEmail":        "user@example.com",
+				"displayName":        "Created Alias",
+				"verificationStatus": "pending",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"sendAs": []map[string]any{
+				{
+					"sendAsEmail":        "primary@example.com",
+					"displayName":        "Primary",
+					"isPrimary":          true,
+					"isDefault":          true,
+					"verificationStatus": "accepted",
+				},
+				{
+					"sendAsEmail":        "user@example.com",
+					"displayName":        "Work Alias",
+					"replyToAddress":     "reply@example.com",
+					"isPrimary":          false,
+					"isDefault":          false,
+					"verificationStatus": "accepted",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// sendAs.get, sendAs.update (PUT), sendAs.patch (PATCH), sendAs.delete (DELETE) for user@example.com
+	mux.HandleFunc("/gmail/v1/users/me/settings/sendAs/user@example.com", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+			return
+		case http.MethodPut:
+			resp := map[string]any{
+				"sendAsEmail":        "user@example.com",
+				"displayName":        "Updated Alias",
+				"verificationStatus": "accepted",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		case http.MethodPatch:
+			resp := map[string]any{
+				"sendAsEmail":        "user@example.com",
+				"displayName":        "Patched Alias",
+				"verificationStatus": "accepted",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		default:
+			// GET
+			resp := map[string]any{
+				"sendAsEmail":        "user@example.com",
+				"displayName":        "Work Alias",
+				"replyToAddress":     "reply@example.com",
+				"isPrimary":          false,
+				"isDefault":          false,
+				"verificationStatus": "accepted",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		}
+	})
+
+	// sendAs.verify for user@example.com
+	mux.HandleFunc("/gmail/v1/users/me/settings/sendAs/user@example.com/verify", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+// withDelegatesMock registers all delegates-related mock handlers on mux.
+func withDelegatesMock(mux *http.ServeMux) {
+	// delegates.list (GET) and delegates.create (POST)
+	mux.HandleFunc("/gmail/v1/users/me/settings/delegates", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			resp := map[string]any{
+				"delegateEmail":      "delegate@example.com",
+				"verificationStatus": "pending",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+		resp := map[string]any{
+			"delegates": []map[string]any{
+				{
+					"delegateEmail":      "delegate@example.com",
+					"verificationStatus": "accepted",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// delegates.get and delegates.delete for delegate@example.com
+	mux.HandleFunc("/gmail/v1/users/me/settings/delegates/delegate@example.com", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		resp := map[string]any{
+			"delegateEmail":      "delegate@example.com",
+			"verificationStatus": "accepted",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -664,6 +786,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withSettingsMock(mux)
 	withFiltersMock(mux)
 	withForwardingMock(mux)
+	withSendAsMock(mux)
+	withDelegatesMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -733,7 +857,32 @@ func buildTestSettingsCmd(factory ServiceFactory) *cobra.Command {
 	settingsCmd.AddCommand(newSettingsSetLanguageCmd(factory))
 	settingsCmd.AddCommand(buildTestSettingsFiltersCmd(factory))
 	settingsCmd.AddCommand(buildTestSettingsForwardingCmd(factory))
+	settingsCmd.AddCommand(buildTestSettingsSendAsCmd(factory))
+	settingsCmd.AddCommand(buildTestSettingsDelegatesCmd(factory))
 	return settingsCmd
+}
+
+// buildTestSettingsSendAsCmd creates a `send-as` subcommand tree for use in tests.
+func buildTestSettingsSendAsCmd(factory ServiceFactory) *cobra.Command {
+	sendAsCmd := &cobra.Command{Use: "send-as", Aliases: []string{"sendas"}}
+	sendAsCmd.AddCommand(newSettingsSendAsListCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsGetCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsCreateCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsUpdateCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsPatchCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsDeleteCmd(factory))
+	sendAsCmd.AddCommand(newSettingsSendAsVerifyCmd(factory))
+	return sendAsCmd
+}
+
+// buildTestSettingsDelegatesCmd creates a `delegates` subcommand tree for use in tests.
+func buildTestSettingsDelegatesCmd(factory ServiceFactory) *cobra.Command {
+	delegatesCmd := &cobra.Command{Use: "delegates", Aliases: []string{"delegate"}}
+	delegatesCmd.AddCommand(newSettingsDelegatesListCmd(factory))
+	delegatesCmd.AddCommand(newSettingsDelegatesGetCmd(factory))
+	delegatesCmd.AddCommand(newSettingsDelegatesCreateCmd(factory))
+	delegatesCmd.AddCommand(newSettingsDelegatesDeleteCmd(factory))
+	return delegatesCmd
 }
 
 // buildTestSettingsFiltersCmd creates a `filters` subcommand tree for use in tests.
