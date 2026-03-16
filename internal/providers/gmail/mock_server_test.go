@@ -427,6 +427,49 @@ func withDraftsMock(mux *http.ServeMux) {
 	})
 }
 
+// withAttachmentsMock registers attachment-related mock handlers on mux.
+func withAttachmentsMock(mux *http.ServeMux) {
+	// messages.attachments.get for att1 on msg1
+	mux.HandleFunc("/gmail/v1/users/me/messages/msg1/attachments/att1", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"attachmentId": "att1",
+			"size":         1234,
+			"data":         "SGVsbG8gV29ybGQ=", // base64 of "Hello World"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withHistoryMock registers history-related mock handlers on mux.
+func withHistoryMock(mux *http.ServeMux) {
+	mux.HandleFunc("/gmail/v1/users/me/history", func(w http.ResponseWriter, r *http.Request) {
+		// The Gmail API serialises uint64 IDs as JSON strings (,string tag).
+		resp := map[string]any{
+			"history": []map[string]any{
+				{
+					"id": "12345",
+					"messagesAdded": []map[string]any{
+						{"message": map[string]any{"id": "msg1", "labelIds": []string{"INBOX"}}},
+					},
+				},
+				{
+					"id": "12346",
+					"labelsAdded": []map[string]any{
+						{
+							"message":  map[string]any{"id": "msg2"},
+							"labelIds": []string{"STARRED"},
+						},
+					},
+				},
+			},
+			"historyId": "12347",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // withTokenMock registers a mock OAuth token endpoint on mux.
 func withTokenMock(mux *http.ServeMux) {
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
@@ -449,6 +492,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withThreadsMock(mux)
 	withLabelsMock(mux)
 	withDraftsMock(mux)
+	withAttachmentsMock(mux)
+	withHistoryMock(mux)
 	withTokenMock(mux)
 	return httptest.NewServer(mux)
 }
@@ -487,6 +532,20 @@ func buildTestLabelsCmd(factory ServiceFactory) *cobra.Command {
 	labelsCmd.AddCommand(newLabelsPatchCmd(factory))
 	labelsCmd.AddCommand(newLabelsDeleteCmd(factory))
 	return labelsCmd
+}
+
+// buildTestAttachmentsCmd creates an `attachments` subcommand tree for use in tests.
+func buildTestAttachmentsCmd(factory ServiceFactory) *cobra.Command {
+	attachmentsCmd := &cobra.Command{Use: "attachments"}
+	attachmentsCmd.AddCommand(newAttachmentsGetCmd(factory))
+	return attachmentsCmd
+}
+
+// buildTestHistoryCmd creates a `history` subcommand tree for use in tests.
+func buildTestHistoryCmd(factory ServiceFactory) *cobra.Command {
+	historyCmd := &cobra.Command{Use: "history"}
+	historyCmd.AddCommand(newHistoryListCmd(factory))
+	return historyCmd
 }
 
 // newTestServiceFactory returns a ServiceFactory that creates a *gmail.Service

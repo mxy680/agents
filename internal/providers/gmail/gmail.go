@@ -95,5 +95,20 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	draftsCmd.AddCommand(newDraftsDeleteCmd(p.ServiceFactory))
 	gmailCmd.AddCommand(draftsCmd)
 
+	attachmentsCmd := &cobra.Command{
+		Use:     "attachments",
+		Short:   "Manage Gmail message attachments",
+		Aliases: []string{"attachment", "att"},
+	}
+	attachmentsCmd.AddCommand(newAttachmentsGetCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(attachmentsCmd)
+
+	historyCmd := &cobra.Command{
+		Use:   "history",
+		Short: "Track Gmail mailbox changes",
+	}
+	historyCmd.AddCommand(newHistoryListCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(historyCmd)
+
 	parent.AddCommand(gmailCmd)
 }

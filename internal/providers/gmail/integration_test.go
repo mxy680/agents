@@ -5,6 +5,7 @@ package gmail
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -969,6 +970,67 @@ func TestIntegration_Drafts_CRUD(t *testing.T) {
 		t.Errorf("expected status=sent, got %s", sendResult["status"])
 	}
 	t.Logf("sent draft: message id=%s threadId=%s", sendResult["id"], sendResult["threadId"])
+}
+
+func integrationHistoryCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestHistoryCmd(factory)
+}
+
+func integrationAttachmentsCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestAttachmentsCmd(factory)
+}
+
+// --- history list ---
+
+func TestIntegration_History_List(t *testing.T) {
+	requireEnv(t)
+	ctx := context.Background()
+
+	// Fetch the current historyId from the user profile.
+	svc, err := realFactory()(ctx)
+	if err != nil {
+		t.Fatalf("creating service: %v", err)
+	}
+	profile, err := svc.Users.GetProfile("me").Do()
+	if err != nil {
+		t.Fatalf("getting profile: %v", err)
+	}
+	// Use a slightly older history ID to ensure there is something to return.
+	// We subtract a small delta from the current ID so the list is non-trivially populated.
+	startID := profile.HistoryId
+	if startID > 100 {
+		startID -= 100
+	}
+	t.Logf("listing history from id=%d (current=%d)", startID, profile.HistoryId)
+
+	root := integrationRootCmd()
+	root.AddCommand(integrationHistoryCmd(realFactory()))
+
+	var output string
+	var execErr error
+	output = captureStdout(t, func() {
+		root.SetArgs([]string{"history", "list", "--start-history-id=" + formatUint64(startID), "--json"})
+		execErr = root.Execute()
+	})
+
+	if execErr != nil {
+		t.Fatalf("history list failed: %v", execErr)
+	}
+
+	var result HistoryResult
+	if err := json.Unmarshal([]byte(output), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, output)
+	}
+	t.Logf("got %d history entries, current historyId=%d", len(result.History), result.HistoryID)
+	for _, h := range result.History {
+		t.Logf("  [%d] added=%d deleted=%d labelsAdded=%d labelsRemoved=%d",
+			h.ID, len(h.MessagesAdded), len(h.MessagesDeleted), len(h.LabelsAdded), len(h.LabelsRemoved))
+	}
+}
+
+// formatUint64 formats a uint64 as a decimal string for use in flag arguments.
+func formatUint64(v uint64) string {
+	return strings.TrimSpace(fmt.Sprintf("%d", v))
 }
 
 func TestIntegration_Drafts_Delete(t *testing.T) {
