@@ -39,24 +39,27 @@ func integrationRootCmd() *cobra.Command {
 	return root
 }
 
-// --- list-unread ---
+func integrationMessagesCmd(factory ServiceFactory) *cobra.Command {
+	return buildTestMessagesCmd(factory)
+}
+
+// --- messages list (unread) ---
 
 func TestIntegration_ListUnread_JSON(t *testing.T) {
 	requireEnv(t)
 
-	cmd := newListUnreadCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
-		root.SetArgs([]string{"list-unread", "--limit=3", "--since=72h", "--json"})
+		root.SetArgs([]string{"messages", "list", "--query=is:unread", "--limit=3", "--since=72h", "--json"})
 		execErr = root.Execute()
 	})
 
 	if execErr != nil {
-		t.Fatalf("list-unread failed: %v", execErr)
+		t.Fatalf("messages list failed: %v", execErr)
 	}
 
 	var summaries []EmailSummary
@@ -75,24 +78,23 @@ func TestIntegration_ListUnread_JSON(t *testing.T) {
 func TestIntegration_ListUnread_Text(t *testing.T) {
 	requireEnv(t)
 
-	cmd := newListUnreadCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
-		root.SetArgs([]string{"list-unread", "--limit=3", "--since=72h"})
+		root.SetArgs([]string{"messages", "list", "--query=is:unread", "--limit=3", "--since=72h"})
 		execErr = root.Execute()
 	})
 
 	if execErr != nil {
-		t.Fatalf("list-unread text failed: %v", execErr)
+		t.Fatalf("messages list text failed: %v", execErr)
 	}
 	t.Logf("text output:\n%s", output)
 }
 
-// --- read ---
+// --- messages get ---
 
 func TestIntegration_Read_JSON(t *testing.T) {
 	requireEnv(t)
@@ -112,19 +114,18 @@ func TestIntegration_Read_JSON(t *testing.T) {
 	}
 	msgID := resp.Messages[0].Id
 
-	cmd := newReadCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
-		root.SetArgs([]string{"read", "--id=" + msgID, "--json"})
+		root.SetArgs([]string{"messages", "get", "--id=" + msgID, "--json"})
 		execErr = root.Execute()
 	})
 
 	if execErr != nil {
-		t.Fatalf("read failed: %v", execErr)
+		t.Fatalf("messages get failed: %v", execErr)
 	}
 
 	var detail EmailDetail
@@ -137,20 +138,19 @@ func TestIntegration_Read_JSON(t *testing.T) {
 	t.Logf("read message: from=%s subject=%q body_len=%d", detail.From, detail.Subject, len(detail.Body))
 }
 
-// --- send (dry-run) ---
+// --- messages send (dry-run) ---
 
 func TestIntegration_Send_DryRun(t *testing.T) {
 	requireEnv(t)
 
-	cmd := newSendCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
 		root.SetArgs([]string{
-			"send",
+			"messages", "send",
 			"--to=omniclaw680@gmail.com",
 			"--subject=Integration Test (dry-run)",
 			"--body=This should NOT be sent.",
@@ -161,7 +161,7 @@ func TestIntegration_Send_DryRun(t *testing.T) {
 	})
 
 	if execErr != nil {
-		t.Fatalf("send dry-run failed: %v", execErr)
+		t.Fatalf("messages send dry-run failed: %v", execErr)
 	}
 
 	var result map[string]string
@@ -174,20 +174,19 @@ func TestIntegration_Send_DryRun(t *testing.T) {
 	t.Logf("dry-run output: %v", result)
 }
 
-// --- send (real, to self) ---
+// --- messages send (real, to self) ---
 
 func TestIntegration_Send_ToSelf(t *testing.T) {
 	requireEnv(t)
 
-	cmd := newSendCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
 		root.SetArgs([]string{
-			"send",
+			"messages", "send",
 			"--to=omniclaw680@gmail.com",
 			"--subject=Integration Test from CLI",
 			"--body=Sent by make test-integration at " + t.Name(),
@@ -197,7 +196,7 @@ func TestIntegration_Send_ToSelf(t *testing.T) {
 	})
 
 	if execErr != nil {
-		t.Fatalf("send failed: %v", execErr)
+		t.Fatalf("messages send failed: %v", execErr)
 	}
 
 	var result SendResult
@@ -213,24 +212,23 @@ func TestIntegration_Send_ToSelf(t *testing.T) {
 	t.Logf("sent message: id=%s threadId=%s", result.ID, result.ThreadID)
 }
 
-// --- search ---
+// --- messages list (search) ---
 
 func TestIntegration_Search_JSON(t *testing.T) {
 	requireEnv(t)
 
-	cmd := newSearchCmd(realFactory())
 	root := integrationRootCmd()
-	root.AddCommand(cmd)
+	root.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var output string
 	var execErr error
 	output = captureStdout(t, func() {
-		root.SetArgs([]string{"search", "--query=in:inbox", "--limit=3", "--json"})
+		root.SetArgs([]string{"messages", "list", "--query=in:inbox", "--limit=3", "--json"})
 		execErr = root.Execute()
 	})
 
 	if execErr != nil {
-		t.Fatalf("search failed: %v", execErr)
+		t.Fatalf("messages list (search) failed: %v", execErr)
 	}
 
 	var summaries []EmailSummary
@@ -251,15 +249,14 @@ func TestIntegration_SendThenSearch(t *testing.T) {
 	// Send a message with a unique subject
 	uniqueSubject := "CLI-roundtrip-test-" + strings.Replace(t.Name(), "/", "-", -1)
 
-	sendCmd := newSendCmd(realFactory())
 	root1 := integrationRootCmd()
-	root1.AddCommand(sendCmd)
+	root1.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var sendOutput string
 	var sendErr error
 	sendOutput = captureStdout(t, func() {
 		root1.SetArgs([]string{
-			"send",
+			"messages", "send",
 			"--to=omniclaw680@gmail.com",
 			"--subject=" + uniqueSubject,
 			"--body=Round-trip integration test",
@@ -276,14 +273,13 @@ func TestIntegration_SendThenSearch(t *testing.T) {
 	t.Logf("sent message id=%s", sendResult.ID)
 
 	// Search for it by subject
-	searchCmd := newSearchCmd(realFactory())
 	root2 := integrationRootCmd()
-	root2.AddCommand(searchCmd)
+	root2.AddCommand(integrationMessagesCmd(realFactory()))
 
 	var searchOutput string
 	var searchErr error
 	searchOutput = captureStdout(t, func() {
-		root2.SetArgs([]string{"search", "--query=subject:" + uniqueSubject, "--limit=5", "--json"})
+		root2.SetArgs([]string{"messages", "list", "--query=subject:" + uniqueSubject, "--limit=5", "--json"})
 		searchErr = root2.Execute()
 	})
 	if searchErr != nil {

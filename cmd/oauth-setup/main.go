@@ -33,7 +33,11 @@ func main() {
 		ClientSecret: clientSecret,
 		Endpoint:     google.Endpoint,
 		RedirectURL:  "http://localhost:8089/callback",
-		Scopes:       []string{gmail.GmailModifyScope},
+		Scopes: []string{
+			gmail.GmailModifyScope,
+			gmail.GmailSettingsBasicScope,
+			gmail.GmailSettingsSharingScope,
+		},
 	}
 
 	state := randomState()

@@ -38,10 +38,17 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 		Long:  "List, read, send, and search emails via the Gmail API.",
 	}
 
-	gmailCmd.AddCommand(newListUnreadCmd(p.ServiceFactory))
-	gmailCmd.AddCommand(newReadCmd(p.ServiceFactory))
-	gmailCmd.AddCommand(newSendCmd(p.ServiceFactory))
-	gmailCmd.AddCommand(newSearchCmd(p.ServiceFactory))
+	messagesCmd := &cobra.Command{
+		Use:     "messages",
+		Short:   "Manage Gmail messages",
+		Aliases: []string{"msg"},
+	}
+	messagesCmd.AddCommand(newMessagesListCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesGetCmd(p.ServiceFactory))
+	messagesCmd.AddCommand(newMessagesSendCmd(p.ServiceFactory))
+	gmailCmd.AddCommand(messagesCmd)
+
+	// Future: threadsCmd, labelsCmd, draftsCmd, etc. will be added here.
 
 	parent.AddCommand(gmailCmd)
 }
