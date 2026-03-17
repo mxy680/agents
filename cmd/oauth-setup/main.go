@@ -17,6 +17,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/gmail/v1"
 )
 
@@ -38,6 +39,7 @@ func main() {
 			gmail.MailGoogleComScope,
 			gmail.GmailSettingsBasicScope,
 			gmail.GmailSettingsSharingScope,
+			calendar.CalendarScope,
 		},
 	}
 
