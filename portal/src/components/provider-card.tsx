@@ -31,7 +31,7 @@ export function ProviderCard({
   children,
 }: ProviderCardProps) {
   const router = useRouter();
-  const connected = integration?.status === "active";
+  const connected = integration?.status === "connected";
 
   async function handleDisconnect() {
     const res = await fetch(`/api/integrations/${provider.id}/disconnect`, {
