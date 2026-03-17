@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { encrypt } from "@/lib/crypto";
+import { encryptCredentials } from "@/lib/crypto";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
+  // Exchange code for tokens
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -43,21 +44,46 @@ export async function GET(request: Request) {
 
   const tokens = await tokenRes.json();
 
-  const { error: upsertError } = await supabase.from("integrations").upsert(
-    {
-      user_id: user.id,
-      provider: "google",
-      status: "active",
-      access_token: encrypt(tokens.access_token),
-      refresh_token: tokens.refresh_token
-        ? encrypt(tokens.refresh_token)
-        : null,
-      token_expiry: tokens.expires_in
-        ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-        : null,
-    },
-    { onConflict: "user_id,provider" }
-  );
+  // Look up the google integration ID from catalog
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("id")
+    .eq("name", "google")
+    .single();
+
+  if (!integration) {
+    return NextResponse.redirect(
+      `${origin}/integrations?error=google_integration_not_found`
+    );
+  }
+
+  // Encrypt all credentials as a single JSON blob → bytea
+  const creds: Record<string, string> = {
+    access_token: tokens.access_token,
+  };
+  if (tokens.refresh_token) {
+    creds.refresh_token = tokens.refresh_token;
+  }
+  if (tokens.expires_in) {
+    creds.expires_at = new Date(
+      Date.now() + tokens.expires_in * 1000
+    ).toISOString();
+  }
+
+  const { error: upsertError } = await supabase
+    .from("user_integrations")
+    .upsert(
+      {
+        user_id: user.id,
+        integration_id: integration.id,
+        account_label: "",
+        credentials: encryptCredentials(creds),
+        status: "connected",
+        connected_at: new Date().toISOString(),
+        expires_at: creds.expires_at ?? null,
+      },
+      { onConflict: "user_id,integration_id,account_label" }
+    );
 
   if (upsertError) {
     return NextResponse.redirect(

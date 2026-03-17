@@ -12,8 +12,8 @@ export async function GET() {
   }
 
   const { data, error } = await supabase
-    .from("integrations")
-    .select("id, provider, status, created_at")
+    .from("user_integrations")
+    .select("id, integration_id, status, connected_at, integrations(name)")
     .eq("user_id", user.id);
 
   if (error) {

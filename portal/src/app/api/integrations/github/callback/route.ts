@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { encrypt } from "@/lib/crypto";
+import { encryptCredentials } from "@/lib/crypto";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -54,21 +54,38 @@ export async function GET(request: Request) {
     );
   }
 
-  const { error: upsertError } = await supabase.from("integrations").upsert(
-    {
-      user_id: user.id,
-      provider: "github",
-      status: "active",
-      access_token: encrypt(tokens.access_token),
-      refresh_token: tokens.refresh_token
-        ? encrypt(tokens.refresh_token)
-        : null,
-      token_expiry: tokens.expires_in
-        ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-        : null,
-    },
-    { onConflict: "user_id,provider" }
-  );
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("id")
+    .eq("name", "github")
+    .single();
+
+  if (!integration) {
+    return NextResponse.redirect(
+      `${origin}/integrations?error=github_integration_not_found`
+    );
+  }
+
+  const creds: Record<string, string> = {
+    access_token: tokens.access_token,
+  };
+  if (tokens.refresh_token) {
+    creds.refresh_token = tokens.refresh_token;
+  }
+
+  const { error: upsertError } = await supabase
+    .from("user_integrations")
+    .upsert(
+      {
+        user_id: user.id,
+        integration_id: integration.id,
+        account_label: "",
+        credentials: encryptCredentials(creds),
+        status: "connected",
+        connected_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,integration_id,account_label" }
+    );
 
   if (upsertError) {
     return NextResponse.redirect(

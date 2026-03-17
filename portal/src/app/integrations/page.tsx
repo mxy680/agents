@@ -15,13 +15,24 @@ export default async function IntegrationsPage() {
     redirect("/login");
   }
 
-  const { data: integrations } = await supabase
+  // Get the integration catalog to map names → IDs
+  const { data: catalog } = await supabase
     .from("integrations")
-    .select("id, provider, status, created_at")
+    .select("id, name");
+
+  const catalogMap = new Map(
+    (catalog ?? []).map((i) => [i.name, i.id])
+  );
+
+  // Get user's connected integrations
+  const { data: userIntegrations } = await supabase
+    .from("user_integrations")
+    .select("id, integration_id, status, connected_at")
     .eq("user_id", user.id);
 
-  const integrationMap = new Map(
-    (integrations ?? []).map((i) => [i.provider, i])
+  // Map integration_id → user_integration row
+  const connectedMap = new Map(
+    (userIntegrations ?? []).map((ui) => [ui.integration_id, ui])
   );
 
   return (
@@ -34,12 +45,24 @@ export default async function IntegrationsPage() {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {providers.map((provider) => {
-          const integration = integrationMap.get(provider.id) ?? null;
+          const integrationId = catalogMap.get(provider.id);
+          const userInteg = integrationId
+            ? connectedMap.get(integrationId) ?? null
+            : null;
           return (
             <ProviderCard
               key={provider.id}
               provider={provider}
-              integration={integration}
+              integration={
+                userInteg
+                  ? {
+                      id: userInteg.id,
+                      provider: provider.id,
+                      status: userInteg.status,
+                      created_at: userInteg.connected_at,
+                    }
+                  : null
+              }
             >
               {provider.authType === "oauth" ? (
                 <ConnectButton

@@ -11,11 +11,22 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { error } = await supabase
+  const { data: integration } = await supabase
     .from("integrations")
+    .select("id")
+    .eq("name", "google")
+    .single();
+
+  if (!integration) {
+    return NextResponse.json({ error: "Integration not found" }, { status: 404 });
+  }
+
+  const { error } = await supabase
+    .from("user_integrations")
     .delete()
     .eq("user_id", user.id)
-    .eq("provider", "google");
+    .eq("integration_id", integration.id)
+    .eq("account_label", "");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

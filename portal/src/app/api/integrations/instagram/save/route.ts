@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { encrypt } from "@/lib/crypto";
+import { encryptCredentials } from "@/lib/crypto";
 
 interface InstagramCookies {
   sessionId: string;
@@ -34,27 +34,37 @@ export async function POST(request: Request) {
     );
   }
 
-  const encryptedMetadata: Record<string, string> = {
-    session_id: encrypt(body.sessionId),
-    csrf_token: encrypt(body.csrfToken),
-    ds_user_id: encrypt(body.dsUserId),
+  const { data: integration } = await supabase
+    .from("integrations")
+    .select("id")
+    .eq("name", "instagram")
+    .single();
+
+  if (!integration) {
+    return NextResponse.json(
+      { error: "Integration not found" },
+      { status: 404 }
+    );
+  }
+
+  const creds: Record<string, string> = {
+    session_id: body.sessionId,
+    csrf_token: body.csrfToken,
+    ds_user_id: body.dsUserId,
   };
+  if (body.mid) creds.mid = body.mid;
+  if (body.igDid) creds.ig_did = body.igDid;
 
-  if (body.mid) {
-    encryptedMetadata.mid = encrypt(body.mid);
-  }
-  if (body.igDid) {
-    encryptedMetadata.ig_did = encrypt(body.igDid);
-  }
-
-  const { error } = await supabase.from("integrations").upsert(
+  const { error } = await supabase.from("user_integrations").upsert(
     {
       user_id: user.id,
-      provider: "instagram",
-      status: "active",
-      metadata: encryptedMetadata,
+      integration_id: integration.id,
+      account_label: "",
+      credentials: encryptCredentials(creds),
+      status: "connected",
+      connected_at: new Date().toISOString(),
     },
-    { onConflict: "user_id,provider" }
+    { onConflict: "user_id,integration_id,account_label" }
   );
 
   if (error) {

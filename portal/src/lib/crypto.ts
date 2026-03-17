@@ -16,10 +16,10 @@ function getKey(): Buffer {
 
 /**
  * Encrypt plaintext with AES-256-GCM.
- * Wire format: base64(nonce [12] || ciphertext || tag [16])
+ * Returns raw bytes: nonce [12] || ciphertext || tag [16]
  * Compatible with Go crypto/aes GCM.
  */
-export function encrypt(plaintext: string): string {
+export function encryptToBytes(plaintext: string): Buffer {
   const key = getKey();
   const nonce = randomBytes(NONCE_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, nonce);
@@ -30,15 +30,14 @@ export function encrypt(plaintext: string): string {
   ]);
   const tag = cipher.getAuthTag();
 
-  return Buffer.concat([nonce, encrypted, tag]).toString("base64");
+  return Buffer.concat([nonce, encrypted, tag]);
 }
 
 /**
- * Decrypt a value produced by encrypt() or Go's gcm.Seal().
+ * Decrypt raw bytes produced by encryptToBytes() or Go's gcm.Seal().
  */
-export function decrypt(encoded: string): string {
+export function decryptFromBytes(data: Buffer): string {
   const key = getKey();
-  const data = Buffer.from(encoded, "base64");
 
   if (data.length < NONCE_LENGTH + TAG_LENGTH) {
     throw new Error("ciphertext too short");
@@ -55,4 +54,24 @@ export function decrypt(encoded: string): string {
     decipher.update(ciphertext),
     decipher.final(),
   ]).toString("utf8");
+}
+
+/**
+ * Encrypt a JSON-serializable object to a hex string for Supabase bytea columns.
+ * Supabase expects bytea as hex: \\x prefix.
+ */
+export function encryptCredentials(creds: Record<string, string>): string {
+  const plaintext = JSON.stringify(creds);
+  const encrypted = encryptToBytes(plaintext);
+  return "\\x" + encrypted.toString("hex");
+}
+
+/**
+ * Decrypt a bytea hex string from Supabase back to a JSON object.
+ */
+export function decryptCredentials(hex: string): Record<string, string> {
+  const clean = hex.startsWith("\\x") ? hex.slice(2) : hex;
+  const data = Buffer.from(clean, "hex");
+  const plaintext = decryptFromBytes(data);
+  return JSON.parse(plaintext);
 }
