@@ -501,7 +501,7 @@ internal/tokenbridge/
 
 ### Cross-Language Encryption Wire Format
 `base64(nonce [12 bytes] || ciphertext || auth_tag [16 bytes])`
-Shared key: `PORTAL_ENCRYPTION_KEY` (64 hex chars = 32 bytes)
+Shared key: `ENCRYPTION_MASTER_KEY` (64 hex chars = 32 bytes)
 
 ## Environment Variables
 ```

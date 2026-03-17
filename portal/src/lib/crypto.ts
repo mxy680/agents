@@ -5,10 +5,10 @@ const NONCE_LENGTH = 12;
 const TAG_LENGTH = 16;
 
 function getKey(): Buffer {
-  const hex = process.env.PORTAL_ENCRYPTION_KEY;
+  const hex = process.env.ENCRYPTION_MASTER_KEY;
   if (!hex || hex.length !== 64) {
     throw new Error(
-      "PORTAL_ENCRYPTION_KEY must be 64 hex characters (32 bytes)"
+      "ENCRYPTION_MASTER_KEY must be 64 hex characters (32 bytes)"
     );
   }
   return Buffer.from(hex, "hex");
