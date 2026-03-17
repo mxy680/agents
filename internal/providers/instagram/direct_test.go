@@ -2,6 +2,8 @@ package instagram
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -283,4 +285,76 @@ func TestDirectAliases(t *testing.T) {
 	root2.AddCommand(buildTestDirectCmd(factory))
 	out2 := runCmd(t, root2, "msg", "threads")
 	mustContain(t, out2, "thread_111")
+}
+
+// newDirectFailMockServer creates an httptest server where the mobile DM inbox
+// returns status:fail, forcing the GraphQL fallback path.
+func newDirectFailMockServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	// Override: inbox returns status:fail to trigger the GraphQL fallback.
+	mux.HandleFunc("/api/v1/direct_v2/inbox/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"inbox":  map[string]any{"threads": []any{}, "oldest_cursor": "", "has_older": false},
+			"status": "fail",
+		})
+	})
+	// Other DM endpoints still needed for non-threads tests.
+	mux.HandleFunc("/api/v1/direct_v2/pending_inbox/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"inbox":  map[string]any{"threads": []any{}, "oldest_cursor": "", "has_older": false},
+			"status": "ok",
+		})
+	})
+	mux.HandleFunc("/api/v1/direct_v2/threads/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+	mux.HandleFunc("/api/v1/direct_v2/create_group_thread/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+	withGraphQLMock(mux)
+	return httptest.NewServer(mux)
+}
+
+// TestDirectThreadsGraphQLFallback verifies that when the mobile inbox endpoint
+// returns status:fail, the command falls back to the web GraphQL endpoint.
+func TestDirectThreadsGraphQLFallback(t *testing.T) {
+	server := newDirectFailMockServer(t)
+	defer server.Close()
+	factory := newTestClientFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestDirectCmd(factory))
+	out := runCmd(t, root, "direct", "threads")
+
+	// Should return GraphQL threads, not REST threads.
+	mustContain(t, out, "thread_gql_111")
+	mustContain(t, out, "GraphQL Thread")
+}
+
+// TestDirectThreadsGraphQLFallbackJSON verifies JSON output from the GraphQL fallback.
+func TestDirectThreadsGraphQLFallbackJSON(t *testing.T) {
+	server := newDirectFailMockServer(t)
+	defer server.Close()
+	factory := newTestClientFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestDirectCmd(factory))
+	out := runCmd(t, root, "direct", "threads", "--json")
+
+	dec := json.NewDecoder(strings.NewReader(out))
+	var threads []DirectThreadSummary
+	if err := dec.Decode(&threads); err != nil {
+		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
+	}
+	if len(threads) == 0 {
+		t.Fatal("expected at least one thread from GraphQL fallback")
+	}
+	if threads[0].ThreadID != "thread_gql_111" {
+		t.Errorf("expected ThreadID=thread_gql_111, got %s", threads[0].ThreadID)
+	}
 }

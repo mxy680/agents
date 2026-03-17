@@ -272,6 +272,55 @@ type graphQLRequest struct {
 	DocID        string         `json:"doc_id"`
 }
 
+// PostFormGraphQLToPath sends a form-encoded GraphQL query to the given path,
+// matching the format Instagram's web frontend uses (application/x-www-form-urlencoded).
+// This uses the WEB base URL (www.instagram.com) with web headers.
+func (c *Client) PostFormGraphQLToPath(ctx context.Context, path string, docID string, friendlyName string, variables map[string]any) (json.RawMessage, error) {
+	varsJSON, err := json.Marshal(variables)
+	if err != nil {
+		return nil, fmt.Errorf("marshal graphql variables: %w", err)
+	}
+
+	body := url.Values{}
+	body.Set("doc_id", docID)
+	body.Set("variables", string(varsJSON))
+	body.Set("fb_api_req_friendly_name", friendlyName)
+
+	resp, err := c.Post(ctx, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, parseRateLimitError(resp)
+	}
+	if resp.StatusCode >= 400 {
+		return nil, c.handleError(resp)
+	}
+
+	var envelope struct {
+		Data   json.RawMessage `json:"data"`
+		Status string          `json:"status"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("decode graphql response: %w", err)
+	}
+	if len(envelope.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", envelope.Errors[0].Message)
+	}
+	return envelope.Data, nil
+}
+
+// PostFormGraphQL sends a form-encoded GraphQL query to /graphql/query,
+// matching the format Instagram's web frontend uses.
+func (c *Client) PostFormGraphQL(ctx context.Context, docID string, friendlyName string, variables map[string]any) (json.RawMessage, error) {
+	return c.PostFormGraphQLToPath(ctx, "/graphql/query", docID, friendlyName, variables)
+}
+
 // PostGraphQL executes a GraphQL query via POST /graphql/query and returns the
 // raw "data" field from the response envelope.
 func (c *Client) PostGraphQL(ctx context.Context, friendlyName string, variables map[string]any, docID string) (json.RawMessage, error) {

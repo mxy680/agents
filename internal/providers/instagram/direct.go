@@ -1,6 +1,7 @@
 package instagram
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -9,6 +10,9 @@ import (
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
+
+// dmInboxDocID is the GraphQL doc_id for PolarisDirectInboxQuery.
+const dmInboxDocID = "34623053607292942"
 
 // directInboxResponse is the response for GET /api/v1/direct_v2/inbox/.
 type directInboxResponse struct {
@@ -127,11 +131,29 @@ func makeRunDirectThreads(factory ClientFactory) func(*cobra.Command, []string) 
 		}
 
 		var result directInboxResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			if strings.Contains(err.Error(), "Prompt has contribution") || strings.Contains(err.Error(), "encryption") {
-				return fmt.Errorf("direct messages require end-to-end encryption setup — this is a known limitation of the private API")
+		decodeErr := client.DecodeJSON(resp, &result)
+
+		// If the mobile API failed (decode error or status:fail), fall back to the
+		// web GraphQL endpoint which uses a different inbox representation.
+		needsFallback := decodeErr != nil || result.Status == "fail"
+		if needsFallback {
+			gqlData, gqlErr := client.PostFormGraphQLToPath(ctx, "/api/graphql", dmInboxDocID, "PolarisDirectInboxQuery", map[string]any{})
+			if gqlErr != nil {
+				// Surface the most helpful error message.
+				if decodeErr != nil && (strings.Contains(decodeErr.Error(), "Prompt has contribution") ||
+					strings.Contains(decodeErr.Error(), "encryption")) {
+					return fmt.Errorf("direct messages require end-to-end encryption setup — this is a known limitation of the private API")
+				}
+				if decodeErr != nil {
+					return fmt.Errorf("decoding inbox response: %w", decodeErr)
+				}
+				return fmt.Errorf("listing DM threads (GraphQL fallback failed): %w", gqlErr)
 			}
-			return fmt.Errorf("decoding inbox response: %w", err)
+			gqlResult, parseErr := parseGraphQLDMInbox(gqlData)
+			if parseErr != nil {
+				return fmt.Errorf("parsing GraphQL DM inbox response: %w", parseErr)
+			}
+			return printDirectThreadSummaries(cmd, gqlResult)
 		}
 
 		threads := result.Inbox.Threads
@@ -551,6 +573,41 @@ func makeRunDirectDecline(factory ClientFactory) func(*cobra.Command, []string) 
 		fmt.Printf("Declined DM request for thread %s\n", threadID)
 		return nil
 	}
+}
+
+// parseGraphQLDMInbox parses the PolarisDirectInboxQuery response data
+// into a slice of DirectThreadSummary.
+func parseGraphQLDMInbox(data json.RawMessage) ([]DirectThreadSummary, error) {
+	// Response shape: data.get_slide_mailbox_for_iris_subscription.threads_by_folder.edges[].node
+	var outer struct {
+		GetSlideMailboxForIrisSubscription struct {
+			ThreadsByFolder struct {
+				Edges []struct {
+					Node struct {
+						ThreadID    string `json:"thread_id"`
+						ThreadTitle string `json:"thread_title"`
+						IsGroup     bool   `json:"is_group"`
+						UpdatedAt   int64  `json:"updated_at"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"threads_by_folder"`
+		} `json:"get_slide_mailbox_for_iris_subscription"`
+	}
+	if err := json.Unmarshal(data, &outer); err != nil {
+		return nil, fmt.Errorf("unmarshal graphql DM inbox: %w", err)
+	}
+
+	edges := outer.GetSlideMailboxForIrisSubscription.ThreadsByFolder.Edges
+	summaries := make([]DirectThreadSummary, 0, len(edges))
+	for _, edge := range edges {
+		summaries = append(summaries, DirectThreadSummary{
+			ThreadID:     edge.Node.ThreadID,
+			ThreadTitle:  edge.Node.ThreadTitle,
+			IsGroup:      edge.Node.IsGroup,
+			LastActivity: edge.Node.UpdatedAt,
+		})
+	}
+	return summaries, nil
 }
 
 // printDirectThreadSummaries outputs DM thread summaries as JSON or text.

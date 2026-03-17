@@ -1,13 +1,36 @@
 package instagram
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
+
+// reelsFeedDocID is the GraphQL doc_id for PolarisClipsTabDesktopPaginationQuery.
+const reelsFeedDocID = "26136666099278270"
+
+// graphQLReelsFeedNode is a single media node from the PolarisClipsTabDesktopPaginationQuery.
+type graphQLReelsFeedNode struct {
+	ID            string `json:"pk"`
+	Code          string `json:"code"`
+	TakenAt       int64  `json:"taken_at"`
+	LikeCount     int64  `json:"like_count"`
+	CommentCount  int64  `json:"comment_count"`
+	PlayCount     int64  `json:"play_count"`
+	Caption       struct {
+		Text string `json:"text"`
+	} `json:"caption"`
+	ImageVersions struct {
+		Candidates []struct {
+			URL string `json:"url"`
+		} `json:"candidates"`
+	} `json:"image_versions2"`
+}
 
 // clipsUserResponse is the response envelope for GET /api/v1/clips/user/.
 type clipsUserResponse struct {
@@ -203,37 +226,119 @@ func makeRunReelsFeed(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		body := url.Values{}
-		body.Set("page_size", strconv.Itoa(limit))
+		// The mobile REST endpoint /api/v1/clips/reels_tab_feed_items/ is no longer
+		// available. Use the web GraphQL endpoint instead.
+		var afterCursor any
 		if cursor != "" {
-			body.Set("max_id", cursor)
+			afterCursor = cursor
 		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/clips/reels_tab_feed_items/", body)
+		gqlData, err := client.PostFormGraphQL(ctx, reelsFeedDocID, "PolarisClipsTabDesktopPaginationQuery", map[string]any{
+			"after":  afterCursor,
+			"before": nil,
+			"data": map[string]any{
+				"container_module": "clips_tab_desktop_page",
+				"seen_reels":       "[]",
+			},
+			"first": limit,
+			"last":  nil,
+		})
 		if err != nil {
 			return fmt.Errorf("getting reels feed: %w", err)
 		}
 
-		var result clipsReelsTabResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			// The global reels discovery feed endpoint may be unavailable on the
-			// private API. Suggest the user-specific listing instead.
-			return fmt.Errorf("reels feed endpoint unavailable: use 'reels list --user-id=ID' to browse a specific user's reels instead")
-		}
-
-		summaries := make([]ReelSummary, 0, len(result.Items))
-		for _, item := range result.Items {
-			summaries = append(summaries, toReelSummary(item.Media))
+		summaries, nextCursor, err := parseGraphQLReelsFeed(gqlData)
+		if err != nil {
+			return fmt.Errorf("parsing reels feed response: %w", err)
 		}
 
 		if err := printReelSummaries(cmd, summaries); err != nil {
 			return err
 		}
-		if result.PagingInfo.MoreAvailable && result.PagingInfo.MaxID != "" {
-			fmt.Printf("Next cursor: %s\n", result.PagingInfo.MaxID)
+		if nextCursor != "" {
+			fmt.Printf("Next cursor: %s\n", nextCursor)
 		}
 		return nil
 	}
+}
+
+// parseGraphQLReelsFeed parses the PolarisClipsTabDesktopPaginationQuery response.
+// It returns summaries and an optional next-page cursor.
+func parseGraphQLReelsFeed(data json.RawMessage) ([]ReelSummary, string, error) {
+	// The response shape wraps media edges inside xdt_api__v1__clips__home__connection.
+	// We use a flexible map approach to handle potential schema variations.
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(data, &outer); err != nil {
+		return nil, "", fmt.Errorf("unmarshal graphql reels feed data: %w", err)
+	}
+
+	// Try the known connection field name first.
+	const connectionKey = "xdt_api__v1__clips__home__connection"
+	connRaw, ok := outer[connectionKey]
+	if !ok {
+		// Fall back: look for any key containing "connection" that has edges.
+		for k, v := range outer {
+			if len(k) > 10 && (containsAny(k, "clips", "reels", "connection")) {
+				connRaw = v
+				ok = true
+				break
+			}
+		}
+	}
+
+	if !ok || connRaw == nil {
+		// Return empty result rather than hard error — feed may be empty.
+		return []ReelSummary{}, "", nil
+	}
+
+	var conn struct {
+		Edges []struct {
+			Node struct {
+				Media graphQLReelsFeedNode `json:"media"`
+			} `json:"node"`
+		} `json:"edges"`
+		PageInfo struct {
+			HasNextPage bool   `json:"has_next_page"`
+			EndCursor   string `json:"end_cursor"`
+		} `json:"page_info"`
+	}
+	if err := json.Unmarshal(connRaw, &conn); err != nil {
+		return nil, "", fmt.Errorf("unmarshal graphql reels connection: %w", err)
+	}
+
+	summaries := make([]ReelSummary, 0, len(conn.Edges))
+	for _, edge := range conn.Edges {
+		n := edge.Node.Media
+		thumbnailURL := ""
+		if len(n.ImageVersions.Candidates) > 0 {
+			thumbnailURL = n.ImageVersions.Candidates[0].URL
+		}
+		summaries = append(summaries, ReelSummary{
+			ID:           n.ID,
+			Shortcode:    n.Code,
+			Caption:      n.Caption.Text,
+			Timestamp:    n.TakenAt,
+			LikeCount:    n.LikeCount,
+			CommentCount: n.CommentCount,
+			PlayCount:    n.PlayCount,
+			ThumbnailURL: thumbnailURL,
+		})
+	}
+
+	nextCursor := ""
+	if conn.PageInfo.HasNextPage {
+		nextCursor = conn.PageInfo.EndCursor
+	}
+	return summaries, nextCursor, nil
+}
+
+// containsAny returns true if s contains any of the given substrings.
+func containsAny(s string, substrs ...string) bool {
+	for _, sub := range substrs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
 }
 
 func newReelsDeleteCmd(factory ClientFactory) *cobra.Command {

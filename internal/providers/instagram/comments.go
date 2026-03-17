@@ -1,6 +1,7 @@
 package instagram
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -8,6 +9,24 @@ import (
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
+
+// graphQLCommentsNode is a single comment node from the PolarisPostChildCommentsQuery response.
+type graphQLCommentsNode struct {
+	PK               string `json:"pk"`
+	Text             string `json:"text"`
+	CreatedAtUTC     int64  `json:"created_at_utc"`
+	CommentLikeCount int64  `json:"comment_like_count"`
+	HasLikedComment  bool   `json:"has_liked_comment"`
+	User             struct {
+		PK            string `json:"pk"`
+		Username      string `json:"username"`
+		ProfilePicURL string `json:"profile_pic_url"`
+		IsVerified    bool   `json:"is_verified"`
+	} `json:"user"`
+}
+
+// commentsDocID is the GraphQL doc_id for PolarisPostChildCommentsQuery.
+const commentsDocID = "26914912424764761"
 
 // commentsListResponse is the response for GET /api/v1/media/{media_id}/comments/.
 type commentsListResponse struct {
@@ -91,14 +110,43 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 			return fmt.Errorf("decoding comments response: %w", err)
 		}
 
-		// Instagram can return HTTP 200 with status:"fail" (e.g. restricted posts).
+		// Instagram can return HTTP 200 with status:"fail" (e.g. new account restriction).
+		// Fall back to the web GraphQL media detail query which includes comments.
+		var summaries []CommentSummary
 		if result.Status == "fail" {
-			return fmt.Errorf("comments unavailable for media %s (Instagram returned status:fail — comments may be restricted)", mediaID)
-		}
+			// Step 1: Get the shortcode from media info (needed for GraphQL query)
+			infoResp, infoErr := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/info/", nil)
+			if infoErr != nil {
+				return fmt.Errorf("comments unavailable for media %s: could not fetch media info: %w", mediaID, infoErr)
+			}
+			var mediaInfo struct {
+				Items []struct {
+					Code string `json:"code"`
+				} `json:"items"`
+			}
+			if infoErr = client.DecodeJSON(infoResp, &mediaInfo); infoErr != nil || len(mediaInfo.Items) == 0 {
+				return fmt.Errorf("comments unavailable for media %s: could not get shortcode", mediaID)
+			}
+			shortcode := mediaInfo.Items[0].Code
 
-		summaries := make([]CommentSummary, 0, len(result.Comments))
-		for _, c := range result.Comments {
-			summaries = append(summaries, toCommentSummary(c))
+			// Step 2: Use PolarisPostActionLoadPostQueryQuery to get the full media
+			// detail including edge_media_to_parent_comment with comments.
+			const mediaDetailDocID = "8845758582119845"
+			gqlData, gqlErr := client.PostFormGraphQL(ctx, mediaDetailDocID, "PolarisPostActionLoadPostQueryQuery", map[string]any{
+				"shortcode": shortcode,
+			})
+			if gqlErr != nil {
+				return fmt.Errorf("comments unavailable for media %s: %w", mediaID, gqlErr)
+			}
+			summaries, err = parseMediaDetailComments(gqlData, limit)
+			if err != nil {
+				return fmt.Errorf("comments unavailable for media %s: %w", mediaID, err)
+			}
+		} else {
+			summaries = make([]CommentSummary, 0, len(result.Comments))
+			for _, c := range result.Comments {
+				summaries = append(summaries, toCommentSummary(c))
+			}
 		}
 
 		if err := printCommentSummaries(cmd, summaries); err != nil {
@@ -450,6 +498,103 @@ func makeRunCommentsEnable(factory ClientFactory) func(*cobra.Command, []string)
 		fmt.Printf("Enabled comments on media %s\n", mediaID)
 		return nil
 	}
+}
+
+// parseMediaDetailComments parses comments from the PolarisPostActionLoadPostQueryQuery
+// response. The data contains xdt_shortcode_media.edge_media_to_parent_comment.edges.
+func parseMediaDetailComments(data json.RawMessage, limit int) ([]CommentSummary, error) {
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(data, &outer); err != nil {
+		return nil, fmt.Errorf("unmarshal graphql data: %w", err)
+	}
+
+	mediaRaw, ok := outer["xdt_shortcode_media"]
+	if !ok {
+		return nil, fmt.Errorf("graphql response missing xdt_shortcode_media")
+	}
+
+	var media struct {
+		EdgeMediaToParentComment struct {
+			Count int64 `json:"count"`
+			Edges []struct {
+				Node struct {
+					ID        string `json:"id"`
+					Text      string `json:"text"`
+					CreatedAt int64  `json:"created_at"`
+					Owner     struct {
+						ID       string `json:"id"`
+						Username string `json:"username"`
+					} `json:"owner"`
+					EdgeLikedBy struct {
+						Count int64 `json:"count"`
+					} `json:"edge_liked_by"`
+				} `json:"node"`
+			} `json:"edges"`
+		} `json:"edge_media_to_parent_comment"`
+	}
+	if err := json.Unmarshal(mediaRaw, &media); err != nil {
+		return nil, fmt.Errorf("unmarshal media detail: %w", err)
+	}
+
+	edges := media.EdgeMediaToParentComment.Edges
+	if limit > 0 && len(edges) > limit {
+		edges = edges[:limit]
+	}
+
+	summaries := make([]CommentSummary, 0, len(edges))
+	for _, edge := range edges {
+		n := edge.Node
+		summaries = append(summaries, CommentSummary{
+			PK:        n.ID,
+			Text:      n.Text,
+			Timestamp: n.CreatedAt,
+			LikeCount: n.EdgeLikedBy.Count,
+			UserID:    n.Owner.ID,
+			Username:  n.Owner.Username,
+		})
+	}
+	return summaries, nil
+}
+
+// parseGraphQLComments parses the GraphQL PolarisPostChildCommentsQuery response data
+// into a slice of CommentSummary. The data field contains a deeply nested connection object.
+func parseGraphQLComments(data json.RawMessage) ([]CommentSummary, error) {
+	// The GraphQL response wraps everything in a long connection field name.
+	// We unmarshal into a map first and extract the connection dynamically.
+	var outer map[string]json.RawMessage
+	if err := json.Unmarshal(data, &outer); err != nil {
+		return nil, fmt.Errorf("unmarshal graphql data: %w", err)
+	}
+
+	// The connection field name is the long xdt_api__v1__... key.
+	const connectionKey = "xdt_api__v1__media__media_id__comments__parent_comment_id__child_comments__connection"
+	connRaw, ok := outer[connectionKey]
+	if !ok {
+		return nil, fmt.Errorf("graphql response missing connection field")
+	}
+
+	var conn struct {
+		Edges []struct {
+			Node graphQLCommentsNode `json:"node"`
+		} `json:"edges"`
+	}
+	if err := json.Unmarshal(connRaw, &conn); err != nil {
+		return nil, fmt.Errorf("unmarshal graphql connection: %w", err)
+	}
+
+	summaries := make([]CommentSummary, 0, len(conn.Edges))
+	for _, edge := range conn.Edges {
+		n := edge.Node
+		summaries = append(summaries, CommentSummary{
+			PK:        n.PK,
+			Text:      n.Text,
+			Timestamp: n.CreatedAtUTC,
+			LikeCount: n.CommentLikeCount,
+			UserID:    n.User.PK,
+			Username:  n.User.Username,
+		})
+	}
+	return summaries, nil
 }
 
 // toCommentSummary converts a rawComment to CommentSummary.

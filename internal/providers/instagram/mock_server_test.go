@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -1425,6 +1426,153 @@ func withSettingsMock(mux *http.ServeMux) {
 	})
 }
 
+// withGraphQLMock registers handlers for the Instagram web GraphQL endpoints.
+// It handles both /graphql/query (web frontend) and /api/graphql (Polaris DM).
+func withGraphQLMock(mux *http.ServeMux) {
+	// POST /graphql/query — form-encoded GraphQL used by web frontend.
+	// Dispatches by doc_id to the appropriate mock response.
+	mux.HandleFunc("/graphql/query", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		docID := vals.Get("doc_id")
+
+		w.Header().Set("Content-Type", "application/json")
+		switch docID {
+		case "26914912424764761": // PolarisPostChildCommentsQuery
+			resp := map[string]any{
+				"data": map[string]any{
+					"xdt_api__v1__media__media_id__comments__parent_comment_id__child_comments__connection": map[string]any{
+						"edges": []map[string]any{
+							{
+								"node": map[string]any{
+									"pk":                 "comment_gql_111",
+									"text":               "GraphQL comment!",
+									"created_at_utc":     int64(1700000100),
+									"comment_like_count": int64(3),
+									"has_liked_comment":  false,
+									"user": map[string]any{
+										"pk":       "user_gql_abc",
+										"username": "gql_commenter",
+									},
+								},
+							},
+						},
+					},
+				},
+				"status": "ok",
+			}
+			json.NewEncoder(w).Encode(resp)
+
+		case "8845758582119845": // PolarisPostActionLoadPostQueryQuery (media detail with comments)
+			resp := map[string]any{
+				"data": map[string]any{
+					"xdt_shortcode_media": map[string]any{
+						"edge_media_to_parent_comment": map[string]any{
+							"count": 100,
+							"edges": []map[string]any{
+								{
+									"node": map[string]any{
+										"id":         "comment_detail_111",
+										"text":       "Comment from media detail!",
+										"created_at": int64(1700000100),
+										"owner": map[string]any{
+											"id":       "user_detail_abc",
+											"username": "detail_commenter",
+										},
+										"edge_liked_by": map[string]any{"count": int64(5)},
+									},
+								},
+							},
+						},
+					},
+				},
+				"status": "ok",
+			}
+			json.NewEncoder(w).Encode(resp)
+
+		case "26136666099278270": // PolarisClipsTabDesktopPaginationQuery (reels feed)
+			resp := map[string]any{
+				"data": map[string]any{
+					"xdt_api__v1__clips__home__connection": map[string]any{
+						"edges": []map[string]any{
+							{
+								"node": map[string]any{
+									"media": map[string]any{
+										"pk":            "feed_reel_222",
+										"code":          "feed_reel_gql_code",
+										"taken_at":      int64(1700010000),
+										"like_count":    int64(500),
+										"comment_count": int64(30),
+										"play_count":    int64(5000),
+										"caption":       map[string]any{"text": "Feed reel caption"},
+										"image_versions2": map[string]any{
+											"candidates": []map[string]any{
+												{"url": "https://example.com/feed_reel.jpg"},
+											},
+										},
+									},
+								},
+							},
+						},
+						"page_info": map[string]any{
+							"has_next_page": false,
+							"end_cursor":    "",
+						},
+					},
+				},
+				"status": "ok",
+			}
+			json.NewEncoder(w).Encode(resp)
+
+		default:
+			http.Error(w, `{"errors":[{"message":"unknown doc_id"}]}`, http.StatusBadRequest)
+		}
+	})
+
+	// POST /api/graphql — used by PolarisDirectInboxQuery for DM inbox fallback.
+	mux.HandleFunc("/api/graphql", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		vals, _ := url.ParseQuery(string(body))
+		docID := vals.Get("doc_id")
+
+		w.Header().Set("Content-Type", "application/json")
+		switch docID {
+		case "34623053607292942": // PolarisDirectInboxQuery
+			resp := map[string]any{
+				"data": map[string]any{
+					"get_slide_mailbox_for_iris_subscription": map[string]any{
+						"threads_by_folder": map[string]any{
+							"edges": []map[string]any{
+								{
+									"node": map[string]any{
+										"thread_id":    "thread_gql_111",
+										"thread_title": "GraphQL Thread",
+										"is_group":     false,
+										"updated_at":   int64(1700000000000000),
+									},
+								},
+							},
+						},
+					},
+				},
+				"status": "ok",
+			}
+			json.NewEncoder(w).Encode(resp)
+
+		default:
+			http.Error(w, `{"errors":[{"message":"unknown doc_id"}]}`, http.StatusBadRequest)
+		}
+	})
+}
+
 // newFullMockServer creates an httptest server with all Instagram mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -1446,6 +1594,7 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withLiveMock(mux)
 	withHighlightsMock(mux)
 	withSettingsMock(mux)
+	withGraphQLMock(mux)
 	return httptest.NewServer(mux)
 }
 
