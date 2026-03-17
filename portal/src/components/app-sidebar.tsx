@@ -1,120 +1,89 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Plug, LogOut } from "lucide-react";
+import { PlugIcon, HomeIcon, PlugZapIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { NavUser } from "@/components/nav-user";
 
-const navItems = [
-  { title: "Home", href: "/", icon: Home },
-  { title: "Integrations", href: "/integrations", icon: Plug },
+const NAV_ITEMS = [
+  { title: "Home", href: "/", icon: HomeIcon },
+  { title: "Integrations", href: "/integrations", icon: PlugZapIcon },
 ];
 
-interface AppSidebarProps {
-  user: { email?: string; id: string } | null;
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user: { email?: string; name?: string; avatar?: string } | null;
 }
 
-export function AppSidebar({ user }: AppSidebarProps) {
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
-
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "?";
 
   return (
-    <Sidebar variant="inset" collapsible="icon">
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Plug className="size-4" />
+            <SidebarMenuButton size="lg" asChild>
+              <Link href="/">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <PlugIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Marketplace</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  Integrations
-                </span>
+                <span className="truncate text-xs text-muted-foreground">Agent integrations</span>
               </div>
+            </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={pathname === item.href}
-                    tooltip={item.title}
-                  >
-                    <item.icon />
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarMenu>
+            {NAV_ITEMS.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href}
+                  tooltip={item.title}
+                >
+                  <Link href={item.href}>
+                    <item.icon className="size-4" />
                     <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      {user && (
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-                  <Avatar className="size-8">
-                    <AvatarFallback className="text-xs">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate text-xs text-muted-foreground">
-                      {user.email}
-                    </span>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="top" className="w-48">
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="mr-2 size-4" />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      )}
+
+      <SidebarFooter>
+        {user ? (
+          <NavUser
+            user={{
+              name: user.name ?? "",
+              email: user.email ?? "",
+              avatar: user.avatar ?? "",
+            }}
+          />
+        ) : null}
+      </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
