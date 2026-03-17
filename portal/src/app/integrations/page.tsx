@@ -29,16 +29,18 @@ export default async function IntegrationsPage({
     (catalog ?? []).map((i) => [i.name, i.id])
   );
 
-  // Get user's connected integrations
+  // Get user's connected integrations (including account_label)
   const { data: userIntegrations } = await supabase
     .from("user_integrations")
-    .select("id, integration_id, status, connected_at")
+    .select("id, integration_id, status, connected_at, account_label")
     .eq("user_id", user.id);
 
-  // Map integration_id → user_integration row
-  const connectedMap = new Map(
-    (userIntegrations ?? []).map((ui) => [ui.integration_id, ui])
-  );
+  // Group by integration_id so each provider can have multiple accounts
+  const connectedMap = new Map<string, typeof userIntegrations>();
+  for (const ui of userIntegrations ?? []) {
+    const existing = connectedMap.get(ui.integration_id) ?? [];
+    connectedMap.set(ui.integration_id, [...existing, ui]);
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -56,23 +58,19 @@ export default async function IntegrationsPage({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {providers.map((provider) => {
           const integrationId = catalogMap.get(provider.id);
-          const userInteg = integrationId
-            ? connectedMap.get(integrationId) ?? null
-            : null;
+          const rows = integrationId ? connectedMap.get(integrationId) ?? [] : [];
+          const integrations = rows.map((ui) => ({
+            id: ui.id,
+            provider: provider.id,
+            status: ui.status,
+            account_label: ui.account_label ?? "",
+            connected_at: ui.connected_at,
+          }));
           return (
             <ProviderCard
               key={provider.id}
               provider={provider}
-              integration={
-                userInteg
-                  ? {
-                      id: userInteg.id,
-                      provider: provider.id,
-                      status: userInteg.status,
-                      created_at: userInteg.connected_at,
-                    }
-                  : null
-              }
+              integrations={integrations}
             >
               {provider.authType === "oauth" ? (
                 <ConnectButton

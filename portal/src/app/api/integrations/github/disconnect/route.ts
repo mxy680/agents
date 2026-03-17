@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { decryptCredentials } from "@/lib/crypto";
 
-export async function POST() {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -10,6 +10,13 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let body: { account_label: string } = { account_label: "" };
+  try {
+    body = await request.json();
+  } catch {
+    // use default
   }
 
   const { data: integration } = await supabase
@@ -29,7 +36,7 @@ export async function POST() {
     .select("credentials")
     .eq("user_id", user.id)
     .eq("integration_id", integration.id)
-    .eq("account_label", "")
+    .eq("account_label", body.account_label)
     .single();
 
   // Revoke the GitHub token so the next connect shows the authorization UI
@@ -62,7 +69,7 @@ export async function POST() {
     .delete()
     .eq("user_id", user.id)
     .eq("integration_id", integration.id)
-    .eq("account_label", "");
+    .eq("account_label", body.account_label);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

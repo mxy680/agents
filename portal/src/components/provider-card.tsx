@@ -16,51 +16,70 @@ interface Integration {
   id: string;
   provider: string;
   status: string;
-  created_at: string;
+  account_label: string;
+  connected_at: string;
 }
 
 interface ProviderCardProps {
   provider: ProviderMeta;
-  integration: Integration | null;
+  integrations: Integration[];
   children?: React.ReactNode;
 }
 
 export function ProviderCard({
   provider,
-  integration,
+  integrations,
   children,
 }: ProviderCardProps) {
   const router = useRouter();
-  const connected = integration?.status === "connected";
+  const connectedCount = integrations.filter((i) => i.status === "connected").length;
 
-  async function handleDisconnect() {
-    const res = await fetch(`/api/integrations/${provider.id}/disconnect`, {
+  async function handleDisconnect(accountLabel: string) {
+    await fetch(`/api/integrations/${provider.id}/disconnect`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account_label: accountLabel }),
     });
-    if (res.ok) {
-      router.refresh();
-    }
+    router.refresh();
   }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-medium">{provider.name}</CardTitle>
-        <Badge variant={connected ? "default" : "secondary"}>
-          {connected ? "Connected" : "Not connected"}
+        <Badge variant={connectedCount > 0 ? "default" : "secondary"}>
+          {connectedCount > 0
+            ? `${connectedCount} connected`
+            : "Not connected"}
         </Badge>
       </CardHeader>
       <CardContent>
         <CardDescription className="mb-4">
           {provider.description}
         </CardDescription>
-        {connected ? (
-          <Button variant="outline" size="sm" onClick={handleDisconnect}>
-            Disconnect
-          </Button>
-        ) : (
-          children
+        {integrations.length > 0 && (
+          <ul className="mb-4 space-y-2">
+            {integrations.map((integ) => (
+              <li
+                key={integ.id}
+                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              >
+                <span className="truncate text-muted-foreground">
+                  {integ.account_label || "(no label)"}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-2 shrink-0 text-destructive hover:text-destructive"
+                  onClick={() => handleDisconnect(integ.account_label)}
+                >
+                  Disconnect
+                </Button>
+              </li>
+            ))}
+          </ul>
         )}
+        {children}
       </CardContent>
     </Card>
   );

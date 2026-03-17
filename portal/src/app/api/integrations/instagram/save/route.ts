@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { encryptCredentials } from "@/lib/crypto";
 
 interface InstagramCookies {
+  username?: string;
   sessionId: string;
   csrfToken: string;
   dsUserId: string;
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     {
       user_id: user.id,
       integration_id: integration.id,
-      account_label: "",
+      account_label: body.username || body.dsUserId,
       credentials: encryptCredentials(creds),
       status: "connected",
       connected_at: new Date().toISOString(),

@@ -54,6 +54,16 @@ export async function GET(request: Request) {
     );
   }
 
+  // Fetch GitHub username to use as account label
+  const ghUserRes = await fetch("https://api.github.com/user", {
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  const ghUser = await ghUserRes.json();
+  const accountLabel = ghUser.login ?? "";
+
   const { data: integration } = await supabase
     .from("integrations")
     .select("id")
@@ -80,7 +90,7 @@ export async function GET(request: Request) {
       {
         user_id: user.id,
         integration_id: integration.id,
-        account_label: "",
+        account_label: accountLabel,
         credentials: encryptCredentials(creds),
         status: "connected",
         connected_at: new Date().toISOString(),

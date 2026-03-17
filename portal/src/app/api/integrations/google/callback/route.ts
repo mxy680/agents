@@ -44,6 +44,14 @@ export async function GET(request: Request) {
 
   const tokens = await tokenRes.json();
 
+  // Fetch Google account email to use as account label
+  const userinfoRes = await fetch(
+    "https://www.googleapis.com/oauth2/v2/userinfo",
+    { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+  );
+  const userinfo = await userinfoRes.json();
+  const accountLabel = userinfo.email ?? "";
+
   // Look up the google integration ID from catalog
   const { data: integration } = await supabase
     .from("integrations")
@@ -77,7 +85,7 @@ export async function GET(request: Request) {
       {
         user_id: user.id,
         integration_id: integration.id,
-        account_label: "",
+        account_label: accountLabel,
         credentials: encryptCredentials(creds),
         status: "connected",
         connected_at: new Date().toISOString(),

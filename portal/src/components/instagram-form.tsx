@@ -14,12 +14,15 @@ const COOKIE_FIELDS = [
   { name: "igDid", label: "IG DID", required: false },
 ] as const;
 
+type CookieFieldName = (typeof COOKIE_FIELDS)[number]["name"];
+
 export function InstagramForm() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [values, setValues] = useState({
+  const [values, setValues] = useState<Record<CookieFieldName | "username", string>>({
+    username: "",
     sessionId: "",
     csrfToken: "",
     dsUserId: "",
@@ -40,7 +43,7 @@ export function InstagramForm() {
 
     if (res.ok) {
       setOpen(false);
-      setValues({ sessionId: "", csrfToken: "", dsUserId: "", mid: "", igDid: "" });
+      setValues({ username: "", sessionId: "", csrfToken: "", dsUserId: "", mid: "", igDid: "" });
       router.refresh();
     } else {
       const data = await res.json();
@@ -59,6 +62,19 @@ export function InstagramForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1">
+        <Label htmlFor="username" className="text-xs">
+          Username (account label, optional)
+        </Label>
+        <Input
+          id="username"
+          type="text"
+          value={values.username}
+          onChange={(e) => setValues({ ...values, username: e.target.value })}
+          placeholder="your_instagram_username"
+          className="h-8 text-sm"
+        />
+      </div>
       {COOKIE_FIELDS.map((field) => (
         <div key={field.name} className="space-y-1">
           <Label htmlFor={field.name} className="text-xs">
