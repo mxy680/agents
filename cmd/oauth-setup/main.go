@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,6 +17,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/sheets/v4"
@@ -41,6 +43,7 @@ func main() {
 			gmail.GmailSettingsSharingScope,
 			sheets.SpreadsheetsScope,
 			drive.DriveFileScope,
+			calendar.CalendarScope,
 		},
 	}
 
@@ -74,7 +77,11 @@ func main() {
 	})
 
 	server := &http.Server{Addr: ":8089", Handler: mux}
-	go server.ListenAndServe()
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("HTTP server: %w", err)
+		}
+	}()
 
 	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	fmt.Fprintf(os.Stderr, "\nOpening browser for OAuth consent...\n")

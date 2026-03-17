@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Currently supports Gmail and Google Sheets.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, and Google Calendar.
 
 ## Quick Start
 ```bash
@@ -46,12 +46,36 @@ integrations sheets tabs rename --id=SPREADSHEET_ID --sheet-id=SHEET_ID --title=
 
 `spreadsheets` has alias `ss`. `values` has alias `val`. `tabs` has alias `tab`.
 
+## Commands — Calendar
+```
+integrations calendar events list [--calendar-id=ID] [--query=Q] [--time-min=RFC3339] [--time-max=RFC3339] [--limit=N] [--single-events] [--order-by=startTime|updated] [--json]
+integrations calendar events get --event-id=ID [--calendar-id=ID] [--json]
+integrations calendar events create --summary=TEXT --start=RFC3339 --end=RFC3339 [--description=TEXT] [--location=TEXT] [--attendees=EMAIL,...] [--timezone=TZ] [--all-day] [--dry-run] [--json]
+integrations calendar events quick-add --text=TEXT [--calendar-id=ID] [--dry-run] [--json]
+integrations calendar events update --event-id=ID [--summary=TEXT] [--start=RFC3339] [--end=RFC3339] [--description=TEXT] [--location=TEXT] [--attendees=EMAIL,...] [--dry-run] [--json]
+integrations calendar events delete --event-id=ID [--confirm] [--dry-run] [--json]
+integrations calendar events move --event-id=ID --destination=CALENDAR_ID [--json]
+integrations calendar events instances --event-id=ID [--time-min=RFC3339] [--time-max=RFC3339] [--limit=N] [--json]
+
+integrations calendar calendars list [--limit=N] [--show-hidden] [--json]
+integrations calendar calendars get [--calendar-id=ID] [--json]
+integrations calendar calendars create --summary=TEXT [--description=TEXT] [--timezone=TZ] [--dry-run] [--json]
+integrations calendar calendars update [--calendar-id=ID] [--summary=TEXT] [--description=TEXT] [--timezone=TZ] [--dry-run] [--json]
+integrations calendar calendars delete --calendar-id=ID [--confirm] [--dry-run] [--json]
+
+integrations calendar freebusy query --time-min=RFC3339 --time-max=RFC3339 [--calendar-ids=ID,...] [--json]
+```
+
+`events` has aliases `event`, `ev`. `calendars` has alias `cal`. `freebusy` has alias `fb`.
+`--calendar-id` defaults to `"primary"` on all events commands and calendars get/update/delete.
+
 ## Architecture
 - `cmd/integrations/main.go` — entrypoint, registers providers
 - `internal/cli/` — Cobra root command, output helpers (JSON/text)
 - `internal/auth/` — Google OAuth token management with auto-refresh
 - `internal/providers/gmail/` — Gmail provider with injectable ServiceFactory
 - `internal/providers/sheets/` — Sheets provider with dual ServiceFactory (Sheets + Drive)
+- `internal/providers/calendar/` — Calendar provider with injectable ServiceFactory
 - `internal/providers/provider.go` — Provider interface
 
 ## Architecture — Gmail Package Layout
@@ -73,7 +97,8 @@ internal/providers/sheets/
   sheets.go              # Provider struct, RegisterCommands, dual ServiceFactory (Sheets + Drive)
   helpers.go             # Shared types (SpreadsheetSummary, CellData, etc.) and helper functions
   spreadsheets.go        # spreadsheets list/get/create/delete (list/delete via Drive API)
-  values.go              # values get/update/append/clear/batch-get/batch-update commands
+  values_read.go         # values get, batch-get commands
+  values_write.go        # values update, append, clear, batch-update commands
   tabs.go                # tabs list/create/delete/rename commands
   helpers_test.go        # Unit tests for helpers (parseValuesJSON, formatCellsTable, etc.)
   spreadsheets_test.go   # Tests for spreadsheets commands
@@ -83,11 +108,26 @@ internal/providers/sheets/
   mock_server_test.go    # httptest mock server helpers for Sheets + Drive APIs
 ```
 
+## Architecture — Calendar Package Layout
+```
+internal/providers/calendar/
+  calendar.go           # Provider struct, RegisterCommands (nested: calendar → events/calendars/freebusy)
+  helpers.go            # Shared types (EventSummary, EventDetail, CalendarSummary, FreeBusyResult) and helpers
+  events.go             # 8 event commands (list, get, create, quick-add, update, delete, move, instances)
+  calendars.go          # 5 calendar commands (list, get, create, update, delete)
+  freebusy.go           # 1 freebusy command (query)
+  helpers_test.go       # Unit tests for helpers (formatEventTime, toEventSummary, parseAttendees, etc.)
+  events_test.go        # Integration tests for all events sub-commands
+  calendars_test.go     # Integration tests for all calendars sub-commands
+  freebusy_test.go      # Integration tests for freebusy query
+  mock_server_test.go   # httptest mock server helpers, captureStdout, newTestRootCmd
+  calendar_test.go      # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Testing
-- Gmail commands use `ServiceFactory` for dependency injection
-- Sheets commands use dual `SheetsServiceFactory` + `DriveServiceFactory` for DI
+- All providers use `ServiceFactory` for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 84.8%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%)
 
 ## Environment Variables
 ```

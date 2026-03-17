@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
@@ -71,6 +73,7 @@ func NewOAuthConfig() (*oauth2.Config, error) {
 			gmail.GmailSettingsSharingScope,
 			sheets.SpreadsheetsScope,
 			drive.DriveFileScope,
+			calendar.CalendarScope,
 		},
 	}, nil
 }
@@ -96,12 +99,23 @@ func NewToken() (*oauth2.Token, error) {
 	}, nil
 }
 
-// tokenNotifySource wraps a token source and logs refresh events to stderr.
-// Token values are redacted — only the event is logged, never the credential.
+// tokenNotifySource wraps a token source and emits a notification to stderr
+// when the underlying token is refreshed. The host process is expected to
+// consume these lines programmatically; token values are redacted in the output.
 type tokenNotifySource struct {
+	mu           sync.Mutex
 	base         oauth2.TokenSource
 	lastToken    string
 	refreshToken string
+}
+
+// redact returns the last 4 characters of s prefixed with "…", or "****" if s
+// is too short. This avoids leaking full credentials to stderr/logs.
+func redact(s string) string {
+	if len(s) <= 4 {
+		return "****"
+	}
+	return "…" + s[len(s)-4:]
 }
 
 func (t *tokenNotifySource) Token() (*oauth2.Token, error) {
@@ -109,12 +123,16 @@ func (t *tokenNotifySource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if tok.AccessToken != t.lastToken {
 		t.lastToken = tok.AccessToken
-		fmt.Fprintln(os.Stderr, "TOKEN_REFRESHED: access_token refreshed")
+		fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: access_token=%s\n", redact(tok.AccessToken))
 		if tok.RefreshToken != "" && tok.RefreshToken != t.refreshToken {
 			t.refreshToken = tok.RefreshToken
-			fmt.Fprintln(os.Stderr, "TOKEN_REFRESHED: refresh_token rotated")
+			fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: refresh_token=%s\n", redact(tok.RefreshToken))
 		}
 	}
 	return tok, nil
@@ -165,4 +183,13 @@ func NewDriveService(ctx context.Context) (*drive.Service, error) {
 		return nil, err
 	}
 	return drive.NewService(ctx, option.WithHTTPClient(client))
+}
+
+// NewCalendarService creates an authenticated Calendar API service from environment variables.
+func NewCalendarService(ctx context.Context) (*calendar.Service, error) {
+	client, err := newAuthenticatedClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return calendar.NewService(ctx, option.WithHTTPClient(client))
 }
