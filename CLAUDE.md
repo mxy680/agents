@@ -91,14 +91,112 @@ integrations drive permissions delete --file-id=ID --permission-id=ID [--confirm
 `--include-trashed` defaults to false (auto-adds `trashed = false` to query).
 `--export-mime` is for Google Workspace files (Docs→PDF, Sheets→CSV, etc.).
 
+## Commands — GitHub
+```
+# Repos
+integrations github repos list [--owner=OWNER] [--type=all|owner|public|private|member] [--sort=created|updated|pushed|full_name] [--limit=N] [--page-token=N] [--json]
+integrations github repos get --owner=OWNER --repo=REPO [--json]
+integrations github repos create --name=NAME [--description=TEXT] [--private] [--dry-run] [--json]
+integrations github repos fork --owner=OWNER --repo=REPO [--org=ORG] [--dry-run] [--json]
+integrations github repos delete --owner=OWNER --repo=REPO [--confirm] [--dry-run] [--json]
+
+# Issues
+integrations github issues list --owner=OWNER --repo=REPO [--state=open|closed|all] [--labels=L1,L2] [--assignee=USER] [--sort=created|updated|comments] [--limit=N] [--json]
+integrations github issues get --owner=OWNER --repo=REPO --number=N [--json]
+integrations github issues create --owner=OWNER --repo=REPO --title=TEXT [--body=TEXT] [--labels=L1,L2] [--assignees=U1,U2] [--dry-run] [--json]
+integrations github issues update --owner=OWNER --repo=REPO --number=N [--title=TEXT] [--body=TEXT] [--state=open|closed] [--labels=L1,L2] [--assignees=U1,U2] [--dry-run] [--json]
+integrations github issues close --owner=OWNER --repo=REPO --number=N [--dry-run] [--json]
+integrations github issues comment --owner=OWNER --repo=REPO --number=N --body=TEXT [--dry-run] [--json]
+
+# Pull Requests
+integrations github pulls list --owner=OWNER --repo=REPO [--state=open|closed|all] [--head=BRANCH] [--base=BRANCH] [--sort=created|updated|popularity|long-running] [--limit=N] [--json]
+integrations github pulls get --owner=OWNER --repo=REPO --number=N [--json]
+integrations github pulls create --owner=OWNER --repo=REPO --title=TEXT --head=BRANCH --base=BRANCH [--body=TEXT] [--draft] [--dry-run] [--json]
+integrations github pulls update --owner=OWNER --repo=REPO --number=N [--title=TEXT] [--body=TEXT] [--state=open|closed] [--base=BRANCH] [--dry-run] [--json]
+integrations github pulls merge --owner=OWNER --repo=REPO --number=N [--method=merge|squash|rebase] [--commit-title=TEXT] [--commit-message=TEXT] [--dry-run] [--json]
+integrations github pulls review --owner=OWNER --repo=REPO --number=N --event=APPROVE|REQUEST_CHANGES|COMMENT [--body=TEXT] [--dry-run] [--json]
+
+# Workflow Runs
+integrations github runs list --owner=OWNER --repo=REPO [--workflow-id=ID] [--branch=BRANCH] [--status=completed|in_progress|queued] [--limit=N] [--json]
+integrations github runs get --owner=OWNER --repo=REPO --run-id=ID [--json]
+integrations github runs re-run --owner=OWNER --repo=REPO --run-id=ID [--dry-run] [--json]
+integrations github runs workflows --owner=OWNER --repo=REPO [--json]
+
+# Releases
+integrations github releases list --owner=OWNER --repo=REPO [--limit=N] [--json]
+integrations github releases get --owner=OWNER --repo=REPO [--tag=TAG | --release-id=ID | --latest] [--json]
+integrations github releases create --owner=OWNER --repo=REPO --tag=TAG [--name=TEXT] [--body=TEXT] [--target=COMMITISH] [--draft] [--prerelease] [--dry-run] [--json]
+integrations github releases delete --owner=OWNER --repo=REPO --release-id=ID [--confirm] [--dry-run] [--json]
+
+# Gists
+integrations github gists list [--limit=N] [--page-token=N] [--json]
+integrations github gists get --gist-id=ID [--json]
+integrations github gists create [--description=TEXT] [--files=JSON | --files-file=PATH] [--public] [--dry-run] [--json]
+integrations github gists update --gist-id=ID [--description=TEXT] [--files=JSON | --files-file=PATH] [--dry-run] [--json]
+integrations github gists delete --gist-id=ID [--confirm] [--dry-run] [--json]
+
+# Search
+integrations github search repos --query=Q [--sort=stars|forks|updated] [--order=asc|desc] [--limit=N] [--json]
+integrations github search code --query=Q [--sort=indexed] [--order=asc|desc] [--limit=N] [--json]
+integrations github search issues --query=Q [--sort=created|updated|comments] [--order=asc|desc] [--limit=N] [--json]
+integrations github search commits --query=Q [--sort=author-date|committer-date] [--order=asc|desc] [--limit=N] [--json]
+integrations github search users --query=Q [--sort=followers|repositories|joined] [--order=asc|desc] [--limit=N] [--json]
+
+# Git (low-level)
+integrations github git refs list --owner=OWNER --repo=REPO [--namespace=heads|tags] [--json]
+integrations github git refs get --owner=OWNER --repo=REPO --ref=REF [--json]
+integrations github git refs create --owner=OWNER --repo=REPO --ref=REF --sha=SHA [--dry-run] [--json]
+integrations github git refs update --owner=OWNER --repo=REPO --ref=REF --sha=SHA [--force] [--dry-run] [--json]
+integrations github git refs delete --owner=OWNER --repo=REPO --ref=REF [--confirm] [--dry-run] [--json]
+integrations github git commits get --owner=OWNER --repo=REPO --sha=SHA [--json]
+integrations github git commits create --owner=OWNER --repo=REPO --message=TEXT --tree=SHA --parents=SHA,... [--dry-run] [--json]
+integrations github git trees get --owner=OWNER --repo=REPO --sha=SHA [--recursive] [--json]
+integrations github git trees create --owner=OWNER --repo=REPO [--tree=JSON | --tree-file=PATH] [--base-tree=SHA] [--dry-run] [--json]
+integrations github git blobs get --owner=OWNER --repo=REPO --sha=SHA [--json]
+integrations github git blobs create --owner=OWNER --repo=REPO --content=TEXT [--encoding=utf-8|base64] [--dry-run] [--json]
+integrations github git tags get --owner=OWNER --repo=REPO --sha=SHA [--json]
+integrations github git tags create --owner=OWNER --repo=REPO --tag=NAME --message=TEXT --object=SHA --type=commit|tree|blob [--dry-run] [--json]
+
+# Organizations
+integrations github orgs list [--limit=N] [--json]
+integrations github orgs get --org=ORG [--json]
+integrations github orgs members --org=ORG [--role=all|admin|member] [--limit=N] [--json]
+integrations github orgs repos --org=ORG [--type=all|public|private|forks|sources|member] [--limit=N] [--json]
+
+# Teams
+integrations github teams list --org=ORG [--limit=N] [--json]
+integrations github teams get --org=ORG --team-slug=SLUG [--json]
+integrations github teams members --org=ORG --team-slug=SLUG [--role=all|member|maintainer] [--limit=N] [--json]
+integrations github teams repos --org=ORG --team-slug=SLUG [--limit=N] [--json]
+integrations github teams add-repo --org=ORG --team-slug=SLUG --owner=OWNER --repo=REPO [--permission=pull|push|admin] [--dry-run] [--json]
+integrations github teams remove-repo --org=ORG --team-slug=SLUG --owner=OWNER --repo=REPO [--confirm] [--dry-run] [--json]
+
+# Labels
+integrations github labels list --owner=OWNER --repo=REPO [--limit=N] [--json]
+integrations github labels get --owner=OWNER --repo=REPO --name=NAME [--json]
+integrations github labels create --owner=OWNER --repo=REPO --name=NAME [--color=HEX] [--description=TEXT] [--dry-run] [--json]
+integrations github labels update --owner=OWNER --repo=REPO --name=NAME [--new-name=NAME] [--color=HEX] [--description=TEXT] [--dry-run] [--json]
+integrations github labels delete --owner=OWNER --repo=REPO --name=NAME [--confirm] [--dry-run] [--json]
+
+# Branches
+integrations github branches list --owner=OWNER --repo=REPO [--protected] [--limit=N] [--json]
+integrations github branches get --owner=OWNER --repo=REPO --branch=NAME [--json]
+integrations github branches protection get --owner=OWNER --repo=REPO --branch=NAME [--json]
+integrations github branches protection update --owner=OWNER --repo=REPO --branch=NAME [--settings=JSON | --settings-file=PATH] [--dry-run] [--json]
+integrations github branches protection delete --owner=OWNER --repo=REPO --branch=NAME [--confirm] [--dry-run] [--json]
+```
+
+`repos` has alias `repo`. `issues` has alias `issue`. `pulls` has aliases `pull`, `pr`. `runs` has alias `run`. `releases` has alias `release`. `gists` has alias `gist`. `orgs` has alias `org`. `teams` has alias `team`. `labels` has alias `label`. `branches` has alias `branch`.
+
 ## Architecture
 - `cmd/integrations/main.go` — entrypoint, registers providers
 - `internal/cli/` — Cobra root command, output helpers (JSON/text)
-- `internal/auth/` — Google OAuth token management with auto-refresh
+- `internal/auth/` — Google OAuth + GitHub OAuth token management with auto-refresh
 - `internal/providers/gmail/` — Gmail provider with injectable ServiceFactory
 - `internal/providers/sheets/` — Sheets provider with dual ServiceFactory (Sheets + Drive)
 - `internal/providers/calendar/` — Calendar provider with injectable ServiceFactory
 - `internal/providers/drive/` — Drive provider with injectable ServiceFactory
+- `internal/providers/github/` — GitHub provider with injectable ClientFactory
 - `internal/providers/provider.go` — Provider interface
 
 ## Architecture — Gmail Package Layout
@@ -161,16 +259,54 @@ internal/providers/drive/
   drive_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
 ```
 
+## Architecture — GitHub Package Layout
+```
+internal/providers/github/
+  github.go              # Provider struct, RegisterCommands (nested: github → repos/issues/pulls/runs/releases/gists/search/git/orgs/teams/labels/branches)
+  helpers.go             # Shared types, doGitHub API wrapper, text formatters, JSON extraction helpers
+  repos.go               # 5 repos commands (list, get, create, fork, delete)
+  issues.go              # 6 issues commands (list, get, create, update, close, comment)
+  pulls.go               # 6 pulls commands (list, get, create, update, merge, review)
+  runs.go                # 4 runs commands (list, get, re-run, workflows)
+  releases.go            # 4 releases commands (list, get, create, delete)
+  gists.go               # 5 gists commands (list, get, create, update, delete)
+  search.go              # 5 search commands (repos, code, issues, commits, users)
+  git.go                 # 13 git commands (refs list/get/create/update/delete, commits get/create, trees get/create, blobs get/create, tags get/create)
+  orgs.go                # 4 orgs commands (list, get, members, repos)
+  teams.go               # 6 teams commands (list, get, members, repos, add-repo, remove-repo)
+  labels.go              # 5 labels commands (list, get, create, update, delete)
+  branches.go            # 5 branches commands (list, get, protection get/update/delete)
+  helpers_test.go        # Unit tests for helpers
+  repos_test.go          # Tests for repos commands
+  issues_test.go         # Tests for issues commands
+  pulls_test.go          # Tests for pulls commands
+  runs_test.go           # Tests for runs commands
+  releases_test.go       # Tests for releases commands
+  gists_test.go          # Tests for gists commands
+  search_test.go         # Tests for search commands
+  git_test.go            # Tests for git commands
+  orgs_test.go           # Tests for orgs commands
+  teams_test.go          # Tests for teams commands
+  labels_test.go         # Tests for labels commands
+  branches_test.go       # Tests for branches commands
+  mock_server_test.go    # httptest mock server helpers, captureStdout, newTestRootCmd
+  github_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Testing
-- All providers use `ServiceFactory` for dependency injection
+- All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, github: 85.8%)
 
 ## Environment Variables
 ```
 GOOGLE_DESKTOP_CLIENT_ID, GOOGLE_DESKTOP_CLIENT_SECRET
 GOOGLE_ACCESS_TOKEN (fallback: GMAIL_ACCESS_TOKEN)
 GOOGLE_REFRESH_TOKEN (fallback: GMAIL_REFRESH_TOKEN)
+
+GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+GITHUB_ACCESS_TOKEN, GITHUB_REFRESH_TOKEN
+GITHUB_API_BASE_URL (optional, defaults to https://api.github.com)
 ```
 
 # currentDate
