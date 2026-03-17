@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { providers } from "@/lib/providers";
 import { ProviderCard } from "@/components/provider-card";
 import { InstagramForm } from "@/components/instagram-form";
+import { ConnectButton } from "@/components/connect-button";
 
 export default async function IntegrationsPage() {
   const supabase = await createClient();
@@ -24,12 +25,14 @@ export default async function IntegrationsPage() {
   );
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Integrations</h1>
-      <p className="mb-8 text-gray-500">
-        Connect your accounts to enable AI agent access.
-      </p>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mx-auto max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
+        <p className="text-sm text-muted-foreground">
+          Connect your accounts to enable AI agent access.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {providers.map((provider) => {
           const integration = integrationMap.get(provider.id) ?? null;
           return (
@@ -39,12 +42,9 @@ export default async function IntegrationsPage() {
               integration={integration}
             >
               {provider.authType === "oauth" ? (
-                <a
+                <ConnectButton
                   href={`/api/integrations/${provider.id}/connect`}
-                  className="inline-block rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
-                >
-                  Connect
-                </a>
+                />
               ) : provider.id === "instagram" ? (
                 <InstagramForm />
               ) : null}

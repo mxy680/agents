@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const COOKIE_FIELDS = [
   { name: "sessionId", label: "Session ID", required: true },
@@ -48,51 +51,46 @@ export function InstagramForm() {
 
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
-      >
+      <Button size="sm" onClick={() => setOpen(true)}>
         Enter Cookies
-      </button>
+      </Button>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {COOKIE_FIELDS.map((field) => (
-        <div key={field.name}>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+        <div key={field.name} className="space-y-1">
+          <Label htmlFor={field.name} className="text-xs">
             {field.label}
-            {field.required && <span className="text-red-500 ml-0.5">*</span>}
-          </label>
-          <input
+            {field.required && <span className="text-destructive ml-0.5">*</span>}
+          </Label>
+          <Input
+            id={field.name}
             type="text"
             required={field.required}
             value={values[field.name]}
             onChange={(e) =>
               setValues({ ...values, [field.name]: e.target.value })
             }
-            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             placeholder={field.label}
+            className="h-8 text-sm"
           />
         </div>
       ))}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
-        >
+        <Button type="submit" size="sm" disabled={saving}>
           {saving ? "Saving..." : "Save"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => setOpen(false)}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
