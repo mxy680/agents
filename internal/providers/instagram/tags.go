@@ -96,7 +96,7 @@ func makeRunTagsGet(factory ClientFactory) func(*cobra.Command, []string) error 
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+url.PathEscape(name)+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting tag info for #%s: %w", name, err)
 		}
@@ -164,7 +164,7 @@ func makeRunTagsFeed(factory ClientFactory) func(*cobra.Command, []string) error
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/sections/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+url.PathEscape(name)+"/sections/", params)
 		if err != nil {
 			return fmt.Errorf("getting tag feed for #%s: %w", name, err)
 		}
@@ -217,7 +217,7 @@ func makeRunTagsFollow(factory ClientFactory) func(*cobra.Command, []string) err
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/tags/follow/"+name+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/tags/follow/"+url.PathEscape(name)+"/", nil)
 		if err != nil {
 			return fmt.Errorf("following tag #%s: %w", name, err)
 		}
@@ -261,7 +261,7 @@ func makeRunTagsUnfollow(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/tags/unfollow/"+name+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/tags/unfollow/"+url.PathEscape(name)+"/", nil)
 		if err != nil {
 			return fmt.Errorf("unfollowing tag #%s: %w", name, err)
 		}
@@ -357,7 +357,7 @@ func makeRunTagsRelated(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/related/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+url.PathEscape(name)+"/related/", nil)
 		if err != nil {
 			return fmt.Errorf("getting related tags for #%s: %w", name, err)
 		}

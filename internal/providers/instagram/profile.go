@@ -90,7 +90,7 @@ func makeRunProfileGet(factory ClientFactory) func(*cobra.Command, []string) err
 
 		// --user-id takes precedence over --username; uses a different REST endpoint.
 		if userID != "" {
-			resp, err := client.MobileGet(ctx, "/api/v1/users/"+userID+"/info/", nil)
+			resp, err := client.MobileGet(ctx, "/api/v1/users/"+url.PathEscape(userID)+"/info/", nil)
 			if err != nil {
 				return fmt.Errorf("getting user info for %s: %w", userID, err)
 			}

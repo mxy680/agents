@@ -87,6 +87,11 @@ func DefaultClientFactory() ClientFactory {
 	}
 }
 
+// SelfUserID returns the authenticated user's Instagram numeric ID.
+func (c *Client) SelfUserID() string {
+	return c.session.DSUserID
+}
+
 // newClientWithBase creates a Client that targets a custom base URL (used in tests).
 // Both web and mobile base URLs point to the same test server.
 func newClientWithBase(session *auth.InstagramSession, httpClient *http.Client, base string) *Client {
@@ -375,7 +380,10 @@ func (c *Client) DecodeJSON(resp *http.Response, target any) error {
 
 // handleError reads an error response body and returns a typed error.
 func (c *Client) handleError(resp *http.Response) error {
-	body, _ := io.ReadAll(resp.Body)
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return fmt.Errorf("instagram API error (http=%d): could not read response body: %w", resp.StatusCode, readErr)
+	}
 
 	var envelope struct {
 		Status  string `json:"status"`
@@ -399,10 +407,7 @@ func (c *Client) handleError(resp *http.Response) error {
 		}
 	}
 
-	if len(body) > 256 {
-		body = body[:256]
-	}
-	return fmt.Errorf("instagram API error (http=%d): %s", resp.StatusCode, string(body))
+	return fmt.Errorf("instagram API error (http=%d): no details available", resp.StatusCode)
 }
 
 // parseRateLimitError builds a RateLimitError from a 429 response, parsing

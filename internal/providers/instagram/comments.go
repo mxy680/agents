@@ -10,24 +10,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// graphQLCommentsNode is a single comment node from the PolarisPostChildCommentsQuery response.
-type graphQLCommentsNode struct {
-	PK               string `json:"pk"`
-	Text             string `json:"text"`
-	CreatedAtUTC     int64  `json:"created_at_utc"`
-	CommentLikeCount int64  `json:"comment_like_count"`
-	HasLikedComment  bool   `json:"has_liked_comment"`
-	User             struct {
-		PK            string `json:"pk"`
-		Username      string `json:"username"`
-		ProfilePicURL string `json:"profile_pic_url"`
-		IsVerified    bool   `json:"is_verified"`
-	} `json:"user"`
-}
-
-// commentsDocID is the GraphQL doc_id for PolarisPostChildCommentsQuery.
-const commentsDocID = "26914912424764761"
-
 // commentsListResponse is the response for GET /api/v1/media/{media_id}/comments/.
 type commentsListResponse struct {
 	Comments      []rawComment `json:"comments"`
@@ -100,7 +82,7 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 			params.Set("min_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/comments/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/comments/", params)
 		if err != nil {
 			return fmt.Errorf("listing comments for media %s: %w", mediaID, err)
 		}
@@ -115,7 +97,7 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 		var summaries []CommentSummary
 		if result.Status == "fail" {
 			// Step 1: Get the shortcode from media info (needed for GraphQL query)
-			infoResp, infoErr := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/info/", nil)
+			infoResp, infoErr := client.MobileGet(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/info/", nil)
 			if infoErr != nil {
 				return fmt.Errorf("comments unavailable for media %s: could not fetch media info: %w", mediaID, infoErr)
 			}
@@ -138,10 +120,11 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 			if gqlErr != nil {
 				return fmt.Errorf("comments unavailable for media %s: %w", mediaID, gqlErr)
 			}
-			summaries, err = parseMediaDetailComments(gqlData, limit)
-			if err != nil {
-				return fmt.Errorf("comments unavailable for media %s: %w", mediaID, err)
+			parsed, parseErr := parseMediaDetailComments(gqlData, limit)
+			if parseErr != nil {
+				return fmt.Errorf("comments unavailable for media %s: %w", mediaID, parseErr)
 			}
+			summaries = parsed
 		} else {
 			summaries = make([]CommentSummary, 0, len(result.Comments))
 			for _, c := range result.Comments {
@@ -193,7 +176,7 @@ func makeRunCommentsReplies(factory ClientFactory) func(*cobra.Command, []string
 			params.Set("min_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/comments/"+commentID+"/inline_child_comments/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/comments/"+url.PathEscape(commentID)+"/inline_child_comments/", params)
 		if err != nil {
 			return fmt.Errorf("listing replies for comment %s: %w", commentID, err)
 		}
@@ -250,7 +233,7 @@ func makeRunCommentsCreate(factory ClientFactory) func(*cobra.Command, []string)
 			body.Set("replied_to_comment_id", replyTo)
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/comment/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/comment/", body)
 		if err != nil {
 			return fmt.Errorf("creating comment on media %s: %w", mediaID, err)
 		}
@@ -302,7 +285,7 @@ func makeRunCommentsDelete(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/comment/"+commentID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/comment/"+url.PathEscape(commentID)+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting comment %s on media %s: %w", commentID, mediaID, err)
 		}
@@ -347,7 +330,7 @@ func makeRunCommentsLike(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+commentID+"/comment_like/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(commentID)+"/comment_like/", nil)
 		if err != nil {
 			return fmt.Errorf("liking comment %s: %w", commentID, err)
 		}
@@ -392,7 +375,7 @@ func makeRunCommentsUnlike(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+commentID+"/comment_unlike/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(commentID)+"/comment_unlike/", nil)
 		if err != nil {
 			return fmt.Errorf("unliking comment %s: %w", commentID, err)
 		}
@@ -437,7 +420,7 @@ func makeRunCommentsDisable(factory ClientFactory) func(*cobra.Command, []string
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/disable_comments/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/disable_comments/", nil)
 		if err != nil {
 			return fmt.Errorf("disabling comments on media %s: %w", mediaID, err)
 		}
@@ -482,7 +465,7 @@ func makeRunCommentsEnable(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/enable_comments/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/enable_comments/", nil)
 		if err != nil {
 			return fmt.Errorf("enabling comments on media %s: %w", mediaID, err)
 		}
@@ -551,47 +534,6 @@ func parseMediaDetailComments(data json.RawMessage, limit int) ([]CommentSummary
 			LikeCount: n.EdgeLikedBy.Count,
 			UserID:    n.Owner.ID,
 			Username:  n.Owner.Username,
-		})
-	}
-	return summaries, nil
-}
-
-// parseGraphQLComments parses the GraphQL PolarisPostChildCommentsQuery response data
-// into a slice of CommentSummary. The data field contains a deeply nested connection object.
-func parseGraphQLComments(data json.RawMessage) ([]CommentSummary, error) {
-	// The GraphQL response wraps everything in a long connection field name.
-	// We unmarshal into a map first and extract the connection dynamically.
-	var outer map[string]json.RawMessage
-	if err := json.Unmarshal(data, &outer); err != nil {
-		return nil, fmt.Errorf("unmarshal graphql data: %w", err)
-	}
-
-	// The connection field name is the long xdt_api__v1__... key.
-	const connectionKey = "xdt_api__v1__media__media_id__comments__parent_comment_id__child_comments__connection"
-	connRaw, ok := outer[connectionKey]
-	if !ok {
-		return nil, fmt.Errorf("graphql response missing connection field")
-	}
-
-	var conn struct {
-		Edges []struct {
-			Node graphQLCommentsNode `json:"node"`
-		} `json:"edges"`
-	}
-	if err := json.Unmarshal(connRaw, &conn); err != nil {
-		return nil, fmt.Errorf("unmarshal graphql connection: %w", err)
-	}
-
-	summaries := make([]CommentSummary, 0, len(conn.Edges))
-	for _, edge := range conn.Edges {
-		n := edge.Node
-		summaries = append(summaries, CommentSummary{
-			PK:        n.PK,
-			Text:      n.Text,
-			Timestamp: n.CreatedAtUTC,
-			LikeCount: n.CommentLikeCount,
-			UserID:    n.User.PK,
-			Username:  n.User.Username,
 		})
 	}
 	return summaries, nil

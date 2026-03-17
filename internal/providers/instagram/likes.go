@@ -63,7 +63,7 @@ func makeRunLikesLike(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/like/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/like/", nil)
 		if err != nil {
 			return fmt.Errorf("liking media %s: %w", mediaID, err)
 		}
@@ -108,7 +108,7 @@ func makeRunLikesUnlike(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/unlike/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/unlike/", nil)
 		if err != nil {
 			return fmt.Errorf("unliking media %s: %w", mediaID, err)
 		}
@@ -149,7 +149,7 @@ func makeRunLikesList(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/likers/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/likers/", nil)
 		if err != nil {
 			return fmt.Errorf("getting likers for media %s: %w", mediaID, err)
 		}

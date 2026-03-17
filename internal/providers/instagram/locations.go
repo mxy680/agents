@@ -85,7 +85,7 @@ func makeRunLocationsGet(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+url.PathEscape(locationID)+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting location %s: %w", locationID, err)
 		}
@@ -157,7 +157,7 @@ func makeRunLocationsFeed(factory ClientFactory) func(*cobra.Command, []string) 
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/sections/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+url.PathEscape(locationID)+"/sections/", params)
 		if err != nil {
 			return fmt.Errorf("getting location feed for %s: %w", locationID, err)
 		}
@@ -294,7 +294,7 @@ func makeRunLocationsStories(factory ClientFactory) func(*cobra.Command, []strin
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/story/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+url.PathEscape(locationID)+"/story/", nil)
 		if err != nil {
 			return fmt.Errorf("getting location stories for %s: %w", locationID, err)
 		}

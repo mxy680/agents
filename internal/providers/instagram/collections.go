@@ -194,7 +194,7 @@ func makeRunCollectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/feed/collection/"+collectionID+"/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/collection/"+url.PathEscape(collectionID)+"/", params)
 		if err != nil {
 			return fmt.Errorf("getting collection %s: %w", collectionID, err)
 		}
@@ -300,7 +300,7 @@ func makeRunCollectionsEdit(factory ClientFactory) func(*cobra.Command, []string
 		body := url.Values{}
 		body.Set("name", name)
 
-		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+collectionID+"/edit/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+url.PathEscape(collectionID)+"/edit/", body)
 		if err != nil {
 			return fmt.Errorf("editing collection %s: %w", collectionID, err)
 		}
@@ -349,7 +349,7 @@ func makeRunCollectionsDelete(factory ClientFactory) func(*cobra.Command, []stri
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+collectionID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+url.PathEscape(collectionID)+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting collection %s: %w", collectionID, err)
 		}

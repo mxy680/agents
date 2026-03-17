@@ -115,7 +115,7 @@ func makeRunReelsList(factory ClientFactory) func(*cobra.Command, []string) erro
 		}
 
 		if userID == "" {
-			userID = client.session.DSUserID
+			userID = client.SelfUserID()
 		}
 
 		params := url.Values{}
@@ -171,7 +171,7 @@ func makeRunReelsGet(factory ClientFactory) func(*cobra.Command, []string) error
 			return err
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/media/"+reelID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+url.PathEscape(reelID)+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting reel %s: %w", reelID, err)
 		}
@@ -372,7 +372,7 @@ func makeRunReelsDelete(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+reelID+"/delete/?media_type=REELS", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(reelID)+"/delete/?media_type=REELS", nil)
 		if err != nil {
 			return fmt.Errorf("deleting reel %s: %w", reelID, err)
 		}
