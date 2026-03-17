@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { decryptCredentials } from "@/lib/crypto";
 
 export async function POST() {
   const supabase = await createClient();
@@ -21,7 +22,42 @@ export async function POST() {
     return NextResponse.json({ error: "Integration not found" }, { status: 404 });
   }
 
-  const { error } = await supabase
+  // Fetch stored credentials so we can revoke the token on GitHub
+  const serviceClient = await createServiceClient();
+  const { data: userInteg } = await serviceClient
+    .from("user_integrations")
+    .select("credentials")
+    .eq("user_id", user.id)
+    .eq("integration_id", integration.id)
+    .eq("account_label", "")
+    .single();
+
+  // Revoke the GitHub token so the next connect shows the authorization UI
+  if (userInteg?.credentials) {
+    try {
+      const creds = decryptCredentials(userInteg.credentials as string);
+      if (creds.access_token) {
+        await fetch(
+          `https://api.github.com/applications/${process.env.GITHUB_CLIENT_ID}/token`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Basic ${Buffer.from(
+                `${process.env.GITHUB_CLIENT_ID}:${process.env.GITHUB_CLIENT_SECRET}`
+              ).toString("base64")}`,
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+            body: JSON.stringify({ access_token: creds.access_token }),
+          }
+        );
+      }
+    } catch {
+      // Revocation is best-effort; proceed with DB deletion regardless
+    }
+  }
+
+  const { error } = await serviceClient
     .from("user_integrations")
     .delete()
     .eq("user_id", user.id)
