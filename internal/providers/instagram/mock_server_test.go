@@ -234,6 +234,72 @@ func withMediaMock(mux *http.ServeMux) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(resp)
 
+		// comments list: GET /api/v1/media/{id}/comments/
+		case action == "comments":
+			resp := map[string]any{
+				"comments": []map[string]any{
+					{
+						"pk":                 "comment_111",
+						"text":               "Great post!",
+						"created_at":         int64(1700000100),
+						"comment_like_count": int64(5),
+						"user": map[string]any{
+							"pk":       "user_abc",
+							"username": "commenter1",
+						},
+					},
+				},
+				"next_max_id": "cmt_cursor_1",
+				"status":      "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+
+		// comments replies: GET /api/v1/media/{id}/comments/{comment_id}/inline_child_comments/
+		case strings.HasPrefix(action, "comments/") && strings.HasSuffix(action, "/inline_child_comments"):
+			resp := map[string]any{
+				"comments": []map[string]any{
+					{
+						"pk":                 "reply_222",
+						"text":               "Agreed!",
+						"created_at":         int64(1700000200),
+						"comment_like_count": int64(1),
+						"user": map[string]any{
+							"pk":       "user_def",
+							"username": "replier1",
+						},
+					},
+				},
+				"status": "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+
+		// comment create: POST /api/v1/media/{id}/comment/
+		case action == "comment":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		// comment delete: POST /api/v1/media/{id}/comment/{comment_id}/delete/
+		case strings.HasPrefix(action, "comment/") && strings.HasSuffix(action, "/delete"):
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		// comment like/unlike: POST /api/v1/media/{comment_id}/comment_like/ or comment_unlike/
+		case action == "comment_like" || action == "comment_unlike":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		// disable/enable comments on a post
+		case action == "disable_comments" || action == "enable_comments":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		// like/unlike a post
+		case action == "like" || action == "unlike":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
 		default:
 			http.NotFound(w, r)
 		}
@@ -364,6 +430,301 @@ func withReelsMock(mux *http.ServeMux) {
 	})
 }
 
+// withDirectMock registers all direct-message-related mock handlers on mux.
+func withDirectMock(mux *http.ServeMux) {
+	// GET /api/v1/direct_v2/inbox/
+	mux.HandleFunc("/api/v1/direct_v2/inbox/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"inbox": map[string]any{
+				"threads": []map[string]any{
+					{
+						"thread_id":        "thread_111",
+						"thread_title":     "Test Thread",
+						"last_activity_at": int64(1700000000000000),
+						"is_group":         false,
+						"users": []map[string]any{
+							{"pk": "user_999", "username": "dm_user", "full_name": "DM User"},
+						},
+						"items": []map[string]any{
+							{
+								"item_id":   "item_aaa",
+								"item_type": "text",
+								"text":      "Hello there",
+								"timestamp": int64(1700000000000000),
+								"user_id":   "user_999",
+							},
+						},
+					},
+				},
+				"oldest_cursor": "inbox_cursor_1",
+				"has_older":     true,
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/direct_v2/pending_inbox/
+	mux.HandleFunc("/api/v1/direct_v2/pending_inbox/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"inbox": map[string]any{
+				"threads": []map[string]any{
+					{
+						"thread_id":    "pending_thread_222",
+						"thread_title": "Pending Thread",
+						"is_group":     false,
+					},
+				},
+				"oldest_cursor": "",
+				"has_older":     false,
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/direct_v2/threads/{thread_id}/
+	// POST /api/v1/direct_v2/threads/{thread_id}/approve/
+	// POST /api/v1/direct_v2/threads/{thread_id}/hide/
+	// POST /api/v1/direct_v2/threads/{thread_id}/items/{item_id}/delete/
+	// POST /api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/
+	mux.HandleFunc("/api/v1/direct_v2/threads/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/direct_v2/threads/")
+		parts := strings.SplitN(path, "/", 2)
+		if len(parts) < 2 {
+			// GET thread detail: /api/v1/direct_v2/threads/{thread_id}/
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"thread": map[string]any{
+					"thread_id":        parts[0],
+					"thread_title":     "Test Thread",
+					"last_activity_at": int64(1700000000000000),
+					"is_group":         false,
+					"items": []map[string]any{
+						{
+							"item_id":   "item_aaa",
+							"item_type": "text",
+							"text":      "Hello there",
+							"timestamp": int64(1700000000000000),
+							"user_id":   "user_999",
+						},
+					},
+					"oldest_cursor": "",
+					"has_older":     false,
+				},
+				"status": "ok",
+			})
+			return
+		}
+		threadID := parts[0]
+		action := strings.TrimSuffix(parts[1], "/")
+		_ = threadID
+
+		switch {
+		case action == "":
+			// thread detail response
+			resp := map[string]any{
+				"thread": map[string]any{
+					"thread_id":        threadID,
+					"thread_title":     "Test Thread",
+					"last_activity_at": int64(1700000000000000),
+					"is_group":         false,
+					"items": []map[string]any{
+						{
+							"item_id":   "item_aaa",
+							"item_type": "text",
+							"text":      "Hello there",
+							"timestamp": int64(1700000000000000),
+							"user_id":   "user_999",
+						},
+					},
+					"oldest_cursor": "",
+					"has_older":     false,
+				},
+				"status": "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		case action == "approve" || action == "hide":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		case strings.HasPrefix(action, "items/") && strings.HasSuffix(action, "/delete"):
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		case strings.HasPrefix(action, "items/") && strings.HasSuffix(action, "/seen"):
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		case action == "text":
+			// broadcast/text: threadID="broadcast", action="text"
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	// POST /api/v1/direct_v2/create_group_thread/
+	mux.HandleFunc("/api/v1/direct_v2/create_group_thread/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+}
+
+// withLikesMock registers likes feed mock handler on mux.
+// Note: like/unlike on /api/v1/media/{id}/like|unlike/ are handled by withMediaMock.
+func withLikesMock(mux *http.ServeMux) {
+	// GET /api/v1/feed/liked/
+	mux.HandleFunc("/api/v1/feed/liked/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"id":            "liked_post_111",
+					"code":          "liked_code_1",
+					"media_type":    1,
+					"caption":       map[string]any{"text": "Liked post caption"},
+					"taken_at":      int64(1700005000),
+					"like_count":    int64(300),
+					"comment_count": int64(20),
+					"image_versions2": map[string]any{
+						"candidates": []map[string]any{
+							{"url": "https://example.com/liked.jpg"},
+						},
+					},
+				},
+			},
+			"next_max_id":    "liked_cursor_1",
+			"more_available": true,
+			"status":         "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withRelationshipsMock registers relationships-related mock handlers on mux.
+func withRelationshipsMock(mux *http.ServeMux) {
+	// GET /api/v1/friendships/{user_id}/followers/
+	// GET /api/v1/friendships/{user_id}/following/
+	// GET /api/v1/friendships/show/{user_id}/
+	// POST /api/v1/friendships/create/{user_id}/
+	// POST /api/v1/friendships/destroy/{user_id}/
+	// POST /api/v1/friendships/remove_follower/{user_id}/
+	// POST /api/v1/friendships/block/{user_id}/
+	// POST /api/v1/friendships/unblock/{user_id}/
+	// POST /api/v1/friendships/mute_posts_or_story_from_follow/
+	// POST /api/v1/friendships/unmute_posts_or_story_from_follow/
+	mux.HandleFunc("/api/v1/friendships/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/friendships/")
+		path = strings.TrimSuffix(path, "/")
+		parts := strings.SplitN(path, "/", 2)
+
+		action := parts[0]
+
+		switch {
+		// Fixed-path POST actions (no user_id in path segment 0)
+		case action == "mute_posts_or_story_from_follow" || action == "unmute_posts_or_story_from_follow":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"friendship_status": map[string]any{"following": true},
+				"status":            "ok",
+			})
+		// Actions where path is /action/user_id/  e.g. /show/123/, /create/123/
+		case action == "show" || action == "create" || action == "destroy" ||
+			action == "remove_follower" || action == "block" || action == "unblock":
+			if len(parts) < 2 {
+				http.NotFound(w, r)
+				return
+			}
+			switch action {
+			case "show":
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{
+					"friendship_status": map[string]any{
+						"following":        true,
+						"followed_by":      false,
+						"blocking":         false,
+						"muting":           false,
+						"is_private":       false,
+						"incoming_request": false,
+						"outgoing_request": false,
+						"is_restricted":    false,
+					},
+					"status": "ok",
+				})
+			default:
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{
+					"friendship_status": map[string]any{"following": true},
+					"status":            "ok",
+				})
+			}
+		// Actions where path is /user_id/followers/ or /user_id/following/
+		default:
+			// action is actually the user_id here; parts[1] is "followers" or "following"
+			if len(parts) < 2 {
+				http.NotFound(w, r)
+				return
+			}
+			subAction := parts[1]
+			switch subAction {
+			case "followers", "following":
+				resp := map[string]any{
+					"users": []map[string]any{
+						{
+							"pk":              "rel_user_111",
+							"username":        "rel_user",
+							"full_name":       "Rel User",
+							"profile_pic_url": "https://example.com/rel.jpg",
+							"is_private":      false,
+							"is_verified":     false,
+						},
+					},
+					"next_max_id": "",
+					"big_list":    false,
+					"status":      "ok",
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp)
+			default:
+				http.NotFound(w, r)
+			}
+		}
+	})
+
+	// GET /api/v1/users/blocked_list/
+	// Note: /api/v1/users/ is already registered by withProfileMock for user info.
+	// We need a more specific handler — register on the exact path.
+	mux.HandleFunc("/api/v1/users/blocked_list/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"blocked_list": []map[string]any{
+				{
+					"pk":              "blocked_user_111",
+					"username":        "blocked_user",
+					"full_name":       "Blocked User",
+					"profile_pic_url": "https://example.com/blocked.jpg",
+					"is_private":      true,
+					"is_verified":     false,
+				},
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// POST /api/v1/restrict_action/restrict/
+	// POST /api/v1/restrict_action/unrestrict/
+	mux.HandleFunc("/api/v1/restrict_action/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"friendship_status": map[string]any{"is_restricted": true},
+			"status":            "ok",
+		})
+	})
+}
+
 // newFullMockServer creates an httptest server with all Instagram mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -372,6 +733,9 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withMediaMock(mux)
 	withStoriesMock(mux)
 	withReelsMock(mux)
+	withDirectMock(mux)
+	withLikesMock(mux)
+	withRelationshipsMock(mux)
 	return httptest.NewServer(mux)
 }
 
@@ -437,6 +801,26 @@ func buildTestStoriesCmd(factory ClientFactory) *cobra.Command {
 // buildTestReelsCmd creates a `reels` subcommand tree for use in tests.
 func buildTestReelsCmd(factory ClientFactory) *cobra.Command {
 	return newReelsCmd(factory)
+}
+
+// buildTestDirectCmd creates a `direct` subcommand tree for use in tests.
+func buildTestDirectCmd(factory ClientFactory) *cobra.Command {
+	return newDirectCmd(factory)
+}
+
+// buildTestCommentsCmd creates a `comments` subcommand tree for use in tests.
+func buildTestCommentsCmd(factory ClientFactory) *cobra.Command {
+	return newCommentsCmd(factory)
+}
+
+// buildTestLikesCmd creates a `likes` subcommand tree for use in tests.
+func buildTestLikesCmd(factory ClientFactory) *cobra.Command {
+	return newLikesCmd(factory)
+}
+
+// buildTestRelationshipsCmd creates a `relationships` subcommand tree for use in tests.
+func buildTestRelationshipsCmd(factory ClientFactory) *cobra.Command {
+	return newRelationshipsCmd(factory)
 }
 
 // runCmd is a test helper that executes a cobra command tree with args and returns stdout.
