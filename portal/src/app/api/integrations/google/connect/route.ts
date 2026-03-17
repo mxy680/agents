@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  const label = new URL(request.url).searchParams.get("label") ?? "";
   const provider = getProvider("google")!;
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
     scope: provider.scopes!.join(" "),
     access_type: "offline",
     prompt: "consent",
-    state: user.id,
+    state: `${user.id}:${label}`,
   });
 
   return NextResponse.redirect(

@@ -19,7 +19,11 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.id !== state) {
+  // state = "userId:label" (label may be empty)
+  const [stateUserId, ...labelParts] = (state ?? "").split(":");
+  const labelFromState = labelParts.join(":"); // rejoin in case label contains colons
+
+  if (!user || user.id !== stateUserId) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
@@ -50,7 +54,8 @@ export async function GET(request: Request) {
     { headers: { Authorization: `Bearer ${tokens.access_token}` } }
   );
   const userinfo = await userinfoRes.json();
-  const accountLabel = userinfo.email ?? "";
+  // Use the user-supplied label; fall back to their Google email
+  const accountLabel = labelFromState || userinfo.email || "";
 
   // Look up the google integration ID from catalog
   const { data: integration } = await supabase

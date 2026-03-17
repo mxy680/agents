@@ -19,7 +19,11 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || user.id !== state) {
+  // state = "userId:label" (label may be empty)
+  const [stateUserId, ...labelParts] = (state ?? "").split(":");
+  const labelFromState = labelParts.join(":");
+
+  if (!user || user.id !== stateUserId) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
@@ -62,7 +66,8 @@ export async function GET(request: Request) {
     },
   });
   const ghUser = await ghUserRes.json();
-  const accountLabel = ghUser.login ?? "";
+  // Use the user-supplied label; fall back to their GitHub login
+  const accountLabel = labelFromState || ghUser.login || "";
 
   const { data: integration } = await supabase
     .from("integrations")

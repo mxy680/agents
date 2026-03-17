@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { providers } from "@/lib/providers";
 import { ProviderCard } from "@/components/provider-card";
 import { InstagramForm } from "@/components/instagram-form";
-import { ConnectButton } from "@/components/connect-button";
+import { ConnectDialog } from "@/components/connect-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircleIcon } from "lucide-react";
 
 export default async function IntegrationsPage({
   searchParams,
@@ -51,11 +53,12 @@ export default async function IntegrationsPage({
         </p>
       </div>
       {errorParam && (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Error: {errorParam.replace(/_/g, " ")}
-        </div>
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircleIcon className="size-4" />
+          <AlertDescription>{errorParam.replace(/_/g, " ")}</AlertDescription>
+        </Alert>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         {providers.map((provider) => {
           const integrationId = catalogMap.get(provider.id);
           const rows = integrationId ? connectedMap.get(integrationId) ?? [] : [];
@@ -73,8 +76,9 @@ export default async function IntegrationsPage({
               integrations={integrations}
             >
               {provider.authType === "oauth" ? (
-                <ConnectButton
+                <ConnectDialog
                   href={`/api/integrations/${provider.id}/connect`}
+                  providerName={provider.name}
                 />
               ) : provider.id === "instagram" ? (
                 <InstagramForm />

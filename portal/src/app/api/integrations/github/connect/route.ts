@@ -12,12 +12,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  const label = new URL(request.url).searchParams.get("label") ?? "";
   const provider = getProvider("github")!;
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID!,
     redirect_uri: `${new URL(request.url).origin}/api/integrations/github/callback`,
     scope: provider.scopes!.join(" "),
-    state: user.id,
+    state: `${user.id}:${label}`,
   });
 
   return NextResponse.redirect(
