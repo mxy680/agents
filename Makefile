@@ -17,15 +17,3 @@ lint:
 
 clean:
 	rm -rf bin/ coverage.out
-
-# Portal targets
-PORTAL_BINARY := bin/portal
-
-build-portal:
-	go build -o $(PORTAL_BINARY) ./cmd/portal
-
-migrate-up:
-	migrate -path internal/portal/database/migrations -database "$(DATABASE_URL)" up
-
-migrate-down:
-	migrate -path internal/portal/database/migrations -database "$(DATABASE_URL)" down
