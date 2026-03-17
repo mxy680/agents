@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/oauth2"
 
 	"github.com/emdash-projects/agents/internal/portal/database"
 	"github.com/emdash-projects/agents/internal/portal/handlers"
@@ -54,9 +55,20 @@ func NewServer(cfg *Config, pool *pgxpool.Pool) *Server {
 	homeTpl := parseTemplate("templates/layout.html", "templates/home.html")
 	loginTpl := parseTemplate("templates/layout.html", "templates/login.html")
 
+	// Integration OAuth configs
+	googleIntegrationCfg := portaloauth.NewGoogleIntegrationConfig(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.BaseURL)
+	var githubIntegrationCfg *oauth2.Config
+	if cfg.GitHubClientID != "" && cfg.GitHubClientSecret != "" {
+		githubIntegrationCfg = portaloauth.NewGitHubIntegrationConfig(cfg.GitHubClientID, cfg.GitHubClientSecret, cfg.BaseURL)
+	}
+
+	// Templates
+	integrationsTpl := parseTemplate("templates/layout.html", "templates/integrations.html")
+
 	// Handlers
 	homeH := handlers.NewHomeHandler(store, homeTpl)
 	authH := handlers.NewAuthHandler(store, s.Queries, googleLoginCfg, loginTpl)
+	integrationsH := handlers.NewIntegrationsHandler(store, s.Queries, cfg.EncryptionKey, googleIntegrationCfg, githubIntegrationCfg, integrationsTpl)
 
 	// Static files from embedded FS
 	staticSub, err := fs.Sub(staticFS, "static")
@@ -75,6 +87,28 @@ func NewServer(cfg *Config, pool *pgxpool.Pool) *Server {
 	s.Router.Get("/auth/google", authH.HandleGoogleLogin)
 	s.Router.Get("/auth/google/callback", authH.HandleGoogleCallback)
 	s.Router.Post("/logout", authH.HandleLogout)
+
+	// Protected integration routes
+	s.Router.Group(func(r chi.Router) {
+		r.Use(mw.RequireAuth(store))
+
+		r.Get("/integrations", integrationsH.HandleIntegrations)
+
+		// Google integration
+		r.Get("/integrations/google/connect", integrationsH.HandleGoogleConnect)
+		r.Get("/integrations/google/callback", integrationsH.HandleGoogleCallback)
+		r.Post("/integrations/google/disconnect", integrationsH.HandleGoogleDisconnect)
+
+		// GitHub integration
+		r.Get("/integrations/github/connect", integrationsH.HandleGitHubConnect)
+		r.Get("/integrations/github/callback", integrationsH.HandleGitHubCallback)
+		r.Post("/integrations/github/disconnect", integrationsH.HandleGitHubDisconnect)
+
+		// Instagram integration
+		r.Get("/integrations/instagram/connect", integrationsH.HandleInstagramConnect)
+		r.Post("/integrations/instagram/save", integrationsH.HandleInstagramSave)
+		r.Post("/integrations/instagram/disconnect", integrationsH.HandleInstagramDisconnect)
+	})
 
 	return s
 }
