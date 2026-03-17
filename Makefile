@@ -23,10 +23,10 @@ portal-install:
 	cd portal && npm install
 
 portal-dev:
-	cd portal && npm run dev
+	cd portal && doppler run -p agents -c dev -- npm run dev
 
 portal-build:
-	cd portal && npm run build
+	cd portal && doppler run -p agents -c dev -- npm run build
 
 portal-lint:
 	cd portal && npm run lint
