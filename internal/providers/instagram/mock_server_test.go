@@ -725,6 +725,730 @@ func withRelationshipsMock(mux *http.ServeMux) {
 	})
 }
 
+// withSearchMock registers search-related mock handlers on mux.
+func withSearchMock(mux *http.ServeMux) {
+	// GET /api/v1/users/search/
+	mux.HandleFunc("/api/v1/users/search/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"users": []map[string]any{
+				{
+					"pk":              "search_user_111",
+					"username":        "search_result",
+					"full_name":       "Search Result User",
+					"profile_pic_url": "https://example.com/search.jpg",
+					"is_private":      false,
+					"is_verified":     false,
+				},
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/tags/search/
+	mux.HandleFunc("/api/v1/tags/search/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"results": []map[string]any{
+				{
+					"id":              "tag_111",
+					"name":            "golang",
+					"media_count":     int64(50000),
+					"following_count": int64(1200),
+					"following":       false,
+				},
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/location_search/
+	mux.HandleFunc("/api/v1/location_search/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"venues": []map[string]any{
+				{
+					"pk":          int64(999111),
+					"name":        "Test Location",
+					"address":     "123 Main St",
+					"city":        "Test City",
+					"lat":         37.7749,
+					"lng":         -122.4194,
+					"media_count": int64(500),
+				},
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/fbsearch/topsearch_flat/
+	// POST /api/v1/fbsearch/clear_search_history/
+	mux.HandleFunc("/api/v1/fbsearch/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/fbsearch/")
+		path = strings.TrimSuffix(path, "/")
+		switch path {
+		case "topsearch_flat":
+			resp := map[string]any{
+				"ranked_list": []map[string]any{
+					{
+						"position": 1,
+						"type":     "user",
+						"user": map[string]any{
+							"pk":       "top_user_111",
+							"username": "top_result",
+						},
+					},
+				},
+				"status": "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		case "clear_search_history":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	// GET /api/v1/discover/explore/
+	mux.HandleFunc("/api/v1/discover/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items":          []map[string]any{{"id": "explore_item_1"}},
+			"next_max_id":    "explore_cursor",
+			"more_available": false,
+			"status":         "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withCollectionsMock registers collections-related mock handlers on mux.
+func withCollectionsMock(mux *http.ServeMux) {
+	// GET /api/v1/collections/list/
+	// POST /api/v1/collections/create/
+	// POST /api/v1/collections/{id}/edit/
+	// POST /api/v1/collections/{id}/delete/
+	mux.HandleFunc("/api/v1/collections/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/collections/")
+		path = strings.TrimSuffix(path, "/")
+
+		switch path {
+		case "list":
+			resp := map[string]any{
+				"items": []map[string]any{
+					{
+						"collection_id":   "col_111",
+						"collection_name": "My Saves",
+						"collection_type": "MEDIA",
+						"media_count":     int64(10),
+					},
+				},
+				"next_max_id":    "",
+				"more_available": false,
+				"status":         "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+		case "create":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"collection": map[string]any{
+					"collection_id":   "col_new",
+					"collection_name": "New Collection",
+					"collection_type": "MEDIA",
+					"media_count":     int64(0),
+				},
+				"status": "ok",
+			})
+		default:
+			// /api/v1/collections/{id}/edit/ or /api/v1/collections/{id}/delete/
+			parts := strings.SplitN(path, "/", 2)
+			if len(parts) == 2 && (parts[1] == "edit" || parts[1] == "delete") {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+			} else {
+				http.NotFound(w, r)
+			}
+		}
+	})
+
+	// GET /api/v1/feed/collection/{id}/
+	// GET /api/v1/feed/saved/posts/
+	// (both under /api/v1/feed/ — handled via the feed handler)
+	mux.HandleFunc("/api/v1/feed/collection/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"id":            "saved_media_111",
+					"code":          "saved_code_1",
+					"media_type":    1,
+					"caption":       map[string]any{"text": "Saved post"},
+					"taken_at":      int64(1700000000),
+					"like_count":    int64(50),
+					"comment_count": int64(3),
+					"image_versions2": map[string]any{
+						"candidates": []map[string]any{
+							{"url": "https://example.com/saved.jpg"},
+						},
+					},
+				},
+			},
+			"next_max_id":    "",
+			"more_available": false,
+			"status":         "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	mux.HandleFunc("/api/v1/feed/saved/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"media": map[string]any{
+						"id":            "saved_post_222",
+						"code":          "saved_code_2",
+						"media_type":    1,
+						"caption":       map[string]any{"text": "All saves post"},
+						"taken_at":      int64(1700001000),
+						"like_count":    int64(75),
+						"comment_count": int64(5),
+						"image_versions2": map[string]any{
+							"candidates": []map[string]any{
+								{"url": "https://example.com/allsaved.jpg"},
+							},
+						},
+					},
+				},
+			},
+			"next_max_id":    "",
+			"more_available": false,
+			"status":         "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withTagsMock registers hashtag-related mock handlers on mux.
+func withTagsMock(mux *http.ServeMux) {
+	// GET /api/v1/tags/{name}/info/
+	// GET /api/v1/tags/{name}/sections/
+	// POST /api/v1/tags/follow/{name}/
+	// POST /api/v1/tags/unfollow/{name}/
+	// GET /api/v1/tags/{name}/related/
+	mux.HandleFunc("/api/v1/tags/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/tags/")
+		path = strings.TrimSuffix(path, "/")
+		parts := strings.SplitN(path, "/", 2)
+
+		if len(parts) < 2 {
+			http.NotFound(w, r)
+			return
+		}
+
+		first := parts[0]
+		second := parts[1]
+
+		// follow/{tag_name} and unfollow/{tag_name}
+		if first == "follow" || first == "unfollow" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"result": "following", "status": "ok"})
+			return
+		}
+
+		// search/ handled by the more-specific /api/v1/tags/search/ handler.
+		// Here: {tag_name}/{action}
+		tagName := first
+		action := second
+		switch action {
+		case "info":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"tag": map[string]any{
+					"id":              "tag_111",
+					"name":            tagName,
+					"media_count":     int64(50000),
+					"following_count": int64(1200),
+					"following":       false,
+				},
+				"status": "ok",
+			})
+		case "sections":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"sections": []map[string]any{
+					{
+						"feed_type": "media",
+						"layout_content": map[string]any{
+							"medias": []map[string]any{
+								{
+									"media": map[string]any{
+										"id":            "tag_media_111",
+										"code":          "tag_code_1",
+										"media_type":    1,
+										"caption":       map[string]any{"text": "Tag post"},
+										"taken_at":      int64(1700000000),
+										"like_count":    int64(100),
+										"comment_count": int64(8),
+										"image_versions2": map[string]any{
+											"candidates": []map[string]any{
+												{"url": "https://example.com/tag.jpg"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"next_max_id":    "",
+				"more_available": false,
+				"status":         "ok",
+			})
+		case "related":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"related": []map[string]any{
+					{
+						"type": "hashtag",
+						"tag": map[string]any{
+							"id":              "related_tag_222",
+							"name":            "related" + tagName,
+							"media_count":     int64(10000),
+							"following_count": int64(500),
+							"following":       false,
+						},
+					},
+				},
+				"status": "ok",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	// GET /api/v1/users/self/following_tag_list/
+	mux.HandleFunc("/api/v1/users/self/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/users/self/")
+		path = strings.TrimSuffix(path, "/")
+		if path == "following_tag_list" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"tags": []map[string]any{
+					{
+						"id":              "followed_tag_111",
+						"name":            "photography",
+						"media_count":     int64(200000),
+						"following_count": int64(50000),
+						"following":       true,
+					},
+				},
+				"status": "ok",
+			})
+			return
+		}
+		http.NotFound(w, r)
+	})
+}
+
+// withLocationsMock registers location-related mock handlers on mux.
+func withLocationsMock(mux *http.ServeMux) {
+	// GET /api/v1/locations/{id}/info/
+	// GET /api/v1/locations/{id}/sections/
+	// GET /api/v1/locations/{id}/story/
+	mux.HandleFunc("/api/v1/locations/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/locations/")
+		path = strings.TrimSuffix(path, "/")
+		parts := strings.SplitN(path, "/", 2)
+
+		if len(parts) < 2 {
+			http.NotFound(w, r)
+			return
+		}
+
+		locationID := parts[0]
+		action := parts[1]
+
+		switch action {
+		case "info":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"location": map[string]any{
+					"pk":          int64(999111),
+					"name":        "Test Location " + locationID,
+					"address":     "123 Main St",
+					"city":        "Test City",
+					"lat":         37.7749,
+					"lng":         -122.4194,
+					"media_count": int64(500),
+				},
+				"status": "ok",
+			})
+		case "sections":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"sections": []map[string]any{
+					{
+						"feed_type": "media",
+						"layout_content": map[string]any{
+							"medias": []map[string]any{
+								{
+									"media": map[string]any{
+										"id":            "loc_media_111",
+										"code":          "loc_code_1",
+										"media_type":    1,
+										"caption":       map[string]any{"text": "Location post"},
+										"taken_at":      int64(1700000000),
+										"like_count":    int64(200),
+										"comment_count": int64(15),
+										"image_versions2": map[string]any{
+											"candidates": []map[string]any{
+												{"url": "https://example.com/loc.jpg"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				"next_max_id":    "",
+				"more_available": false,
+				"status":         "ok",
+			})
+		case "story":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"story":  map[string]any{"id": "loc_story_111"},
+				"status": "ok",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// withActivityMock registers activity/notifications mock handlers on mux.
+func withActivityMock(mux *http.ServeMux) {
+	// GET /api/v1/news/inbox/
+	// POST /api/v1/news/inbox_seen/
+	mux.HandleFunc("/api/v1/news/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/news/")
+		path = strings.TrimSuffix(path, "/")
+
+		switch path {
+		case "inbox":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"new_stories": []map[string]any{
+					{
+						"pk":   "notif_111",
+						"type": 1,
+						"args": map[string]any{
+							"timestamp":    int64(1700000000),
+							"text":         "liked your photo",
+							"profile_id":   "notif_user_111",
+							"profile_name": "notif_user",
+						},
+					},
+				},
+				"old_stories": []map[string]any{},
+				"status":      "ok",
+			})
+		case "inbox_seen":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// withLiveMock registers live broadcast mock handlers on mux.
+func withLiveMock(mux *http.ServeMux) {
+	// GET /api/v1/live/reels_tray_broadcasts/
+	// GET /api/v1/live/{id}/info/
+	// GET /api/v1/live/{id}/get_comment/
+	// POST /api/v1/live/{id}/heartbeat_and_get_viewer_count/
+	// POST /api/v1/live/{id}/like/
+	// POST /api/v1/live/{id}/comment/
+	mux.HandleFunc("/api/v1/live/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/live/")
+		path = strings.TrimSuffix(path, "/")
+
+		if path == "reels_tray_broadcasts" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"broadcasts": []map[string]any{
+					{
+						"id":               "broadcast_111",
+						"broadcast_status": "active",
+						"cover_frame_url":  "https://example.com/live.jpg",
+						"viewer_count":     int64(500),
+						"published_time":   int64(1700000000),
+					},
+				},
+				"status": "ok",
+			})
+			return
+		}
+
+		parts := strings.SplitN(path, "/", 2)
+		if len(parts) < 2 {
+			http.NotFound(w, r)
+			return
+		}
+		broadcastID := parts[0]
+		action := parts[1]
+		_ = broadcastID
+
+		switch action {
+		case "info":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"broadcast": map[string]any{
+					"id":               broadcastID,
+					"broadcast_status": "active",
+					"cover_frame_url":  "https://example.com/live.jpg",
+					"viewer_count":     int64(500),
+					"published_time":   int64(1700000000),
+				},
+				"status": "ok",
+			})
+		case "get_comment":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"comments": []map[string]any{
+					{
+						"pk":         "live_comment_111",
+						"text":       "Hello!",
+						"created_at": 1700000001.0,
+						"user": map[string]any{
+							"pk":       "live_commenter_111",
+							"username": "live_commenter",
+						},
+					},
+				},
+				"status": "ok",
+			})
+		case "heartbeat_and_get_viewer_count":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"viewer_count": int64(505), "status": "ok"})
+		case "like":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"like_ts": int64(1700000002), "status": "ok"})
+		case "comment":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"comment": map[string]any{
+					"pk":         "live_new_comment",
+					"text":       "New comment",
+					"created_at": 1700000003.0,
+					"user": map[string]any{
+						"pk":       "42544748138",
+						"username": "testuser",
+					},
+				},
+				"status": "ok",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// withHighlightsMock registers story highlights mock handlers on mux.
+func withHighlightsMock(mux *http.ServeMux) {
+	// GET /api/v1/highlights/{user_id}/highlights_tray/
+	// POST /api/v1/highlights/create_reel/
+	// POST /api/v1/highlights/{id}/edit_reel/
+	// POST /api/v1/highlights/{id}/delete_reel/
+	mux.HandleFunc("/api/v1/highlights/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/highlights/")
+		path = strings.TrimSuffix(path, "/")
+		parts := strings.SplitN(path, "/", 2)
+
+		if len(parts) == 1 && parts[0] == "create_reel" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"reel": map[string]any{
+					"id":          "highlight_new",
+					"title":       "New Highlight",
+					"media_count": 2,
+					"created_at":  int64(1700000000),
+				},
+				"status": "ok",
+			})
+			return
+		}
+
+		if len(parts) < 2 {
+			http.NotFound(w, r)
+			return
+		}
+
+		id := parts[0]
+		action := parts[1]
+
+		switch action {
+		case "highlights_tray":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"tray": []map[string]any{
+					{
+						"id":          "highlight:hl_111",
+						"title":       "Travel",
+						"media_count": 5,
+						"created_at":  int64(1700000000),
+					},
+				},
+				"status": "ok",
+			})
+		case "edit_reel":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"reel": map[string]any{
+					"id":          id,
+					"title":       "Edited",
+					"media_count": 3,
+					"created_at":  int64(1700000000),
+				},
+				"status": "ok",
+			})
+		case "delete_reel":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+
+	// GET /api/v1/feed/reels_media/
+	mux.HandleFunc("/api/v1/feed/reels_media/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"reels":  map[string]any{"highlight:hl_111": map[string]any{"id": "highlight:hl_111", "items": []map[string]any{}}},
+			"status": "ok",
+		})
+	})
+}
+
+// withCloseFriendsMock registers close friends mock handlers on mux.
+// Note: /api/v1/friendships/ is already registered; besties is handled by extending it.
+// We use a more specific path registration.
+func withCloseFriendsMock(mux *http.ServeMux) {
+	// GET /api/v1/friendships/besties/
+	// POST /api/v1/friendships/set_besties/
+	// These are already under /api/v1/friendships/ — we extend withRelationshipsMock
+	// to handle these paths. Since we cannot re-register, we handle them in
+	// a separate specific handler registered before the generic one.
+	// Registration order matters: more-specific paths are matched first by http.ServeMux.
+	mux.HandleFunc("/api/v1/friendships/besties/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"users": []map[string]any{
+				{
+					"pk":              "bestie_user_111",
+					"username":        "bestie_user",
+					"full_name":       "Bestie User",
+					"profile_pic_url": "https://example.com/bestie.jpg",
+					"is_private":      false,
+					"is_verified":     false,
+				},
+			},
+			"next_max_id": "",
+			"big_list":    false,
+			"status":      "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	mux.HandleFunc("/api/v1/friendships/set_besties/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+}
+
+// withSettingsMock registers account settings mock handlers on mux.
+func withSettingsMock(mux *http.ServeMux) {
+	// GET /api/v1/accounts/current_user/
+	// GET /api/v1/accounts/privacy_settings/
+	// POST /api/v1/accounts/set_private/
+	// POST /api/v1/accounts/set_public/
+	// GET /api/v1/accounts/two_factor_info/
+	mux.HandleFunc("/api/v1/accounts/current_user/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"user": map[string]any{
+				"pk":              "42544748138",
+				"username":        "testuser",
+				"full_name":       "Test User",
+				"is_private":      false,
+				"is_verified":     false,
+				"email":           "test@example.com",
+				"phone_number":    "+15551234567",
+				"biography":       "My bio",
+				"external_url":    "https://example.com",
+				"profile_pic_url": "https://example.com/pic.jpg",
+			},
+			"status": "ok",
+		})
+	})
+
+	mux.HandleFunc("/api/v1/accounts/privacy_settings/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"settings": map[string]any{
+				"account_privacy": "public",
+				"show_activity":   true,
+			},
+			"status": "ok",
+		})
+	})
+
+	mux.HandleFunc("/api/v1/accounts/set_private/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+
+	mux.HandleFunc("/api/v1/accounts/set_public/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	})
+
+	mux.HandleFunc("/api/v1/accounts/two_factor_info/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"two_factor_info": map[string]any{
+				"totp_two_factor_on":  true,
+				"sms_two_factor_on":   false,
+			},
+			"status": "ok",
+		})
+	})
+
+	// GET /api/v1/session/login_activity/
+	mux.HandleFunc("/api/v1/session/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"login_activity": []map[string]any{
+				{
+					"device_name":  "iPhone 14",
+					"location":     "San Francisco, CA",
+					"login_time":   int64(1700000000),
+				},
+			},
+			"status": "ok",
+		})
+	})
+}
+
 // newFullMockServer creates an httptest server with all Instagram mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -735,7 +1459,17 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withReelsMock(mux)
 	withDirectMock(mux)
 	withLikesMock(mux)
+	// Register close friends before relationships so specific paths match first.
+	withCloseFriendsMock(mux)
 	withRelationshipsMock(mux)
+	withSearchMock(mux)
+	withCollectionsMock(mux)
+	withTagsMock(mux)
+	withLocationsMock(mux)
+	withActivityMock(mux)
+	withLiveMock(mux)
+	withHighlightsMock(mux)
+	withSettingsMock(mux)
 	return httptest.NewServer(mux)
 }
 
@@ -821,6 +1555,51 @@ func buildTestLikesCmd(factory ClientFactory) *cobra.Command {
 // buildTestRelationshipsCmd creates a `relationships` subcommand tree for use in tests.
 func buildTestRelationshipsCmd(factory ClientFactory) *cobra.Command {
 	return newRelationshipsCmd(factory)
+}
+
+// buildTestSearchCmd creates a `search` subcommand tree for use in tests.
+func buildTestSearchCmd(factory ClientFactory) *cobra.Command {
+	return newSearchCmd(factory)
+}
+
+// buildTestCollectionsCmd creates a `collections` subcommand tree for use in tests.
+func buildTestCollectionsCmd(factory ClientFactory) *cobra.Command {
+	return newCollectionsCmd(factory)
+}
+
+// buildTestTagsCmd creates a `tags` subcommand tree for use in tests.
+func buildTestTagsCmd(factory ClientFactory) *cobra.Command {
+	return newTagsCmd(factory)
+}
+
+// buildTestLocationsCmd creates a `locations` subcommand tree for use in tests.
+func buildTestLocationsCmd(factory ClientFactory) *cobra.Command {
+	return newLocationsCmd(factory)
+}
+
+// buildTestActivityCmd creates an `activity` subcommand tree for use in tests.
+func buildTestActivityCmd(factory ClientFactory) *cobra.Command {
+	return newActivityCmd(factory)
+}
+
+// buildTestLiveCmd creates a `live` subcommand tree for use in tests.
+func buildTestLiveCmd(factory ClientFactory) *cobra.Command {
+	return newLiveCmd(factory)
+}
+
+// buildTestHighlightsCmd creates a `highlights` subcommand tree for use in tests.
+func buildTestHighlightsCmd(factory ClientFactory) *cobra.Command {
+	return newHighlightsCmd(factory)
+}
+
+// buildTestCloseFriendsCmd creates a `closefriends` subcommand tree for use in tests.
+func buildTestCloseFriendsCmd(factory ClientFactory) *cobra.Command {
+	return newCloseFriendsCmd(factory)
+}
+
+// buildTestSettingsCmd creates a `settings` subcommand tree for use in tests.
+func buildTestSettingsCmd(factory ClientFactory) *cobra.Command {
+	return newSettingsCmd(factory)
 }
 
 // runCmd is a test helper that executes a cobra command tree with args and returns stdout.

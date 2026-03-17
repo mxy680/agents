@@ -48,6 +48,15 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	igCmd.AddCommand(newCommentsCmd(p.ClientFactory))
 	igCmd.AddCommand(newLikesCmd(p.ClientFactory))
 	igCmd.AddCommand(newRelationshipsCmd(p.ClientFactory))
+	igCmd.AddCommand(newSearchCmd(p.ClientFactory))
+	igCmd.AddCommand(newCollectionsCmd(p.ClientFactory))
+	igCmd.AddCommand(newTagsCmd(p.ClientFactory))
+	igCmd.AddCommand(newLocationsCmd(p.ClientFactory))
+	igCmd.AddCommand(newActivityCmd(p.ClientFactory))
+	igCmd.AddCommand(newLiveCmd(p.ClientFactory))
+	igCmd.AddCommand(newHighlightsCmd(p.ClientFactory))
+	igCmd.AddCommand(newCloseFriendsCmd(p.ClientFactory))
+	igCmd.AddCommand(newSettingsCmd(p.ClientFactory))
 
 	parent.AddCommand(igCmd)
 }
