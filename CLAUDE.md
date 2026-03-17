@@ -288,10 +288,8 @@ integrations instagram closefriends remove --user-id=ID [--dry-run] [--json]
 
 # Settings
 integrations instagram settings get [--json]
-integrations instagram settings privacy [--json]
 integrations instagram settings set-private [--dry-run] [--json]
 integrations instagram settings set-public [--dry-run] [--json]
-integrations instagram settings two-factor-status [--json]
 integrations instagram settings login-activity [--json]
 ```
 
@@ -319,7 +317,7 @@ internal/providers/instagram/
   live.go               # live list, get, comments, heartbeat, like, post-comment
   highlights.go         # highlights list, get, create, edit, delete
   closefriends.go       # closefriends list, add, remove
-  settings.go           # settings get, privacy, set-private, set-public, two-factor-status, login-activity
+  settings.go           # settings get, set-private, set-public, login-activity
   *_test.go             # Tests for each command file + helpers + provider
   mock_server_test.go   # httptest mock server helpers for all endpoints
 ```

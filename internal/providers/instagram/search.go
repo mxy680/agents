@@ -1,6 +1,7 @@
 package instagram
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -47,13 +48,31 @@ type rawLocation struct {
 	MediaCount int64   `json:"media_count"`
 }
 
+// topSearchUser is a user in topsearch results where pk may be a number.
+type topSearchUser struct {
+	PK            json.Number `json:"pk"`
+	ID            string      `json:"id"`
+	Username      string      `json:"username"`
+	FullName      string      `json:"full_name"`
+	ProfilePicURL string      `json:"profile_pic_url"`
+	IsPrivate     bool        `json:"is_private"`
+	IsVerified    bool        `json:"is_verified"`
+}
+
+// topSearchTag is a hashtag in topsearch results where id may be a number.
+type topSearchTag struct {
+	ID         json.Number `json:"id"`
+	Name       string      `json:"name"`
+	MediaCount int64       `json:"media_count"`
+}
+
 // topSearchResult represents an entry in the topsearch flat result.
 type topSearchResult struct {
-	Position int       `json:"position"`
-	Type     string    `json:"type"`
-	User     *rawUser  `json:"user,omitempty"`
-	Hashtag  *rawTag   `json:"hashtag,omitempty"`
-	Place    *rawPlace `json:"place,omitempty"`
+	Position int             `json:"position"`
+	Type     string          `json:"type"`
+	User     *topSearchUser  `json:"user,omitempty"`
+	Hashtag  *topSearchTag   `json:"hashtag,omitempty"`
+	Place    *rawPlace       `json:"place,omitempty"`
 }
 
 // rawPlace is a place in topsearch results.
@@ -63,8 +82,9 @@ type rawPlace struct {
 }
 
 // topSearchResponse is the response for GET /api/v1/fbsearch/topsearch_flat/.
+// The real API uses the key "list", not "ranked_list".
 type topSearchResponse struct {
-	RankedList []topSearchResult `json:"ranked_list"`
+	RankedList []topSearchResult `json:"list"`
 	Status     string            `json:"status"`
 }
 
@@ -360,21 +380,25 @@ func makeRunSearchTop(factory ClientFactory) func(*cobra.Command, []string) erro
 		lines = append(lines, fmt.Sprintf("%-5s  %-10s  %-30s", "POS", "TYPE", "RESULT"))
 		for _, item := range items {
 			name := ""
-			switch item.Type {
-			case "user":
-				if item.User != nil {
-					name = item.User.Username
+			itemType := item.Type
+			// Infer type from sub-object when type field is empty (real API omits it).
+			if item.User != nil {
+				if itemType == "" {
+					itemType = "user"
 				}
-			case "hashtag":
-				if item.Hashtag != nil {
-					name = "#" + item.Hashtag.Name
+				name = item.User.Username
+			} else if item.Hashtag != nil {
+				if itemType == "" {
+					itemType = "hashtag"
 				}
-			case "place":
-				if item.Place != nil {
-					name = item.Place.Title
+				name = "#" + item.Hashtag.Name
+			} else if item.Place != nil {
+				if itemType == "" {
+					itemType = "place"
 				}
+				name = item.Place.Title
 			}
-			lines = append(lines, fmt.Sprintf("%-5d  %-10s  %-30s", item.Position, item.Type, truncate(name, 30)))
+			lines = append(lines, fmt.Sprintf("%-5d  %-10s  %-30s", item.Position, itemType, truncate(name, 30)))
 		}
 		cli.PrintText(lines)
 		return nil

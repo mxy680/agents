@@ -791,13 +791,14 @@ func withSearchMock(mux *http.ServeMux) {
 		path = strings.TrimSuffix(path, "/")
 		switch path {
 		case "topsearch_flat":
+			// Real API uses the key "list", not "ranked_list".
 			resp := map[string]any{
-				"ranked_list": []map[string]any{
+				"list": []map[string]any{
 					{
 						"position": 1,
 						"type":     "user",
 						"user": map[string]any{
-							"pk":       "top_user_111",
+							"pk":       12190648480,
 							"username": "top_result",
 						},
 					},
@@ -968,16 +969,15 @@ func withTagsMock(mux *http.ServeMux) {
 		action := second
 		switch action {
 		case "info":
+			// Real API returns tag fields at the top level (flat), not wrapped in a "tag" key.
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{
-				"tag": map[string]any{
-					"id":              "tag_111",
-					"name":            tagName,
-					"media_count":     int64(50000),
-					"following_count": int64(1200),
-					"following":       false,
-				},
-				"status": "ok",
+				"id":              "tag_111",
+				"name":            tagName,
+				"media_count":     int64(50000),
+				"following_count": int64(1200),
+				"following":       false,
+				"status":          "ok",
 			})
 		case "sections":
 			w.Header().Set("Content-Type", "application/json")
@@ -1378,10 +1378,8 @@ func withCloseFriendsMock(mux *http.ServeMux) {
 // withSettingsMock registers account settings mock handlers on mux.
 func withSettingsMock(mux *http.ServeMux) {
 	// GET /api/v1/accounts/current_user/
-	// GET /api/v1/accounts/privacy_settings/
 	// POST /api/v1/accounts/set_private/
 	// POST /api/v1/accounts/set_public/
-	// GET /api/v1/accounts/two_factor_info/
 	mux.HandleFunc("/api/v1/accounts/current_user/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
@@ -1401,17 +1399,6 @@ func withSettingsMock(mux *http.ServeMux) {
 		})
 	})
 
-	mux.HandleFunc("/api/v1/accounts/privacy_settings/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"settings": map[string]any{
-				"account_privacy": "public",
-				"show_activity":   true,
-			},
-			"status": "ok",
-		})
-	})
-
 	mux.HandleFunc("/api/v1/accounts/set_private/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
@@ -1420,17 +1407,6 @@ func withSettingsMock(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/accounts/set_public/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-	})
-
-	mux.HandleFunc("/api/v1/accounts/two_factor_info/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"two_factor_info": map[string]any{
-				"totp_two_factor_on":  true,
-				"sms_two_factor_on":   false,
-			},
-			"status": "ok",
-		})
 	})
 
 	// GET /api/v1/session/login_activity/

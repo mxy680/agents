@@ -27,21 +27,9 @@ type rawUserSettings struct {
 	ProfilePicURL     string `json:"profile_pic_url"`
 }
 
-// privacySettingsResponse is the response for GET /api/v1/accounts/privacy_settings/.
-type privacySettingsResponse struct {
-	Settings map[string]any `json:"settings"`
-	Status   string         `json:"status"`
-}
-
 // accountActionResponse is a generic response for set-private/set-public.
 type accountActionResponse struct {
 	Status string `json:"status"`
-}
-
-// twoFactorInfoResponse is the response for GET /api/v1/accounts/two_factor_info/.
-type twoFactorInfoResponse struct {
-	TwoFactorInfo map[string]any `json:"two_factor_info"`
-	Status        string         `json:"status"`
 }
 
 // loginActivityResponse is the response for GET /api/v1/session/login_activity/.
@@ -58,10 +46,8 @@ func newSettingsCmd(factory ClientFactory) *cobra.Command {
 		Aliases: []string{"setting", "account"},
 	}
 	cmd.AddCommand(newSettingsGetCmd(factory))
-	cmd.AddCommand(newSettingsPrivacyCmd(factory))
 	cmd.AddCommand(newSettingsSetPrivateCmd(factory))
 	cmd.AddCommand(newSettingsSetPublicCmd(factory))
-	cmd.AddCommand(newSettingsTwoFactorStatusCmd(factory))
 	cmd.AddCommand(newSettingsLoginActivityCmd(factory))
 	return cmd
 }
@@ -108,45 +94,6 @@ func makeRunSettingsGet(factory ClientFactory) func(*cobra.Command, []string) er
 			fmt.Sprintf("Website:     %s", result.User.ExternalURL),
 		}
 		cli.PrintText(lines)
-		return nil
-	}
-}
-
-func newSettingsPrivacyCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "privacy",
-		Short: "Get privacy settings",
-		RunE:  makeRunSettingsPrivacy(factory),
-	}
-	return cmd
-}
-
-func makeRunSettingsPrivacy(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobileGet(ctx, "/api/v1/accounts/privacy_settings/", nil)
-		if err != nil {
-			return fmt.Errorf("getting privacy settings: %w", err)
-		}
-
-		var result privacySettingsResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding privacy settings: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-
-		fmt.Println("Privacy settings:")
-		for k, v := range result.Settings {
-			fmt.Printf("  %s: %v\n", k, v)
-		}
 		return nil
 	}
 }
@@ -227,45 +174,6 @@ func makeRunSettingsSetPublic(factory ClientFactory) func(*cobra.Command, []stri
 			return cli.PrintJSON(result)
 		}
 		fmt.Println("Account set to public.")
-		return nil
-	}
-}
-
-func newSettingsTwoFactorStatusCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "two-factor-status",
-		Short: "Get two-factor authentication status",
-		RunE:  makeRunSettingsTwoFactorStatus(factory),
-	}
-	return cmd
-}
-
-func makeRunSettingsTwoFactorStatus(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobileGet(ctx, "/api/v1/accounts/two_factor_info/", nil)
-		if err != nil {
-			return fmt.Errorf("getting 2FA status: %w", err)
-		}
-
-		var result twoFactorInfoResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding 2FA info: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-
-		fmt.Println("Two-factor authentication info:")
-		for k, v := range result.TwoFactorInfo {
-			fmt.Printf("  %s: %v\n", k, v)
-		}
 		return nil
 	}
 }

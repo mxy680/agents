@@ -9,19 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// tagInfoResponse is the response for GET /api/v1/tags/{tag_name}/info/.
-type tagInfoResponse struct {
-	Tag    rawTagDetail `json:"tag"`
-	Status string       `json:"status"`
-}
-
 // rawTagDetail is the full tag object from the info endpoint.
+// The real API returns tag fields at the top level (flat), not wrapped in a "tag" key.
 type rawTagDetail struct {
 	ID             string `json:"id"`
 	Name           string `json:"name"`
 	MediaCount     int64  `json:"media_count"`
 	FollowingCount int64  `json:"following_count"`
 	IsFollowing    bool   `json:"following"`
+	Status         string `json:"status"`
 }
 
 // tagSectionsResponse is the response for GET /api/v1/tags/{tag_name}/sections/.
@@ -105,17 +101,17 @@ func makeRunTagsGet(factory ClientFactory) func(*cobra.Command, []string) error 
 			return fmt.Errorf("getting tag info for #%s: %w", name, err)
 		}
 
-		var result tagInfoResponse
+		var result rawTagDetail
 		if err := client.DecodeJSON(resp, &result); err != nil {
 			return fmt.Errorf("decoding tag info: %w", err)
 		}
 
 		tag := TagSummary{
-			ID:             result.Tag.ID,
-			Name:           result.Tag.Name,
-			MediaCount:     result.Tag.MediaCount,
-			FollowingCount: result.Tag.FollowingCount,
-			IsFollowing:    result.Tag.IsFollowing,
+			ID:             result.ID,
+			Name:           result.Name,
+			MediaCount:     result.MediaCount,
+			FollowingCount: result.FollowingCount,
+			IsFollowing:    result.IsFollowing,
 		}
 
 		if cli.IsJSONOutput(cmd) {

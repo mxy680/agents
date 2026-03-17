@@ -114,7 +114,8 @@ func makeRunCollectionsList(factory ClientFactory) func(*cobra.Command, []string
 		}
 
 		params := url.Values{}
-		params.Set("collection_types", "ALL_MEDIA_AUTO_COLLECTION,MEDIA")
+		// Include all collection types to avoid 500 errors from the real API.
+		params.Set("collection_types", `["ALL_MEDIA_AUTO_COLLECTION","MEDIA","PRODUCT_AUTO_COLLECTION"]`)
 		params.Set("count", strconv.Itoa(limit))
 		if cursor != "" {
 			params.Set("max_id", cursor)

@@ -37,36 +37,6 @@ func TestSettingsGetJSONOutput(t *testing.T) {
 	}
 }
 
-func TestSettingsPrivacyTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "privacy")
-	mustContain(t, out, "Privacy settings")
-}
-
-func TestSettingsPrivacyJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "--json", "settings", "privacy")
-	var result privacySettingsResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-	if result.Status != "ok" {
-		t.Errorf("expected status ok, got %s", result.Status)
-	}
-}
-
 func TestSettingsSetPrivateDryRun(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
@@ -149,36 +119,6 @@ func TestSettingsSetPublicJSONOutput(t *testing.T) {
 	var result accountActionResponse
 	if err := json.Unmarshal([]byte(out), &result); err != nil {
 		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-}
-
-func TestSettingsTwoFactorStatusTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "two-factor-status")
-	mustContain(t, out, "Two-factor authentication info")
-}
-
-func TestSettingsTwoFactorStatusJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "--json", "settings", "two-factor-status")
-	var result twoFactorInfoResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-	if result.Status != "ok" {
-		t.Errorf("expected status ok, got %s", result.Status)
 	}
 }
 

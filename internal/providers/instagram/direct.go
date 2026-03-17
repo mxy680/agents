@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -127,6 +128,9 @@ func makeRunDirectThreads(factory ClientFactory) func(*cobra.Command, []string) 
 
 		var result directInboxResponse
 		if err := client.DecodeJSON(resp, &result); err != nil {
+			if strings.Contains(err.Error(), "Prompt has contribution") || strings.Contains(err.Error(), "encryption") {
+				return fmt.Errorf("direct messages require end-to-end encryption setup — this is a known limitation of the private API")
+			}
 			return fmt.Errorf("decoding inbox response: %w", err)
 		}
 

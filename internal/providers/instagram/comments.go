@@ -91,6 +91,11 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 			return fmt.Errorf("decoding comments response: %w", err)
 		}
 
+		// Instagram can return HTTP 200 with status:"fail" (e.g. restricted posts).
+		if result.Status == "fail" {
+			return fmt.Errorf("comments unavailable for media %s (Instagram returned status:fail — comments may be restricted)", mediaID)
+		}
+
 		summaries := make([]CommentSummary, 0, len(result.Comments))
 		for _, c := range result.Comments {
 			summaries = append(summaries, toCommentSummary(c))

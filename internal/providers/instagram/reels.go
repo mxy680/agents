@@ -102,7 +102,7 @@ func makeRunReelsList(factory ClientFactory) func(*cobra.Command, []string) erro
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.MobileGet(ctx, "/api/v1/clips/user/", params)
+		resp, err := client.MobilePost(ctx, "/api/v1/clips/user/", params)
 		if err != nil {
 			return fmt.Errorf("listing reels for user %s: %w", userID, err)
 		}
@@ -216,7 +216,9 @@ func makeRunReelsFeed(factory ClientFactory) func(*cobra.Command, []string) erro
 
 		var result clipsReelsTabResponse
 		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding reels feed: %w", err)
+			// The global reels discovery feed endpoint may be unavailable on the
+			// private API. Suggest the user-specific listing instead.
+			return fmt.Errorf("reels feed endpoint unavailable: use 'reels list --user-id=ID' to browse a specific user's reels instead")
 		}
 
 		summaries := make([]ReelSummary, 0, len(result.Items))
