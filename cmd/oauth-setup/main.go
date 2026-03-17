@@ -1,6 +1,6 @@
 // oauth-setup opens a browser for Google OAuth consent flow and prints
 // the resulting access and refresh tokens. Use these to populate
-// GMAIL_ACCESS_TOKEN and GMAIL_REFRESH_TOKEN in Doppler.
+// GOOGLE_ACCESS_TOKEN and GOOGLE_REFRESH_TOKEN in Doppler.
 package main
 
 import (
@@ -16,7 +16,9 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
+	"google.golang.org/api/sheets/v4"
 )
 
 func main() {
@@ -37,6 +39,8 @@ func main() {
 			gmail.MailGoogleComScope,
 			gmail.GmailSettingsBasicScope,
 			gmail.GmailSettingsSharingScope,
+			sheets.SpreadsheetsScope,
+			drive.DriveFileScope,
 		},
 	}
 
@@ -81,7 +85,7 @@ func main() {
 	case tok := <-tokenCh:
 		server.Shutdown(context.Background())
 		fmt.Fprintf(os.Stderr, "\nTokens received. Add to Doppler:\n\n")
-		fmt.Fprintf(os.Stderr, "  doppler secrets set GMAIL_ACCESS_TOKEN='%s' GMAIL_REFRESH_TOKEN='%s'\n\n", tok.AccessToken, tok.RefreshToken)
+		fmt.Fprintf(os.Stderr, "  doppler secrets set GOOGLE_ACCESS_TOKEN='%s' GOOGLE_REFRESH_TOKEN='%s'\n\n", tok.AccessToken, tok.RefreshToken)
 
 		// Also output as JSON for scripting
 		out := map[string]string{
