@@ -41,5 +41,9 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	profileCmd.AddCommand(newProfileEditFormCmd(p.ClientFactory))
 	igCmd.AddCommand(profileCmd)
 
+	igCmd.AddCommand(newMediaCmd(p.ClientFactory))
+	igCmd.AddCommand(newStoriesCmd(p.ClientFactory))
+	igCmd.AddCommand(newReelsCmd(p.ClientFactory))
+
 	parent.AddCommand(igCmd)
 }

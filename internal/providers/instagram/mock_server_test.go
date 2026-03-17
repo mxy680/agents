@@ -106,11 +106,272 @@ func withProfileMock(mux *http.ServeMux) {
 	})
 }
 
+// withMediaMock registers all media-related mock handlers on mux.
+func withMediaMock(mux *http.ServeMux) {
+	// GET /api/v1/feed/user/{user_id}/
+	mux.HandleFunc("/api/v1/feed/user/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/feed/user/")
+		// Route story requests: /api/v1/feed/user/{id}/story/
+		if strings.HasSuffix(path, "/story/") {
+			withStoriesListHandler(w, r, path)
+			return
+		}
+		// Route media feed: /api/v1/feed/user/{id}/
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"id":            "111222333",
+					"code":          "abc123",
+					"media_type":    1,
+					"caption":       map[string]any{"text": "Test caption"},
+					"taken_at":      int64(1700000000),
+					"like_count":    int64(42),
+					"comment_count": int64(7),
+					"image_versions2": map[string]any{
+						"candidates": []map[string]any{
+							{"url": "https://example.com/img.jpg"},
+						},
+					},
+				},
+			},
+			"next_max_id":    "cursor_abc",
+			"more_available": true,
+			"status":         "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /api/v1/media/{id}/info/  — shared by media get, story get, reel get
+	mux.HandleFunc("/api/v1/media/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/api/v1/media/")
+		parts := strings.SplitN(path, "/", 2)
+		if len(parts) < 2 {
+			http.NotFound(w, r)
+			return
+		}
+		mediaID := parts[0]
+		action := strings.TrimSuffix(parts[1], "/")
+
+		switch {
+		case action == "info":
+			resp := map[string]any{
+				"items": []map[string]any{
+					{
+						"id":            mediaID,
+						"code":          "abc123",
+						"media_type":    1,
+						"caption":       map[string]any{"text": "Single post"},
+						"taken_at":      int64(1700000000),
+						"like_count":    int64(100),
+						"comment_count": int64(10),
+						"play_count":    int64(500),
+						"image_versions2": map[string]any{
+							"candidates": []map[string]any{
+								{"url": "https://example.com/img.jpg"},
+							},
+						},
+					},
+				},
+				"status": "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+
+		case action == "delete" || strings.HasPrefix(action, "delete?"):
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"did_delete": true, "status": "ok"})
+
+		case action == "only_me":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		case action == "undo_only_me":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		case action == "likers":
+			resp := map[string]any{
+				"users": []map[string]any{
+					{
+						"pk":              "555666777",
+						"username":        "liker_user",
+						"full_name":       "Liker User",
+						"profile_pic_url": "https://example.com/liker.jpg",
+						"is_private":      false,
+						"is_verified":     false,
+					},
+				},
+				"status": "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+
+		case action == "save":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		case action == "unsave":
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+
+		case action == "list_reel_media_viewer":
+			resp := map[string]any{
+				"users": []map[string]any{
+					{
+						"pk":              "888999000",
+						"username":        "viewer_user",
+						"full_name":       "Viewer User",
+						"profile_pic_url": "https://example.com/viewer.jpg",
+						"is_private":      false,
+						"is_verified":     true,
+					},
+				},
+				"user_count": int64(1),
+				"next_max_id": "",
+				"status":      "ok",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(resp)
+
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// withStoriesListHandler handles GET /api/v1/feed/user/{id}/story/ requests.
+func withStoriesListHandler(w http.ResponseWriter, _ *http.Request, path string) {
+	userID := strings.TrimSuffix(path, "/story/")
+	_ = userID
+	resp := map[string]any{
+		"reel": map[string]any{
+			"items": []map[string]any{
+				{
+					"id":          "story_111",
+					"media_type":  1,
+					"taken_at":    int64(1700000000),
+					"expiring_at": int64(1700086400),
+					"image_versions2": map[string]any{
+						"candidates": []map[string]any{
+							{"url": "https://example.com/story.jpg"},
+						},
+					},
+				},
+			},
+			"status": "ok",
+		},
+		"status": "ok",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// withStoriesMock registers stories-only mock handlers on mux (reels_tray).
+func withStoriesMock(mux *http.ServeMux) {
+	// GET /api/v1/feed/reels_tray/
+	mux.HandleFunc("/api/v1/feed/reels_tray/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"tray": []map[string]any{
+				{
+					"id": "tray_entry_1",
+					"user": map[string]any{
+						"pk":              "777888999",
+						"username":        "followed_user",
+						"full_name":       "Followed User",
+						"profile_pic_url": "https://example.com/followed.jpg",
+						"is_private":      false,
+						"is_verified":     false,
+					},
+					"items": []map[string]any{
+						{"id": "story_aaa"},
+						{"id": "story_bbb"},
+					},
+					"seen": int64(0),
+				},
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// withReelsMock registers reels-only mock handlers on mux.
+func withReelsMock(mux *http.ServeMux) {
+	// GET /api/v1/clips/user/
+	mux.HandleFunc("/api/v1/clips/user/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"media": map[string]any{
+						"id":            "reel_111",
+						"code":          "reel_code_1",
+						"media_type":    2,
+						"caption":       map[string]any{"text": "My reel caption"},
+						"taken_at":      int64(1700000000),
+						"like_count":    int64(200),
+						"comment_count": int64(15),
+						"play_count":    int64(1000),
+						"image_versions2": map[string]any{
+							"candidates": []map[string]any{
+								{"url": "https://example.com/reel_thumb.jpg"},
+							},
+						},
+					},
+				},
+			},
+			"paging_info": map[string]any{
+				"max_id":         "reel_cursor_1",
+				"more_available": true,
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// POST /api/v1/clips/reels_tab_feed_items/
+	mux.HandleFunc("/api/v1/clips/reels_tab_feed_items/", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"items": []map[string]any{
+				{
+					"media": map[string]any{
+						"id":            "feed_reel_222",
+						"code":          "feed_reel_code_1",
+						"media_type":    2,
+						"caption":       map[string]any{"text": "Feed reel caption"},
+						"taken_at":      int64(1700010000),
+						"like_count":    int64(500),
+						"comment_count": int64(30),
+						"play_count":    int64(5000),
+						"image_versions2": map[string]any{
+							"candidates": []map[string]any{
+								{"url": "https://example.com/feed_reel.jpg"},
+							},
+						},
+					},
+				},
+			},
+			"paging_info": map[string]any{
+				"max_id":         "",
+				"more_available": false,
+			},
+			"status": "ok",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
 // newFullMockServer creates an httptest server with all Instagram mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	withProfileMock(mux)
+	withMediaMock(mux)
+	withStoriesMock(mux)
+	withReelsMock(mux)
 	return httptest.NewServer(mux)
 }
 
@@ -161,6 +422,21 @@ func buildTestProfileCmd(factory ClientFactory) *cobra.Command {
 	profileCmd.AddCommand(newProfileGetCmd(factory))
 	profileCmd.AddCommand(newProfileEditFormCmd(factory))
 	return profileCmd
+}
+
+// buildTestMediaCmd creates a `media` subcommand tree for use in tests.
+func buildTestMediaCmd(factory ClientFactory) *cobra.Command {
+	return newMediaCmd(factory)
+}
+
+// buildTestStoriesCmd creates a `stories` subcommand tree for use in tests.
+func buildTestStoriesCmd(factory ClientFactory) *cobra.Command {
+	return newStoriesCmd(factory)
+}
+
+// buildTestReelsCmd creates a `reels` subcommand tree for use in tests.
+func buildTestReelsCmd(factory ClientFactory) *cobra.Command {
+	return newReelsCmd(factory)
 }
 
 // runCmd is a test helper that executes a cobra command tree with args and returns stdout.
