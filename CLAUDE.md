@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, and Google Drive.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, and Instagram.
 
 ## Quick Start
 ```bash
@@ -259,6 +259,160 @@ internal/providers/drive/
   drive_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
 ```
 
+## Commands — Instagram
+```
+# Profile
+integrations instagram profile get [--username=USERNAME | --user-id=ID] [--json]
+integrations instagram profile edit-form [--json]
+
+# Media/Posts
+integrations instagram media list [--user-id=ID] [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram media get --media-id=ID [--json]
+integrations instagram media delete --media-id=ID [--confirm] [--dry-run] [--json]
+integrations instagram media archive --media-id=ID [--dry-run] [--json]
+integrations instagram media unarchive --media-id=ID [--dry-run] [--json]
+integrations instagram media likers --media-id=ID [--limit=N] [--json]
+integrations instagram media save --media-id=ID [--collection-id=ID] [--dry-run] [--json]
+integrations instagram media unsave --media-id=ID [--dry-run] [--json]
+
+# Stories
+integrations instagram stories list [--user-id=ID] [--json]
+integrations instagram stories get --story-id=ID [--json]
+integrations instagram stories viewers --story-id=ID [--limit=N] [--json]
+integrations instagram stories feed [--limit=N] [--json]
+integrations instagram stories delete --story-id=ID [--confirm] [--dry-run] [--json]
+
+# Reels
+integrations instagram reels list [--user-id=ID] [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram reels get --reel-id=ID [--json]
+integrations instagram reels feed [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram reels delete --reel-id=ID [--confirm] [--dry-run] [--json]
+
+# Comments
+integrations instagram comments list --media-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram comments replies --media-id=ID --comment-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram comments create --media-id=ID --text=TEXT [--reply-to=COMMENT_ID] [--dry-run] [--json]
+integrations instagram comments delete --media-id=ID --comment-id=ID [--confirm] [--dry-run] [--json]
+integrations instagram comments like --comment-id=ID [--dry-run] [--json]
+integrations instagram comments unlike --comment-id=ID [--dry-run] [--json]
+integrations instagram comments disable --media-id=ID [--dry-run] [--json]
+integrations instagram comments enable --media-id=ID [--dry-run] [--json]
+
+# Likes
+integrations instagram likes like --media-id=ID [--dry-run] [--json]
+integrations instagram likes unlike --media-id=ID [--dry-run] [--json]
+integrations instagram likes list --media-id=ID [--limit=N] [--json]
+integrations instagram likes liked [--limit=N] [--cursor=TOKEN] [--json]
+
+# Relationships
+integrations instagram relationships followers [--user-id=ID] [--limit=N] [--cursor=TOKEN] [--query=Q] [--json]
+integrations instagram relationships following [--user-id=ID] [--limit=N] [--cursor=TOKEN] [--query=Q] [--json]
+integrations instagram relationships follow --user-id=ID [--dry-run] [--json]
+integrations instagram relationships unfollow --user-id=ID [--dry-run] [--json]
+integrations instagram relationships remove-follower --user-id=ID [--dry-run] [--json]
+integrations instagram relationships block --user-id=ID [--dry-run] [--json]
+integrations instagram relationships unblock --user-id=ID [--dry-run] [--json]
+integrations instagram relationships blocked [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram relationships mute --user-id=ID [--stories] [--posts] [--dry-run] [--json]
+integrations instagram relationships unmute --user-id=ID [--stories] [--posts] [--dry-run] [--json]
+integrations instagram relationships restrict --user-id=ID [--dry-run] [--json]
+integrations instagram relationships unrestrict --user-id=ID [--dry-run] [--json]
+integrations instagram relationships status --user-id=ID [--json]
+
+# Search
+integrations instagram search users --query=Q [--limit=N] [--json]
+integrations instagram search tags --query=Q [--limit=N] [--json]
+integrations instagram search locations --query=Q [--lat=LAT] [--lng=LNG] [--limit=N] [--json]
+integrations instagram search top --query=Q [--limit=N] [--json]
+integrations instagram search clear [--dry-run] [--json]
+integrations instagram search explore [--limit=N] [--cursor=TOKEN] [--json]
+
+# Collections
+integrations instagram collections list [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram collections get --collection-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram collections create --name=NAME [--dry-run] [--json]
+integrations instagram collections edit --collection-id=ID --name=NAME [--dry-run] [--json]
+integrations instagram collections delete --collection-id=ID [--confirm] [--dry-run] [--json]
+integrations instagram collections saved [--limit=N] [--cursor=TOKEN] [--json]
+
+# Tags/Hashtags
+integrations instagram tags get --name=TAG [--json]
+integrations instagram tags feed --name=TAG [--tab=top|recent] [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram tags follow --name=TAG [--dry-run] [--json]
+integrations instagram tags unfollow --name=TAG [--dry-run] [--json]
+integrations instagram tags following [--json]
+integrations instagram tags related --name=TAG [--json]
+
+# Locations
+integrations instagram locations get --location-id=ID [--json]
+integrations instagram locations feed --location-id=ID [--tab=ranked|recent] [--limit=N] [--cursor=TOKEN] [--json]
+integrations instagram locations search --query=Q [--lat=LAT] [--lng=LNG] [--limit=N] [--json]
+integrations instagram locations stories --location-id=ID [--json]
+
+# Activity
+integrations instagram activity feed [--limit=N] [--json]
+integrations instagram activity mark-checked [--json]
+
+# Live
+integrations instagram live list [--json]
+integrations instagram live get --broadcast-id=ID [--json]
+integrations instagram live comments --broadcast-id=ID [--json]
+integrations instagram live heartbeat --broadcast-id=ID [--json]
+integrations instagram live like --broadcast-id=ID [--dry-run] [--json]
+integrations instagram live post-comment --broadcast-id=ID --text=TEXT [--dry-run] [--json]
+
+# Highlights
+integrations instagram highlights list [--user-id=ID] [--json]
+integrations instagram highlights get --highlight-id=ID [--json]
+integrations instagram highlights create --title=TITLE --story-ids=ID,ID [--dry-run] [--json]
+integrations instagram highlights edit --highlight-id=ID [--title=TITLE] [--add-stories=ID,ID] [--remove-stories=ID,ID] [--dry-run] [--json]
+integrations instagram highlights delete --highlight-id=ID [--confirm] [--dry-run] [--json]
+
+# Close Friends
+integrations instagram closefriends list [--json]
+integrations instagram closefriends add --user-id=ID [--dry-run] [--json]
+integrations instagram closefriends remove --user-id=ID [--dry-run] [--json]
+
+# Settings
+integrations instagram settings get [--json]
+integrations instagram settings set-private [--dry-run] [--json]
+integrations instagram settings set-public [--dry-run] [--json]
+integrations instagram settings login-activity [--json]
+```
+
+`instagram` has alias `ig`. `media` has aliases `post`, `posts`. `stories` has aliases `story`, `st`. `reels` has alias `reel`. `comments` has alias `comment`. `likes` has alias `like`. `relationships` has aliases `rel`, `friendship`. `search` has alias `find`. `collections` has aliases `collection`, `saved`. `tags` has aliases `tag`, `hashtag`. `locations` has aliases `location`, `loc`. `activity` has aliases `notifications`, `notif`. `live` has alias `broadcast`. `highlights` has aliases `highlight`, `hl`. `closefriends` has aliases `cf`, `besties`. `settings` has aliases `setting`, `account`.
+
+## Architecture — Instagram Package Layout
+```
+internal/providers/instagram/
+  instagram.go          # Provider struct, RegisterCommands (17 resource subcommand groups)
+  client.go             # HTTP client: web (www) + mobile (i.instagram.com), CSRF rotation, rate limit detection
+  helpers.go            # Shared types (UserSummary, UserDetail, MediaSummary, etc.) and helpers
+  profile.go            # profile get, edit-form (web API)
+  media.go              # media list, get, delete, archive, unarchive, likers, save, unsave
+  stories.go            # stories list, get, viewers, feed, delete
+  reels.go              # reels list, get, feed, delete
+  comments.go           # comments list, replies, create, delete, like, unlike, disable, enable
+  likes.go              # likes like, unlike, list, liked
+  relationships.go      # 13 relationship commands (follow, block, mute, restrict, etc.)
+  search.go             # search users, tags, locations, top, clear, explore
+  collections.go        # collections list, get, create, edit, delete, saved
+  tags.go               # tags get, feed, follow, unfollow, following, related
+  locations.go          # locations get, feed, search, stories
+  activity.go           # activity feed, mark-checked
+  live.go               # live list, get, comments, heartbeat, like, post-comment
+  highlights.go         # highlights list, get, create, edit, delete
+  closefriends.go       # closefriends list, add, remove
+  settings.go           # settings get, set-private, set-public, login-activity
+  *_test.go             # Tests for each command file + helpers + provider
+  mock_server_test.go   # httptest mock server helpers for all endpoints
+```
+
+## Testing
+- All providers use `ServiceFactory`/`ClientFactory` for dependency injection
+- Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%)
+
 ## Architecture — GitHub Package Layout
 ```
 internal/providers/github/
@@ -296,14 +450,24 @@ internal/providers/github/
 ## Testing
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, github: 85.8%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%)
 
 ## Environment Variables
 ```
+# Google (Gmail, Sheets, Calendar, Drive)
 GOOGLE_DESKTOP_CLIENT_ID, GOOGLE_DESKTOP_CLIENT_SECRET
 GOOGLE_ACCESS_TOKEN (fallback: GMAIL_ACCESS_TOKEN)
 GOOGLE_REFRESH_TOKEN (fallback: GMAIL_REFRESH_TOKEN)
 
+# Instagram (cookie-based session auth)
+INSTAGRAM_SESSION_ID       # sessionid cookie (required)
+INSTAGRAM_CSRF_TOKEN       # csrftoken cookie (required)
+INSTAGRAM_DS_USER_ID       # ds_user_id cookie (required)
+INSTAGRAM_MID              # mid cookie (optional, reduces challenges)
+INSTAGRAM_IG_DID           # ig_did cookie (optional, reduces challenges)
+INSTAGRAM_USER_AGENT       # User-Agent override (optional)
+
+# GitHub
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 GITHUB_ACCESS_TOKEN, GITHUB_REFRESH_TOKEN
 GITHUB_API_BASE_URL (optional, defaults to https://api.github.com)

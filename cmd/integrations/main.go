@@ -8,6 +8,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/drive"
 	githubprovider "github.com/emdash-projects/agents/internal/providers/github"
 	"github.com/emdash-projects/agents/internal/providers/gmail"
+	"github.com/emdash-projects/agents/internal/providers/instagram"
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 )
 
@@ -24,6 +25,9 @@ func main() {
 
 	driveProvider := drive.New()
 	driveProvider.RegisterCommands(cli.RootCmd())
+
+	instagramProvider := instagram.New()
+	instagramProvider.RegisterCommands(cli.RootCmd())
 
 	githubProvider := githubprovider.New()
 	githubProvider.RegisterCommands(cli.RootCmd())
