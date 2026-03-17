@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import {
@@ -12,15 +13,18 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  const icon =
-    theme === "dark" ? (
-      <MoonIcon className="size-4" />
-    ) : theme === "light" ? (
-      <SunIcon className="size-4" />
-    ) : (
-      <MonitorIcon className="size-4" />
-    );
+  const icon = !mounted ? (
+    <MonitorIcon className="size-4" />
+  ) : theme === "dark" ? (
+    <MoonIcon className="size-4" />
+  ) : theme === "light" ? (
+    <SunIcon className="size-4" />
+  ) : (
+    <MonitorIcon className="size-4" />
+  );
 
   return (
     <DropdownMenu>
