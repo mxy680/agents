@@ -44,7 +44,6 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	igCmd.AddCommand(newMediaCmd(p.ClientFactory))
 	igCmd.AddCommand(newStoriesCmd(p.ClientFactory))
 	igCmd.AddCommand(newReelsCmd(p.ClientFactory))
-	igCmd.AddCommand(newDirectCmd(p.ClientFactory))
 	igCmd.AddCommand(newCommentsCmd(p.ClientFactory))
 	igCmd.AddCommand(newLikesCmd(p.ClientFactory))
 	igCmd.AddCommand(newRelationshipsCmd(p.ClientFactory))

@@ -272,10 +272,10 @@ type graphQLRequest struct {
 	DocID        string         `json:"doc_id"`
 }
 
-// PostFormGraphQLToPath sends a form-encoded GraphQL query to the given path,
+// PostFormGraphQL sends a form-encoded GraphQL query to /graphql/query,
 // matching the format Instagram's web frontend uses (application/x-www-form-urlencoded).
 // This uses the WEB base URL (www.instagram.com) with web headers.
-func (c *Client) PostFormGraphQLToPath(ctx context.Context, path string, docID string, friendlyName string, variables map[string]any) (json.RawMessage, error) {
+func (c *Client) PostFormGraphQL(ctx context.Context, docID string, friendlyName string, variables map[string]any) (json.RawMessage, error) {
 	varsJSON, err := json.Marshal(variables)
 	if err != nil {
 		return nil, fmt.Errorf("marshal graphql variables: %w", err)
@@ -286,7 +286,7 @@ func (c *Client) PostFormGraphQLToPath(ctx context.Context, path string, docID s
 	body.Set("variables", string(varsJSON))
 	body.Set("fb_api_req_friendly_name", friendlyName)
 
-	resp, err := c.Post(ctx, path, body)
+	resp, err := c.Post(ctx, "/graphql/query", body)
 	if err != nil {
 		return nil, err
 	}
@@ -313,12 +313,6 @@ func (c *Client) PostFormGraphQLToPath(ctx context.Context, path string, docID s
 		return nil, fmt.Errorf("graphql error: %s", envelope.Errors[0].Message)
 	}
 	return envelope.Data, nil
-}
-
-// PostFormGraphQL sends a form-encoded GraphQL query to /graphql/query,
-// matching the format Instagram's web frontend uses.
-func (c *Client) PostFormGraphQL(ctx context.Context, docID string, friendlyName string, variables map[string]any) (json.RawMessage, error) {
-	return c.PostFormGraphQLToPath(ctx, "/graphql/query", docID, friendlyName, variables)
 }
 
 // PostGraphQL executes a GraphQL query via POST /graphql/query and returns the

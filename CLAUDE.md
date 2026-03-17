@@ -190,17 +190,6 @@ integrations instagram reels get --reel-id=ID [--json]
 integrations instagram reels feed [--limit=N] [--cursor=TOKEN] [--json]
 integrations instagram reels delete --reel-id=ID [--confirm] [--dry-run] [--json]
 
-# Direct Messages
-integrations instagram direct threads [--limit=N] [--cursor=TOKEN] [--json]
-integrations instagram direct get --thread-id=ID [--limit=N] [--cursor=TOKEN] [--json]
-integrations instagram direct send --thread-id=ID --text=TEXT [--dry-run] [--json]
-integrations instagram direct create --user-ids=ID,ID [--message=TEXT] [--dry-run] [--json]
-integrations instagram direct delete-message --thread-id=ID --item-id=ID [--confirm] [--dry-run] [--json]
-integrations instagram direct mark-seen --thread-id=ID --item-id=ID [--json]
-integrations instagram direct pending [--limit=N] [--json]
-integrations instagram direct approve --thread-id=ID [--dry-run] [--json]
-integrations instagram direct decline --thread-id=ID [--dry-run] [--json]
-
 # Comments
 integrations instagram comments list --media-id=ID [--limit=N] [--cursor=TOKEN] [--json]
 integrations instagram comments replies --media-id=ID --comment-id=ID [--limit=N] [--cursor=TOKEN] [--json]
@@ -293,19 +282,18 @@ integrations instagram settings set-public [--dry-run] [--json]
 integrations instagram settings login-activity [--json]
 ```
 
-`instagram` has alias `ig`. `media` has aliases `post`, `posts`. `stories` has aliases `story`, `st`. `reels` has alias `reel`. `direct` has aliases `dm`, `msg`. `comments` has alias `comment`. `likes` has alias `like`. `relationships` has aliases `rel`, `friendship`. `search` has alias `find`. `collections` has aliases `collection`, `saved`. `tags` has aliases `tag`, `hashtag`. `locations` has aliases `location`, `loc`. `activity` has aliases `notifications`, `notif`. `live` has alias `broadcast`. `highlights` has aliases `highlight`, `hl`. `closefriends` has aliases `cf`, `besties`. `settings` has aliases `setting`, `account`.
+`instagram` has alias `ig`. `media` has aliases `post`, `posts`. `stories` has aliases `story`, `st`. `reels` has alias `reel`. `comments` has alias `comment`. `likes` has alias `like`. `relationships` has aliases `rel`, `friendship`. `search` has alias `find`. `collections` has aliases `collection`, `saved`. `tags` has aliases `tag`, `hashtag`. `locations` has aliases `location`, `loc`. `activity` has aliases `notifications`, `notif`. `live` has alias `broadcast`. `highlights` has aliases `highlight`, `hl`. `closefriends` has aliases `cf`, `besties`. `settings` has aliases `setting`, `account`.
 
 ## Architecture — Instagram Package Layout
 ```
 internal/providers/instagram/
-  instagram.go          # Provider struct, RegisterCommands (18 resource subcommand groups)
+  instagram.go          # Provider struct, RegisterCommands (17 resource subcommand groups)
   client.go             # HTTP client: web (www) + mobile (i.instagram.com), CSRF rotation, rate limit detection
   helpers.go            # Shared types (UserSummary, UserDetail, MediaSummary, etc.) and helpers
   profile.go            # profile get, edit-form (web API)
   media.go              # media list, get, delete, archive, unarchive, likers, save, unsave
   stories.go            # stories list, get, viewers, feed, delete
   reels.go              # reels list, get, feed, delete
-  direct.go             # direct threads, get, send, create, delete-message, mark-seen, pending, approve, decline
   comments.go           # comments list, replies, create, delete, like, unlike, disable, enable
   likes.go              # likes like, unlike, list, liked
   relationships.go      # 13 relationship commands (follow, block, mute, restrict, etc.)

@@ -431,147 +431,6 @@ func withReelsMock(mux *http.ServeMux) {
 	})
 }
 
-// withDirectMock registers all direct-message-related mock handlers on mux.
-func withDirectMock(mux *http.ServeMux) {
-	// GET /api/v1/direct_v2/inbox/
-	mux.HandleFunc("/api/v1/direct_v2/inbox/", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"inbox": map[string]any{
-				"threads": []map[string]any{
-					{
-						"thread_id":        "thread_111",
-						"thread_title":     "Test Thread",
-						"last_activity_at": int64(1700000000000000),
-						"is_group":         false,
-						"users": []map[string]any{
-							{"pk": "user_999", "username": "dm_user", "full_name": "DM User"},
-						},
-						"items": []map[string]any{
-							{
-								"item_id":   "item_aaa",
-								"item_type": "text",
-								"text":      "Hello there",
-								"timestamp": int64(1700000000000000),
-								"user_id":   "user_999",
-							},
-						},
-					},
-				},
-				"oldest_cursor": "inbox_cursor_1",
-				"has_older":     true,
-			},
-			"status": "ok",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	})
-
-	// GET /api/v1/direct_v2/pending_inbox/
-	mux.HandleFunc("/api/v1/direct_v2/pending_inbox/", func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"inbox": map[string]any{
-				"threads": []map[string]any{
-					{
-						"thread_id":    "pending_thread_222",
-						"thread_title": "Pending Thread",
-						"is_group":     false,
-					},
-				},
-				"oldest_cursor": "",
-				"has_older":     false,
-			},
-			"status": "ok",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
-	})
-
-	// GET /api/v1/direct_v2/threads/{thread_id}/
-	// POST /api/v1/direct_v2/threads/{thread_id}/approve/
-	// POST /api/v1/direct_v2/threads/{thread_id}/hide/
-	// POST /api/v1/direct_v2/threads/{thread_id}/items/{item_id}/delete/
-	// POST /api/v1/direct_v2/threads/{thread_id}/items/{item_id}/seen/
-	mux.HandleFunc("/api/v1/direct_v2/threads/", func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/api/v1/direct_v2/threads/")
-		parts := strings.SplitN(path, "/", 2)
-		if len(parts) < 2 {
-			// GET thread detail: /api/v1/direct_v2/threads/{thread_id}/
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{
-				"thread": map[string]any{
-					"thread_id":        parts[0],
-					"thread_title":     "Test Thread",
-					"last_activity_at": int64(1700000000000000),
-					"is_group":         false,
-					"items": []map[string]any{
-						{
-							"item_id":   "item_aaa",
-							"item_type": "text",
-							"text":      "Hello there",
-							"timestamp": int64(1700000000000000),
-							"user_id":   "user_999",
-						},
-					},
-					"oldest_cursor": "",
-					"has_older":     false,
-				},
-				"status": "ok",
-			})
-			return
-		}
-		threadID := parts[0]
-		action := strings.TrimSuffix(parts[1], "/")
-		_ = threadID
-
-		switch {
-		case action == "":
-			// thread detail response
-			resp := map[string]any{
-				"thread": map[string]any{
-					"thread_id":        threadID,
-					"thread_title":     "Test Thread",
-					"last_activity_at": int64(1700000000000000),
-					"is_group":         false,
-					"items": []map[string]any{
-						{
-							"item_id":   "item_aaa",
-							"item_type": "text",
-							"text":      "Hello there",
-							"timestamp": int64(1700000000000000),
-							"user_id":   "user_999",
-						},
-					},
-					"oldest_cursor": "",
-					"has_older":     false,
-				},
-				"status": "ok",
-			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-		case action == "approve" || action == "hide":
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-		case strings.HasPrefix(action, "items/") && strings.HasSuffix(action, "/delete"):
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-		case strings.HasPrefix(action, "items/") && strings.HasSuffix(action, "/seen"):
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-		case action == "text":
-			// broadcast/text: threadID="broadcast", action="text"
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-		default:
-			http.NotFound(w, r)
-		}
-	})
-
-	// POST /api/v1/direct_v2/create_group_thread/
-	mux.HandleFunc("/api/v1/direct_v2/create_group_thread/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
-	})
-}
 
 // withLikesMock registers likes feed mock handler on mux.
 // Note: like/unlike on /api/v1/media/{id}/like|unlike/ are handled by withMediaMock.
@@ -1427,7 +1286,6 @@ func withSettingsMock(mux *http.ServeMux) {
 }
 
 // withGraphQLMock registers handlers for the Instagram web GraphQL endpoints.
-// It handles both /graphql/query (web frontend) and /api/graphql (Polaris DM).
 func withGraphQLMock(mux *http.ServeMux) {
 	// POST /graphql/query — form-encoded GraphQL used by web frontend.
 	// Dispatches by doc_id to the appropriate mock response.
@@ -1533,44 +1391,6 @@ func withGraphQLMock(mux *http.ServeMux) {
 		}
 	})
 
-	// POST /api/graphql — used by PolarisDirectInboxQuery for DM inbox fallback.
-	mux.HandleFunc("/api/graphql", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		body, _ := io.ReadAll(r.Body)
-		vals, _ := url.ParseQuery(string(body))
-		docID := vals.Get("doc_id")
-
-		w.Header().Set("Content-Type", "application/json")
-		switch docID {
-		case "34623053607292942": // PolarisDirectInboxQuery
-			resp := map[string]any{
-				"data": map[string]any{
-					"get_slide_mailbox_for_iris_subscription": map[string]any{
-						"threads_by_folder": map[string]any{
-							"edges": []map[string]any{
-								{
-									"node": map[string]any{
-										"thread_id":    "thread_gql_111",
-										"thread_title": "GraphQL Thread",
-										"is_group":     false,
-										"updated_at":   int64(1700000000000000),
-									},
-								},
-							},
-						},
-					},
-				},
-				"status": "ok",
-			}
-			json.NewEncoder(w).Encode(resp)
-
-		default:
-			http.Error(w, `{"errors":[{"message":"unknown doc_id"}]}`, http.StatusBadRequest)
-		}
-	})
 }
 
 // newFullMockServer creates an httptest server with all Instagram mock handlers.
@@ -1581,7 +1401,6 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withMediaMock(mux)
 	withStoriesMock(mux)
 	withReelsMock(mux)
-	withDirectMock(mux)
 	withLikesMock(mux)
 	// Register close friends before relationships so specific paths match first.
 	withCloseFriendsMock(mux)
@@ -1662,10 +1481,7 @@ func buildTestReelsCmd(factory ClientFactory) *cobra.Command {
 	return newReelsCmd(factory)
 }
 
-// buildTestDirectCmd creates a `direct` subcommand tree for use in tests.
-func buildTestDirectCmd(factory ClientFactory) *cobra.Command {
-	return newDirectCmd(factory)
-}
+
 
 // buildTestCommentsCmd creates a `comments` subcommand tree for use in tests.
 func buildTestCommentsCmd(factory ClientFactory) *cobra.Command {
