@@ -8,23 +8,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// edgeCount models Instagram's {"count": N} nested structure.
+type edgeCount struct {
+	Count int64 `json:"count"`
+}
+
 // webProfileInfoResponse is the response envelope for GET /api/v1/users/web_profile_info/.
 type webProfileInfoResponse struct {
 	Data struct {
 		User struct {
-			PK                string `json:"pk"`
-			Username          string `json:"username"`
-			FullName          string `json:"full_name"`
-			IsPrivate         bool   `json:"is_private"`
-			IsVerified        bool   `json:"is_verified"`
-			Biography         string `json:"biography"`
-			ExternalURL       string `json:"external_url"`
-			FollowerCount     int64  `json:"edge_followed_by"`
-			FollowingCount    int64  `json:"edge_follow"`
-			ProfilePicURL     string `json:"profile_pic_url"`
-			IsBusiness        bool   `json:"is_business_account"`
-			IsProfessional    bool   `json:"is_professional_account"`
-			Category          string `json:"category_name"`
+			ID             string    `json:"id"`
+			Username       string    `json:"username"`
+			FullName       string    `json:"full_name"`
+			IsPrivate      bool      `json:"is_private"`
+			IsVerified     bool      `json:"is_verified"`
+			Biography      string    `json:"biography"`
+			ExternalURL    *string   `json:"external_url"`
+			EdgeFollowedBy edgeCount `json:"edge_followed_by"`
+			EdgeFollow     edgeCount `json:"edge_follow"`
+			EdgeMedia      edgeCount `json:"edge_owner_to_timeline_media"`
+			ProfilePicURL  string    `json:"profile_pic_url"`
+			IsBusiness     bool      `json:"is_business_account"`
+			IsProfessional bool      `json:"is_professional_account"`
+			Category       string    `json:"category_name"`
 		} `json:"user"`
 	} `json:"data"`
 	Status string `json:"status"`
@@ -135,17 +141,24 @@ func makeRunProfileGet(factory ClientFactory) func(*cobra.Command, []string) err
 		}
 
 		u := info.Data.User
+		extURL := ""
+		if u.ExternalURL != nil {
+			extURL = *u.ExternalURL
+		}
 		detail := UserDetail{
-			ID:            u.PK,
-			Username:      u.Username,
-			FullName:      u.FullName,
-			ProfilePicURL: u.ProfilePicURL,
-			IsPrivate:     u.IsPrivate,
-			IsVerified:    u.IsVerified,
-			Biography:     u.Biography,
-			ExternalURL:   u.ExternalURL,
-			IsBusiness:    u.IsBusiness,
-			Category:      u.Category,
+			ID:             u.ID,
+			Username:       u.Username,
+			FullName:       u.FullName,
+			ProfilePicURL:  u.ProfilePicURL,
+			IsPrivate:      u.IsPrivate,
+			IsVerified:     u.IsVerified,
+			Biography:      u.Biography,
+			ExternalURL:    extURL,
+			FollowerCount:  u.EdgeFollowedBy.Count,
+			FollowingCount: u.EdgeFollow.Count,
+			MediaCount:     u.EdgeMedia.Count,
+			IsBusiness:     u.IsBusiness,
+			Category:       u.Category,
 			IsProfessional: u.IsProfessional,
 		}
 		return printUserDetail(cmd, detail)
