@@ -6,12 +6,16 @@ import (
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/emdash-projects/agents/internal/providers/calendar"
 	"github.com/emdash-projects/agents/internal/providers/gmail"
+	"github.com/emdash-projects/agents/internal/providers/sheets"
 )
 
 func main() {
 	// Register providers
 	gmailProvider := gmail.New()
 	gmailProvider.RegisterCommands(cli.RootCmd())
+
+	sheetsProvider := sheets.New()
+	sheetsProvider.RegisterCommands(cli.RootCmd())
 
 	calendarProvider := calendar.New()
 	calendarProvider.RegisterCommands(cli.RootCmd())
