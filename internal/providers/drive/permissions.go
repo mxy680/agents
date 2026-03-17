@@ -121,6 +121,16 @@ func makeRunPermissionsGet(factory ServiceFactory) func(*cobra.Command, []string
 	}
 }
 
+var (
+	validRoles = map[string]bool{
+		"owner": true, "organizer": true, "fileOrganizer": true,
+		"writer": true, "commenter": true, "reader": true,
+	}
+	validTypes = map[string]bool{
+		"user": true, "group": true, "domain": true, "anyone": true,
+	}
+)
+
 func newPermissionsCreateCmd(factory ServiceFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -132,6 +142,7 @@ func newPermissionsCreateCmd(factory ServiceFactory) *cobra.Command {
 	cmd.Flags().String("type", "", "Grantee type: user, group, domain, anyone (required)")
 	cmd.Flags().String("email", "", "Email address (for user/group type)")
 	cmd.Flags().String("domain", "", "Domain (for domain type)")
+	cmd.Flags().Bool("confirm", false, "Confirm public sharing (required when --type=anyone)")
 	_ = cmd.MarkFlagRequired("file-id")
 	_ = cmd.MarkFlagRequired("role")
 	_ = cmd.MarkFlagRequired("type")
@@ -145,6 +156,29 @@ func makeRunPermissionsCreate(factory ServiceFactory) func(*cobra.Command, []str
 		permType, _ := cmd.Flags().GetString("type")
 		email, _ := cmd.Flags().GetString("email")
 		domain, _ := cmd.Flags().GetString("domain")
+
+		// Validate role and type against allowlists
+		if !validRoles[role] {
+			return fmt.Errorf("invalid role %q; must be one of: owner, organizer, fileOrganizer, writer, commenter, reader", role)
+		}
+		if !validTypes[permType] {
+			return fmt.Errorf("invalid type %q; must be one of: user, group, domain, anyone", permType)
+		}
+
+		// Require --email for user/group, --domain for domain
+		if (permType == "user" || permType == "group") && email == "" {
+			return fmt.Errorf("--email is required when --type=%s", permType)
+		}
+		if permType == "domain" && domain == "" {
+			return fmt.Errorf("--domain is required when --type=domain")
+		}
+
+		// Public sharing requires explicit --confirm
+		if permType == "anyone" {
+			if err := confirmDestructive(cmd); err != nil {
+				return fmt.Errorf("sharing with type=anyone makes the file publicly accessible; re-run with --confirm to proceed")
+			}
+		}
 
 		if cli.IsDryRun(cmd) {
 			return dryRunResult(cmd, fmt.Sprintf("Would share file %s with %s=%s role=%s", fileID, permType, email+domain, role), map[string]any{

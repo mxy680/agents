@@ -140,6 +140,70 @@ func TestPermissionsCreateJSON(t *testing.T) {
 	}
 }
 
+func TestPermissionsCreateInvalidRole(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestPermissionsCmd(factory))
+	err := runCmdErr(t, root, "permissions", "create",
+		"--file-id=file1", "--role=admin", "--type=user", "--email=bob@example.com")
+
+	if err == nil {
+		t.Fatal("expected error for invalid role")
+	}
+	mustContain(t, err.Error(), "invalid role")
+}
+
+func TestPermissionsCreateInvalidType(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestPermissionsCmd(factory))
+	err := runCmdErr(t, root, "permissions", "create",
+		"--file-id=file1", "--role=reader", "--type=org", "--email=bob@example.com")
+
+	if err == nil {
+		t.Fatal("expected error for invalid type")
+	}
+	mustContain(t, err.Error(), "invalid type")
+}
+
+func TestPermissionsCreateUserRequiresEmail(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestPermissionsCmd(factory))
+	err := runCmdErr(t, root, "permissions", "create",
+		"--file-id=file1", "--role=reader", "--type=user")
+
+	if err == nil {
+		t.Fatal("expected error when --email missing for type=user")
+	}
+	mustContain(t, err.Error(), "--email is required")
+}
+
+func TestPermissionsCreateAnyoneRequiresConfirm(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestPermissionsCmd(factory))
+	err := runCmdErr(t, root, "permissions", "create",
+		"--file-id=file1", "--role=reader", "--type=anyone")
+
+	if err == nil {
+		t.Fatal("expected error for type=anyone without --confirm")
+	}
+	mustContain(t, err.Error(), "publicly accessible")
+}
+
 func TestPermissionsDeleteRequiresConfirm(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()

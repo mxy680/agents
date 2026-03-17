@@ -83,7 +83,9 @@ func TestFilesDownloadToFile(t *testing.T) {
 	defer server.Close()
 	factory := newTestServiceFactory(server)
 
-	outPath := filepath.Join(t.TempDir(), "downloaded.txt")
+	// Use a file within cwd to pass path traversal check
+	outPath := "test_downloaded.txt"
+	t.Cleanup(func() { os.Remove(outPath) })
 
 	root := newTestRootCmd()
 	root.AddCommand(buildTestFilesCmd(factory))
@@ -151,6 +153,82 @@ func TestFilesUploadDryRunJSON(t *testing.T) {
 	if result["action"] != "upload" {
 		t.Errorf("expected action=upload, got %v", result["action"])
 	}
+}
+
+func TestFilesUploadText(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	os.WriteFile(tmpFile, []byte("hello"), 0644)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestFilesCmd(factory))
+	out := runCmd(t, root, "files", "upload", "--path="+tmpFile)
+
+	mustContain(t, out, "Uploaded:")
+	mustContain(t, out, "file-uploaded1")
+}
+
+func TestFilesUploadJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	tmpFile := filepath.Join(t.TempDir(), "test.txt")
+	os.WriteFile(tmpFile, []byte("hello"), 0644)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestFilesCmd(factory))
+	out := runCmd(t, root, "files", "upload", "--path="+tmpFile, "--json")
+
+	var detail FileDetail
+	if err := json.Unmarshal([]byte(out), &detail); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if detail.ID != "file-uploaded1" {
+		t.Errorf("expected ID=file-uploaded1, got %s", detail.ID)
+	}
+}
+
+func TestFilesDownloadExportMime(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	outPath := "test_exported.pdf"
+	t.Cleanup(func() { os.Remove(outPath) })
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestFilesCmd(factory))
+	root.SetArgs([]string{"files", "download", "--file-id=file1", "--export-mime=application/pdf", "--output=" + outPath})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("reading exported file: %v", err)
+	}
+	if string(data) != "exported-pdf-content" {
+		t.Errorf("expected 'exported-pdf-content', got %q", string(data))
+	}
+}
+
+func TestFilesDownloadPathTraversal(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+	factory := newTestServiceFactory(server)
+
+	root := newTestRootCmd()
+	root.AddCommand(buildTestFilesCmd(factory))
+	err := runCmdErr(t, root, "files", "download", "--file-id=file1", "--output=../../etc/passwd")
+
+	if err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+	mustContain(t, err.Error(), "must be within the working directory")
 }
 
 func TestFilesCopyDryRun(t *testing.T) {

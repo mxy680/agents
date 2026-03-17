@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
@@ -153,11 +154,30 @@ func newFilesDownloadCmd(factory ServiceFactory) *cobra.Command {
 	return cmd
 }
 
+// maxDownloadBytes is the maximum file size allowed for downloads (500 MB).
+const maxDownloadBytes = 500 * 1024 * 1024
+
 func makeRunFilesDownload(factory ServiceFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		fileID, _ := cmd.Flags().GetString("file-id")
 		output, _ := cmd.Flags().GetString("output")
 		exportMime, _ := cmd.Flags().GetString("export-mime")
+
+		// Validate output path to prevent path traversal
+		if output != "" {
+			absOut, err := filepath.Abs(output)
+			if err != nil {
+				return fmt.Errorf("invalid output path: %w", err)
+			}
+			cwd, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("getting working directory: %w", err)
+			}
+			if !strings.HasPrefix(absOut, cwd+string(os.PathSeparator)) && absOut != cwd {
+				return fmt.Errorf("output path %q must be within the working directory", output)
+			}
+			output = absOut
+		}
 
 		ctx := cmd.Context()
 		svc, err := factory(ctx)
@@ -165,21 +185,21 @@ func makeRunFilesDownload(factory ServiceFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		var resp *io.ReadCloser
+		var body io.ReadCloser
 		if exportMime != "" {
 			httpResp, err := svc.Files.Export(fileID, exportMime).Download()
 			if err != nil {
 				return fmt.Errorf("exporting file %s: %w", fileID, err)
 			}
-			resp = &httpResp.Body
+			body = httpResp.Body
 		} else {
 			httpResp, err := svc.Files.Get(fileID).SupportsAllDrives(true).Download()
 			if err != nil {
 				return fmt.Errorf("downloading file %s: %w", fileID, err)
 			}
-			resp = &httpResp.Body
+			body = httpResp.Body
 		}
-		defer (*resp).Close()
+		defer body.Close()
 
 		var dst io.Writer
 		if output != "" {
@@ -193,9 +213,13 @@ func makeRunFilesDownload(factory ServiceFactory) func(*cobra.Command, []string)
 			dst = os.Stdout
 		}
 
-		n, err := io.Copy(dst, *resp)
+		limited := io.LimitReader(body, maxDownloadBytes+1)
+		n, err := io.Copy(dst, limited)
 		if err != nil {
 			return fmt.Errorf("writing file content: %w", err)
+		}
+		if n > maxDownloadBytes {
+			return fmt.Errorf("file exceeds maximum download size (%s)", formatSize(maxDownloadBytes))
 		}
 
 		// Print download info to stderr so it doesn't mix with file content on stdout

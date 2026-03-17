@@ -17,22 +17,22 @@ import (
 
 // withFilesMock registers all file-related mock handlers on mux.
 func withFilesMock(mux *http.ServeMux) {
+	// files.create (upload) — multipart upload goes to /upload/drive/v3/files
+	mux.HandleFunc("/upload/drive/v3/files", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"id":           "file-uploaded1",
+			"name":         "uploaded.txt",
+			"mimeType":     "text/plain",
+			"size":         "42",
+			"modifiedTime": "2026-03-16T10:00:00Z",
+			"createdTime":  "2026-03-16T10:00:00Z",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+
 	// files.list
 	mux.HandleFunc("/files", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			// files.create (upload) — multipart; just return a canned response
-			resp := map[string]any{
-				"id":           "file-uploaded1",
-				"name":         "uploaded.txt",
-				"mimeType":     "text/plain",
-				"size":         "42",
-				"modifiedTime": "2026-03-16T10:00:00Z",
-				"createdTime":  "2026-03-16T10:00:00Z",
-			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(resp)
-			return
-		}
 		// files.list (GET)
 		resp := map[string]any{
 			"files": []map[string]any{
@@ -230,9 +230,8 @@ func captureStdout(t *testing.T, f func()) string {
 	w.Close()
 	os.Stdout = old
 
-	buf := make([]byte, 65536)
-	n, _ := r.Read(buf)
-	return string(buf[:n])
+	out, _ := io.ReadAll(r)
+	return string(out)
 }
 
 // newTestRootCmd creates a root command with global flags for testing.
