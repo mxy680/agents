@@ -1,13 +1,19 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, and Instagram.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, and Instagram. Includes a Next.js web portal for self-service OAuth and token management.
 
 ## Quick Start
 ```bash
 make build          # → bin/integrations
 make test           # run tests with coverage
 make lint           # go vet
+
+# Portal
+make portal-install # npm install
+make portal-dev     # npm run dev (localhost:3000)
+make portal-build   # npm run build
+make portal-lint    # npm run lint
 ```
 
 ## Commands — Gmail
@@ -451,6 +457,51 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%)
+
+## Web Portal (Next.js 15 + Supabase)
+
+### Architecture
+- `portal/` — Next.js 15 App Router, TypeScript, Tailwind CSS
+- Auth: Supabase Auth with Google OAuth (narrow scopes for login)
+- Database: Supabase PostgreSQL with RLS policies
+- Integration tokens: AES-256-GCM encrypted, stored in `integrations` table
+- Two Google OAuth flows: (1) login via Supabase Auth, (2) full-scope connect via custom API route
+
+### Portal Directory Layout
+```
+portal/
+  supabase/migrations/00001_create_tables.sql  # integrations table + RLS
+  src/
+    app/
+      page.tsx                     # Landing page
+      login/page.tsx               # Google sign-in via Supabase Auth
+      integrations/page.tsx        # Dashboard with provider cards
+      auth/callback/route.ts       # Supabase Auth code exchange
+      api/integrations/
+        route.ts                   # GET: list user integrations
+        google/connect|callback|disconnect/route.ts
+        github/connect|callback|disconnect/route.ts
+        instagram/save|disconnect/route.ts
+    lib/
+      supabase/server.ts|client.ts|middleware.ts
+      crypto.ts                    # AES-256-GCM (Go-compatible wire format)
+      providers.ts                 # Provider metadata and scopes
+    components/
+      navbar.tsx, provider-card.tsx, instagram-form.tsx, sign-out-button.tsx
+    middleware.ts                   # Protects /integrations route
+```
+
+### Token Bridge (Go)
+```
+internal/tokenbridge/
+  crypto.go       # AES-256-GCM decrypt (Go side)
+  bridge.go       # ExportEnvForUser() → reads integrations table, decrypts to env map
+  bridge_test.go  # 94% coverage via sqlmock
+```
+
+### Cross-Language Encryption Wire Format
+`base64(nonce [12 bytes] || ciphertext || auth_tag [16 bytes])`
+Shared key: `PORTAL_ENCRYPTION_KEY` (64 hex chars = 32 bytes)
 
 ## Environment Variables
 ```
