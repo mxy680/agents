@@ -3,3 +3,4 @@ coverage.out
 .env
 oauth-setup
 .playwright-mcp/
+portal
