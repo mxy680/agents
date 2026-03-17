@@ -102,7 +102,7 @@ func makeRunReelsList(factory ClientFactory) func(*cobra.Command, []string) erro
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/clips/user/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/clips/user/", params)
 		if err != nil {
 			return fmt.Errorf("listing reels for user %s: %w", userID, err)
 		}
@@ -148,7 +148,7 @@ func makeRunReelsGet(factory ClientFactory) func(*cobra.Command, []string) error
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+reelID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+reelID+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting reel %s: %w", reelID, err)
 		}
@@ -209,7 +209,7 @@ func makeRunReelsFeed(factory ClientFactory) func(*cobra.Command, []string) erro
 			body.Set("max_id", cursor)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/clips/reels_tab_feed_items/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/clips/reels_tab_feed_items/", body)
 		if err != nil {
 			return fmt.Errorf("getting reels feed: %w", err)
 		}
@@ -265,7 +265,7 @@ func makeRunReelsDelete(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+reelID+"/delete/?media_type=REELS", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+reelID+"/delete/?media_type=REELS", nil)
 		if err != nil {
 			return fmt.Errorf("deleting reel %s: %w", reelID, err)
 		}

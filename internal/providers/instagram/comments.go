@@ -81,7 +81,7 @@ func makeRunCommentsList(factory ClientFactory) func(*cobra.Command, []string) e
 			params.Set("min_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+mediaID+"/comments/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/comments/", params)
 		if err != nil {
 			return fmt.Errorf("listing comments for media %s: %w", mediaID, err)
 		}
@@ -140,7 +140,7 @@ func makeRunCommentsReplies(factory ClientFactory) func(*cobra.Command, []string
 			params.Set("min_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+mediaID+"/comments/"+commentID+"/inline_child_comments/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/comments/"+commentID+"/inline_child_comments/", params)
 		if err != nil {
 			return fmt.Errorf("listing replies for comment %s: %w", commentID, err)
 		}
@@ -197,7 +197,7 @@ func makeRunCommentsCreate(factory ClientFactory) func(*cobra.Command, []string)
 			body.Set("replied_to_comment_id", replyTo)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/comment/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/comment/", body)
 		if err != nil {
 			return fmt.Errorf("creating comment on media %s: %w", mediaID, err)
 		}
@@ -249,7 +249,7 @@ func makeRunCommentsDelete(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/comment/"+commentID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/comment/"+commentID+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting comment %s on media %s: %w", commentID, mediaID, err)
 		}
@@ -294,7 +294,7 @@ func makeRunCommentsLike(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+commentID+"/comment_like/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+commentID+"/comment_like/", nil)
 		if err != nil {
 			return fmt.Errorf("liking comment %s: %w", commentID, err)
 		}
@@ -339,7 +339,7 @@ func makeRunCommentsUnlike(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+commentID+"/comment_unlike/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+commentID+"/comment_unlike/", nil)
 		if err != nil {
 			return fmt.Errorf("unliking comment %s: %w", commentID, err)
 		}
@@ -384,7 +384,7 @@ func makeRunCommentsDisable(factory ClientFactory) func(*cobra.Command, []string
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/disable_comments/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/disable_comments/", nil)
 		if err != nil {
 			return fmt.Errorf("disabling comments on media %s: %w", mediaID, err)
 		}
@@ -429,7 +429,7 @@ func makeRunCommentsEnable(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/enable_comments/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/enable_comments/", nil)
 		if err != nil {
 			return fmt.Errorf("enabling comments on media %s: %w", mediaID, err)
 		}

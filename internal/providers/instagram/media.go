@@ -141,7 +141,7 @@ func makeRunMediaList(factory ClientFactory) func(*cobra.Command, []string) erro
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/feed/user/"+userID+"/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/user/"+userID+"/", params)
 		if err != nil {
 			return fmt.Errorf("listing media for user %s: %w", userID, err)
 		}
@@ -192,7 +192,7 @@ func makeRunMediaGet(factory ClientFactory) func(*cobra.Command, []string) error
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+mediaID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting media %s: %w", mediaID, err)
 		}
@@ -256,7 +256,7 @@ func makeRunMediaDelete(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting media %s: %w", mediaID, err)
 		}
@@ -300,7 +300,7 @@ func makeRunMediaArchive(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/only_me/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/only_me/", nil)
 		if err != nil {
 			return fmt.Errorf("archiving media %s: %w", mediaID, err)
 		}
@@ -344,7 +344,7 @@ func makeRunMediaUnarchive(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/undo_only_me/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/undo_only_me/", nil)
 		if err != nil {
 			return fmt.Errorf("unarchiving media %s: %w", mediaID, err)
 		}
@@ -384,7 +384,7 @@ func makeRunMediaLikers(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+mediaID+"/likers/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+mediaID+"/likers/", nil)
 		if err != nil {
 			return fmt.Errorf("getting likers for media %s: %w", mediaID, err)
 		}
@@ -448,7 +448,7 @@ func makeRunMediaSave(factory ClientFactory) func(*cobra.Command, []string) erro
 			body.Set("collection_ids", collectionID)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/save/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/save/", body)
 		if err != nil {
 			return fmt.Errorf("saving media %s: %w", mediaID, err)
 		}
@@ -492,7 +492,7 @@ func makeRunMediaUnsave(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+mediaID+"/unsave/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+mediaID+"/unsave/", nil)
 		if err != nil {
 			return fmt.Errorf("unsaving media %s: %w", mediaID, err)
 		}

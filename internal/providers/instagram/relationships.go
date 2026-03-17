@@ -116,7 +116,7 @@ func makeRunRelationshipsFollowers(factory ClientFactory) func(*cobra.Command, [
 			params.Set("query", query)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/friendships/"+userID+"/followers/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/friendships/"+userID+"/followers/", params)
 		if err != nil {
 			return fmt.Errorf("listing followers for user %s: %w", userID, err)
 		}
@@ -176,7 +176,7 @@ func makeRunRelationshipsFollowing(factory ClientFactory) func(*cobra.Command, [
 			params.Set("query", query)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/friendships/"+userID+"/following/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/friendships/"+userID+"/following/", params)
 		if err != nil {
 			return fmt.Errorf("listing following for user %s: %w", userID, err)
 		}
@@ -224,7 +224,7 @@ func makeRunRelationshipsFollow(factory ClientFactory) func(*cobra.Command, []st
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/create/"+userID+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/create/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("following user %s: %w", userID, err)
 		}
@@ -269,7 +269,7 @@ func makeRunRelationshipsUnfollow(factory ClientFactory) func(*cobra.Command, []
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/destroy/"+userID+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/destroy/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("unfollowing user %s: %w", userID, err)
 		}
@@ -314,7 +314,7 @@ func makeRunRelationshipsRemoveFollower(factory ClientFactory) func(*cobra.Comma
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/remove_follower/"+userID+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/remove_follower/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("removing follower %s: %w", userID, err)
 		}
@@ -359,7 +359,7 @@ func makeRunRelationshipsBlock(factory ClientFactory) func(*cobra.Command, []str
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/block/"+userID+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/block/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("blocking user %s: %w", userID, err)
 		}
@@ -404,7 +404,7 @@ func makeRunRelationshipsUnblock(factory ClientFactory) func(*cobra.Command, []s
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/unblock/"+userID+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/unblock/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("unblocking user %s: %w", userID, err)
 		}
@@ -450,7 +450,7 @@ func makeRunRelationshipsBlocked(factory ClientFactory) func(*cobra.Command, []s
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/users/blocked_list/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/users/blocked_list/", params)
 		if err != nil {
 			return fmt.Errorf("listing blocked users: %w", err)
 		}
@@ -505,7 +505,7 @@ func makeRunRelationshipsMute(factory ClientFactory) func(*cobra.Command, []stri
 			body.Set("post_mute_state", "unmuted_content_muted")
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/mute_posts_or_story_from_follow/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/mute_posts_or_story_from_follow/", body)
 		if err != nil {
 			return fmt.Errorf("muting user %s: %w", userID, err)
 		}
@@ -563,7 +563,7 @@ func makeRunRelationshipsUnmute(factory ClientFactory) func(*cobra.Command, []st
 			body.Set("post_mute_state", "unmuted")
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/unmute_posts_or_story_from_follow/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/unmute_posts_or_story_from_follow/", body)
 		if err != nil {
 			return fmt.Errorf("unmuting user %s: %w", userID, err)
 		}
@@ -611,7 +611,7 @@ func makeRunRelationshipsRestrict(factory ClientFactory) func(*cobra.Command, []
 		body := url.Values{}
 		body.Set("user_ids", userID)
 
-		resp, err := client.Post(ctx, "/api/v1/restrict_action/restrict/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/restrict_action/restrict/", body)
 		if err != nil {
 			return fmt.Errorf("restricting user %s: %w", userID, err)
 		}
@@ -659,7 +659,7 @@ func makeRunRelationshipsUnrestrict(factory ClientFactory) func(*cobra.Command, 
 		body := url.Values{}
 		body.Set("user_ids", userID)
 
-		resp, err := client.Post(ctx, "/api/v1/restrict_action/unrestrict/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/restrict_action/unrestrict/", body)
 		if err != nil {
 			return fmt.Errorf("unrestricting user %s: %w", userID, err)
 		}
@@ -698,7 +698,7 @@ func makeRunRelationshipsStatus(factory ClientFactory) func(*cobra.Command, []st
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/friendships/show/"+userID+"/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/friendships/show/"+userID+"/", nil)
 		if err != nil {
 			return fmt.Errorf("getting friendship status with user %s: %w", userID, err)
 		}

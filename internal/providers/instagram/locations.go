@@ -85,7 +85,7 @@ func makeRunLocationsGet(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/locations/"+locationID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting location %s: %w", locationID, err)
 		}
@@ -157,7 +157,7 @@ func makeRunLocationsFeed(factory ClientFactory) func(*cobra.Command, []string) 
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/locations/"+locationID+"/sections/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/sections/", params)
 		if err != nil {
 			return fmt.Errorf("getting location feed for %s: %w", locationID, err)
 		}
@@ -221,7 +221,7 @@ func makeRunLocationsSearch(factory ClientFactory) func(*cobra.Command, []string
 			params.Set("longitude", strconv.FormatFloat(lng, 'f', 6, 64))
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/location_search/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/location_search/", params)
 		if err != nil {
 			return fmt.Errorf("searching locations: %w", err)
 		}
@@ -294,7 +294,7 @@ func makeRunLocationsStories(factory ClientFactory) func(*cobra.Command, []strin
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/locations/"+locationID+"/story/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/locations/"+locationID+"/story/", nil)
 		if err != nil {
 			return fmt.Errorf("getting location stories for %s: %w", locationID, err)
 		}

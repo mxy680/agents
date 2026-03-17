@@ -22,10 +22,10 @@ type rawActivityItem struct {
 	PK   string `json:"pk"`
 	Type int    `json:"type"`
 	Args struct {
-		Timestamp   int64  `json:"timestamp"`
-		Text        string `json:"text"`
-		ProfileID   string `json:"profile_id"`
-		ProfileName string `json:"profile_name"`
+		Timestamp   float64 `json:"timestamp"` // Instagram returns float timestamps
+		Text        string  `json:"text"`
+		ProfileID   string  `json:"profile_id"`
+		ProfileName string  `json:"profile_name"`
 	} `json:"args"`
 }
 
@@ -70,7 +70,7 @@ func makeRunActivityFeed(factory ClientFactory) func(*cobra.Command, []string) e
 		params.Set("mark_as_seen", "false")
 		params.Set("count", strconv.Itoa(limit))
 
-		resp, err := client.Get(ctx, "/api/v1/news/inbox/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/news/inbox/", params)
 		if err != nil {
 			return fmt.Errorf("fetching activity feed: %w", err)
 		}
@@ -90,7 +90,7 @@ func makeRunActivityFeed(factory ClientFactory) func(*cobra.Command, []string) e
 			items = append(items, ActivityItem{
 				PK:          s.PK,
 				Type:        s.Type,
-				Timestamp:   s.Args.Timestamp,
+				Timestamp:   int64(s.Args.Timestamp),
 				Text:        s.Args.Text,
 				ProfileID:   s.Args.ProfileID,
 				ProfileName: s.Args.ProfileName,
@@ -137,7 +137,7 @@ func makeRunActivityMarkChecked(factory ClientFactory) func(*cobra.Command, []st
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/news/inbox_seen/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/news/inbox_seen/", nil)
 		if err != nil {
 			return fmt.Errorf("marking activity as seen: %w", err)
 		}

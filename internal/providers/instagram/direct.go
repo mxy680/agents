@@ -120,7 +120,7 @@ func makeRunDirectThreads(factory ClientFactory) func(*cobra.Command, []string) 
 			params.Set("cursor", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/direct_v2/inbox/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/direct_v2/inbox/", params)
 		if err != nil {
 			return fmt.Errorf("listing DM threads: %w", err)
 		}
@@ -182,7 +182,7 @@ func makeRunDirectGet(factory ClientFactory) func(*cobra.Command, []string) erro
 			params.Set("cursor", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/direct_v2/threads/"+threadID+"/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/direct_v2/threads/"+threadID+"/", params)
 		if err != nil {
 			return fmt.Errorf("getting thread %s: %w", threadID, err)
 		}
@@ -247,7 +247,7 @@ func makeRunDirectSend(factory ClientFactory) func(*cobra.Command, []string) err
 		body.Set("thread_ids", "[\""+threadID+"\"]")
 		body.Set("text", text)
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/threads/broadcast/text/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/threads/broadcast/text/", body)
 		if err != nil {
 			return fmt.Errorf("sending message to thread %s: %w", threadID, err)
 		}
@@ -300,7 +300,7 @@ func makeRunDirectCreate(factory ClientFactory) func(*cobra.Command, []string) e
 			body.Set("text", message)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/create_group_thread/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/create_group_thread/", body)
 		if err != nil {
 			return fmt.Errorf("creating group thread: %w", err)
 		}
@@ -352,7 +352,7 @@ func makeRunDirectDeleteMessage(factory ClientFactory) func(*cobra.Command, []st
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/threads/"+threadID+"/items/"+itemID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/threads/"+threadID+"/items/"+itemID+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting message %s from thread %s: %w", itemID, threadID, err)
 		}
@@ -394,7 +394,7 @@ func makeRunDirectMarkSeen(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/threads/"+threadID+"/items/"+itemID+"/seen/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/threads/"+threadID+"/items/"+itemID+"/seen/", nil)
 		if err != nil {
 			return fmt.Errorf("marking message %s as seen in thread %s: %w", itemID, threadID, err)
 		}
@@ -435,7 +435,7 @@ func makeRunDirectPending(factory ClientFactory) func(*cobra.Command, []string) 
 		params := url.Values{}
 		params.Set("limit", strconv.Itoa(limit))
 
-		resp, err := client.Get(ctx, "/api/v1/direct_v2/pending_inbox/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/direct_v2/pending_inbox/", params)
 		if err != nil {
 			return fmt.Errorf("listing pending DM requests: %w", err)
 		}
@@ -486,7 +486,7 @@ func makeRunDirectApprove(factory ClientFactory) func(*cobra.Command, []string) 
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/threads/"+threadID+"/approve/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/threads/"+threadID+"/approve/", nil)
 		if err != nil {
 			return fmt.Errorf("approving DM request for thread %s: %w", threadID, err)
 		}
@@ -531,7 +531,7 @@ func makeRunDirectDecline(factory ClientFactory) func(*cobra.Command, []string) 
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/direct_v2/threads/"+threadID+"/hide/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/direct_v2/threads/"+threadID+"/hide/", nil)
 		if err != nil {
 			return fmt.Errorf("declining DM request for thread %s: %w", threadID, err)
 		}

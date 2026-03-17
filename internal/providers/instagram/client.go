@@ -17,12 +17,16 @@ import (
 )
 
 const (
-	baseURL = "https://www.instagram.com"
+	baseURL       = "https://www.instagram.com"
+	mobileBaseURL = "https://i.instagram.com"
 
 	// Instagram web app headers.
 	igAppID      = "936619743392459"
 	igAjaxToken  = "1035277278"
 	igASBDID     = "359341"
+
+	// Mobile user agent for i.instagram.com endpoints.
+	mobileUserAgent = "Instagram 275.0.0.27.98 Android (33/13; 420dpi; 1080x2400; samsung; SM-S918B; dm3q; qcom; en_US; 458229258)"
 )
 
 // RateLimitError is returned when Instagram responds with HTTP 429.
@@ -48,10 +52,12 @@ func (e *ChallengeRequiredError) Error() string {
 
 // Client is an HTTP client wrapper for the Instagram web API. It handles
 // header injection, cookie attachment, CSRF rotation, and www-claim tracking.
+// It supports both web (www.instagram.com) and mobile (i.instagram.com) endpoints.
 type Client struct {
-	http     *http.Client
-	session  *auth.InstagramSession
-	baseURL  string
+	http           *http.Client
+	session        *auth.InstagramSession
+	baseURL        string
+	mobileBase     string // i.instagram.com for mobile-only endpoints
 
 	mu       sync.Mutex
 	csrf     string // rotated from Set-Cookie responses
@@ -71,27 +77,30 @@ func DefaultClientFactory() ClientFactory {
 			return nil, fmt.Errorf("instagram auth: %w", err)
 		}
 		return &Client{
-			http:     &http.Client{Timeout: 30 * time.Second},
-			session:  session,
-			baseURL:  baseURL,
-			csrf:     session.CSRFToken,
-			wwwClaim: "0",
+			http:       &http.Client{Timeout: 30 * time.Second},
+			session:    session,
+			baseURL:    baseURL,
+			mobileBase: mobileBaseURL,
+			csrf:       session.CSRFToken,
+			wwwClaim:   "0",
 		}, nil
 	}
 }
 
 // newClientWithBase creates a Client that targets a custom base URL (used in tests).
+// Both web and mobile base URLs point to the same test server.
 func newClientWithBase(session *auth.InstagramSession, httpClient *http.Client, base string) *Client {
 	return &Client{
-		http:     httpClient,
-		session:  session,
-		baseURL:  base,
-		csrf:     session.CSRFToken,
-		wwwClaim: "0",
+		http:       httpClient,
+		session:    session,
+		baseURL:    base,
+		mobileBase: base, // tests use same server for both
+		csrf:       session.CSRFToken,
+		wwwClaim:   "0",
 	}
 }
 
-// applyHeaders sets all required Instagram request headers on req.
+// applyHeaders sets all required Instagram web request headers on req.
 func (c *Client) applyHeaders(req *http.Request) {
 	c.mu.Lock()
 	csrf := c.csrf
@@ -106,6 +115,21 @@ func (c *Client) applyHeaders(req *http.Request) {
 	req.Header.Set("X-Instagram-AJAX", igAjaxToken)
 	req.Header.Set("X-ASBD-ID", igASBDID)
 	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+}
+
+// applyMobileHeaders sets headers for i.instagram.com mobile API requests.
+// Uses a mobile user agent to avoid "useragent mismatch" errors.
+func (c *Client) applyMobileHeaders(req *http.Request) {
+	c.mu.Lock()
+	csrf := c.csrf
+	wwwClaim := c.wwwClaim
+	c.mu.Unlock()
+
+	req.Header.Set("User-Agent", mobileUserAgent)
+	req.Header.Set("Cookie", c.session.CookieString())
+	req.Header.Set("X-IG-App-ID", igAppID)
+	req.Header.Set("X-CSRFToken", csrf)
+	req.Header.Set("X-IG-WWW-Claim", wwwClaim)
 }
 
 // captureResponseHeaders updates rotating state (CSRF, www-claim) from response headers.
@@ -170,6 +194,50 @@ func (c *Client) Post(ctx context.Context, path string, body url.Values) (*http.
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("POST %s: %w", path, err)
+	}
+	c.captureResponseHeaders(resp)
+	return resp, nil
+}
+
+// MobileGet performs a GET request via i.instagram.com with a mobile user agent.
+// Use this for endpoints that return "useragent mismatch" on www.instagram.com.
+func (c *Client) MobileGet(ctx context.Context, path string, params url.Values) (*http.Response, error) {
+	u := c.mobileBase + path
+	if len(params) > 0 {
+		u += "?" + params.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build mobile GET request: %w", err)
+	}
+	c.applyMobileHeaders(req)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("mobile GET %s: %w", path, err)
+	}
+	c.captureResponseHeaders(resp)
+	return resp, nil
+}
+
+// MobilePost performs a POST request via i.instagram.com with a mobile user agent.
+func (c *Client) MobilePost(ctx context.Context, path string, body url.Values) (*http.Response, error) {
+	encoded := ""
+	if body != nil {
+		encoded = body.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.mobileBase+path, strings.NewReader(encoded))
+	if err != nil {
+		return nil, fmt.Errorf("build mobile POST request: %w", err)
+	}
+	c.applyMobileHeaders(req)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("mobile POST %s: %w", path, err)
 	}
 	c.captureResponseHeaders(resp)
 	return resp, nil

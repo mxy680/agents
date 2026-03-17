@@ -94,7 +94,7 @@ func makeRunLiveList(factory ClientFactory) func(*cobra.Command, []string) error
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/live/reels_tray_broadcasts/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/live/reels_tray_broadcasts/", nil)
 		if err != nil {
 			return fmt.Errorf("listing live broadcasts: %w", err)
 		}
@@ -160,7 +160,7 @@ func makeRunLiveGet(factory ClientFactory) func(*cobra.Command, []string) error 
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/live/"+broadcastID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/live/"+broadcastID+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting broadcast %s: %w", broadcastID, err)
 		}
@@ -214,7 +214,7 @@ func makeRunLiveComments(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/live/"+broadcastID+"/get_comment/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/live/"+broadcastID+"/get_comment/", nil)
 		if err != nil {
 			return fmt.Errorf("getting comments for broadcast %s: %w", broadcastID, err)
 		}
@@ -267,7 +267,7 @@ func makeRunLiveHeartbeat(factory ClientFactory) func(*cobra.Command, []string) 
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/live/"+broadcastID+"/heartbeat_and_get_viewer_count/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/live/"+broadcastID+"/heartbeat_and_get_viewer_count/", nil)
 		if err != nil {
 			return fmt.Errorf("heartbeat for broadcast %s: %w", broadcastID, err)
 		}
@@ -312,7 +312,7 @@ func makeRunLiveLike(factory ClientFactory) func(*cobra.Command, []string) error
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/live/"+broadcastID+"/like/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/live/"+broadcastID+"/like/", nil)
 		if err != nil {
 			return fmt.Errorf("liking broadcast %s: %w", broadcastID, err)
 		}
@@ -363,7 +363,7 @@ func makeRunLivePostComment(factory ClientFactory) func(*cobra.Command, []string
 		body := url.Values{}
 		body.Set("comment_text", text)
 
-		resp, err := client.Post(ctx, "/api/v1/live/"+broadcastID+"/comment/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/live/"+broadcastID+"/comment/", body)
 		if err != nil {
 			return fmt.Errorf("posting comment on broadcast %s: %w", broadcastID, err)
 		}

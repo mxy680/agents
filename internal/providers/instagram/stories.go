@@ -117,7 +117,7 @@ func makeRunStoriesList(factory ClientFactory) func(*cobra.Command, []string) er
 			userID = client.session.DSUserID
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/feed/user/"+userID+"/story/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/user/"+userID+"/story/", nil)
 		if err != nil {
 			return fmt.Errorf("listing stories for user %s: %w", userID, err)
 		}
@@ -162,7 +162,7 @@ func makeRunStoriesGet(factory ClientFactory) func(*cobra.Command, []string) err
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+storyID+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+storyID+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting story %s: %w", storyID, err)
 		}
@@ -226,7 +226,7 @@ func makeRunStoriesViewers(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/media/"+storyID+"/list_reel_media_viewer/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/media/"+storyID+"/list_reel_media_viewer/", nil)
 		if err != nil {
 			return fmt.Errorf("getting viewers for story %s: %w", storyID, err)
 		}
@@ -276,7 +276,7 @@ func makeRunStoriesFeed(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/feed/reels_tray/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/reels_tray/", nil)
 		if err != nil {
 			return fmt.Errorf("getting stories feed: %w", err)
 		}
@@ -354,7 +354,7 @@ func makeRunStoriesDelete(factory ClientFactory) func(*cobra.Command, []string) 
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/media/"+storyID+"/delete/?media_type=STORY", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/media/"+storyID+"/delete/?media_type=STORY", nil)
 		if err != nil {
 			return fmt.Errorf("deleting story %s: %w", storyID, err)
 		}

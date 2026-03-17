@@ -51,7 +51,7 @@ func makeRunCloseFriendsList(factory ClientFactory) func(*cobra.Command, []strin
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/friendships/besties/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/friendships/besties/", nil)
 		if err != nil {
 			return fmt.Errorf("listing close friends: %w", err)
 		}
@@ -96,7 +96,7 @@ func makeRunCloseFriendsAdd(factory ClientFactory) func(*cobra.Command, []string
 		body := url.Values{}
 		body.Set("add", userID)
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/set_besties/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/set_besties/", body)
 		if err != nil {
 			return fmt.Errorf("adding user %s to close friends: %w", userID, err)
 		}
@@ -144,7 +144,7 @@ func makeRunCloseFriendsRemove(factory ClientFactory) func(*cobra.Command, []str
 		body := url.Values{}
 		body.Set("remove", userID)
 
-		resp, err := client.Post(ctx, "/api/v1/friendships/set_besties/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/friendships/set_besties/", body)
 		if err != nil {
 			return fmt.Errorf("removing user %s from close friends: %w", userID, err)
 		}

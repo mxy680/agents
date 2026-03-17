@@ -94,7 +94,7 @@ func makeRunHighlightsList(factory ClientFactory) func(*cobra.Command, []string)
 			userID = client.session.DSUserID
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/highlights/"+userID+"/highlights_tray/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/highlights/"+userID+"/highlights_tray/", nil)
 		if err != nil {
 			return fmt.Errorf("listing highlights for user %s: %w", userID, err)
 		}
@@ -157,7 +157,7 @@ func makeRunHighlightsGet(factory ClientFactory) func(*cobra.Command, []string) 
 		params := url.Values{}
 		params.Set("reel_ids", "highlight:"+highlightID)
 
-		resp, err := client.Get(ctx, "/api/v1/feed/reels_media/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/reels_media/", params)
 		if err != nil {
 			return fmt.Errorf("getting highlight %s: %w", highlightID, err)
 		}
@@ -220,7 +220,7 @@ func makeRunHighlightsCreate(factory ClientFactory) func(*cobra.Command, []strin
 			body.Add("reel_ids[]", id)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/highlights/create_reel/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/highlights/create_reel/", body)
 		if err != nil {
 			return fmt.Errorf("creating highlight: %w", err)
 		}
@@ -287,7 +287,7 @@ func makeRunHighlightsEdit(factory ClientFactory) func(*cobra.Command, []string)
 			body.Add("removed_reel_ids[]", id)
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/highlights/"+highlightID+"/edit_reel/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/highlights/"+highlightID+"/edit_reel/", body)
 		if err != nil {
 			return fmt.Errorf("editing highlight %s: %w", highlightID, err)
 		}
@@ -336,7 +336,7 @@ func makeRunHighlightsDelete(factory ClientFactory) func(*cobra.Command, []strin
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/highlights/"+highlightID+"/delete_reel/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/highlights/"+highlightID+"/delete_reel/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting highlight %s: %w", highlightID, err)
 		}

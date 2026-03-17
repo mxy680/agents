@@ -124,7 +124,7 @@ func makeRunSearchUsers(factory ClientFactory) func(*cobra.Command, []string) er
 		params.Set("q", query)
 		params.Set("count", strconv.Itoa(limit))
 
-		resp, err := client.Get(ctx, "/api/v1/users/search/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/users/search/", params)
 		if err != nil {
 			return fmt.Errorf("searching users: %w", err)
 		}
@@ -166,7 +166,7 @@ func makeRunSearchTags(factory ClientFactory) func(*cobra.Command, []string) err
 		params.Set("q", query)
 		params.Set("count", strconv.Itoa(limit))
 
-		resp, err := client.Get(ctx, "/api/v1/tags/search/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/search/", params)
 		if err != nil {
 			return fmt.Errorf("searching tags: %w", err)
 		}
@@ -253,7 +253,7 @@ func makeRunSearchLocations(factory ClientFactory) func(*cobra.Command, []string
 			params.Set("longitude", strconv.FormatFloat(lng, 'f', 6, 64))
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/location_search/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/location_search/", params)
 		if err != nil {
 			return fmt.Errorf("searching locations: %w", err)
 		}
@@ -332,7 +332,7 @@ func makeRunSearchTop(factory ClientFactory) func(*cobra.Command, []string) erro
 		params.Set("query", query)
 		params.Set("count", strconv.Itoa(limit))
 
-		resp, err := client.Get(ctx, "/api/v1/fbsearch/topsearch_flat/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/fbsearch/topsearch_flat/", params)
 		if err != nil {
 			return fmt.Errorf("top search: %w", err)
 		}
@@ -403,7 +403,7 @@ func makeRunSearchClear(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/fbsearch/clear_search_history/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/fbsearch/clear_search_history/", nil)
 		if err != nil {
 			return fmt.Errorf("clearing search history: %w", err)
 		}
@@ -449,7 +449,7 @@ func makeRunSearchExplore(factory ClientFactory) func(*cobra.Command, []string) 
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/discover/explore/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/discover/explore/", params)
 		if err != nil {
 			return fmt.Errorf("fetching explore feed: %w", err)
 		}

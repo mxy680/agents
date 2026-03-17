@@ -100,7 +100,7 @@ func makeRunTagsGet(factory ClientFactory) func(*cobra.Command, []string) error 
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/tags/"+name+"/info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting tag info for #%s: %w", name, err)
 		}
@@ -168,7 +168,7 @@ func makeRunTagsFeed(factory ClientFactory) func(*cobra.Command, []string) error
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/tags/"+name+"/sections/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/sections/", params)
 		if err != nil {
 			return fmt.Errorf("getting tag feed for #%s: %w", name, err)
 		}
@@ -221,7 +221,7 @@ func makeRunTagsFollow(factory ClientFactory) func(*cobra.Command, []string) err
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/tags/follow/"+name+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/tags/follow/"+name+"/", nil)
 		if err != nil {
 			return fmt.Errorf("following tag #%s: %w", name, err)
 		}
@@ -265,7 +265,7 @@ func makeRunTagsUnfollow(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/tags/unfollow/"+name+"/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/tags/unfollow/"+name+"/", nil)
 		if err != nil {
 			return fmt.Errorf("unfollowing tag #%s: %w", name, err)
 		}
@@ -300,7 +300,7 @@ func makeRunTagsFollowing(factory ClientFactory) func(*cobra.Command, []string) 
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/users/self/following_tag_list/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/users/self/following_tag_list/", nil)
 		if err != nil {
 			return fmt.Errorf("listing following tags: %w", err)
 		}
@@ -361,7 +361,7 @@ func makeRunTagsRelated(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/tags/"+name+"/related/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/tags/"+name+"/related/", nil)
 		if err != nil {
 			return fmt.Errorf("getting related tags for #%s: %w", name, err)
 		}

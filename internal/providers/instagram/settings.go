@@ -83,7 +83,7 @@ func makeRunSettingsGet(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/accounts/current_user/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/accounts/current_user/", nil)
 		if err != nil {
 			return fmt.Errorf("getting account settings: %w", err)
 		}
@@ -129,7 +129,7 @@ func makeRunSettingsPrivacy(factory ClientFactory) func(*cobra.Command, []string
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/accounts/privacy_settings/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/accounts/privacy_settings/", nil)
 		if err != nil {
 			return fmt.Errorf("getting privacy settings: %w", err)
 		}
@@ -173,7 +173,7 @@ func makeRunSettingsSetPrivate(factory ClientFactory) func(*cobra.Command, []str
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/accounts/set_private/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/accounts/set_private/", nil)
 		if err != nil {
 			return fmt.Errorf("setting account private: %w", err)
 		}
@@ -213,7 +213,7 @@ func makeRunSettingsSetPublic(factory ClientFactory) func(*cobra.Command, []stri
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/accounts/set_public/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/accounts/set_public/", nil)
 		if err != nil {
 			return fmt.Errorf("setting account public: %w", err)
 		}
@@ -248,7 +248,7 @@ func makeRunSettingsTwoFactorStatus(factory ClientFactory) func(*cobra.Command, 
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/accounts/two_factor_info/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/accounts/two_factor_info/", nil)
 		if err != nil {
 			return fmt.Errorf("getting 2FA status: %w", err)
 		}
@@ -287,7 +287,7 @@ func makeRunSettingsLoginActivity(factory ClientFactory) func(*cobra.Command, []
 			return err
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/session/login_activity/", nil)
+		resp, err := client.MobileGet(ctx, "/api/v1/session/login_activity/", nil)
 		if err != nil {
 			return fmt.Errorf("getting login activity: %w", err)
 		}

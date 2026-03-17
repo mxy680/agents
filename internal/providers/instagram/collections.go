@@ -120,7 +120,7 @@ func makeRunCollectionsList(factory ClientFactory) func(*cobra.Command, []string
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/collections/list/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/collections/list/", params)
 		if err != nil {
 			return fmt.Errorf("listing collections: %w", err)
 		}
@@ -193,7 +193,7 @@ func makeRunCollectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/feed/collection/"+collectionID+"/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/collection/"+collectionID+"/", params)
 		if err != nil {
 			return fmt.Errorf("getting collection %s: %w", collectionID, err)
 		}
@@ -248,7 +248,7 @@ func makeRunCollectionsCreate(factory ClientFactory) func(*cobra.Command, []stri
 		body.Set("name", name)
 		body.Set("module_name", "feed_contextual_post")
 
-		resp, err := client.Post(ctx, "/api/v1/collections/create/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/collections/create/", body)
 		if err != nil {
 			return fmt.Errorf("creating collection: %w", err)
 		}
@@ -299,7 +299,7 @@ func makeRunCollectionsEdit(factory ClientFactory) func(*cobra.Command, []string
 		body := url.Values{}
 		body.Set("name", name)
 
-		resp, err := client.Post(ctx, "/api/v1/collections/"+collectionID+"/edit/", body)
+		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+collectionID+"/edit/", body)
 		if err != nil {
 			return fmt.Errorf("editing collection %s: %w", collectionID, err)
 		}
@@ -348,7 +348,7 @@ func makeRunCollectionsDelete(factory ClientFactory) func(*cobra.Command, []stri
 			return err
 		}
 
-		resp, err := client.Post(ctx, "/api/v1/collections/"+collectionID+"/delete/", nil)
+		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+collectionID+"/delete/", nil)
 		if err != nil {
 			return fmt.Errorf("deleting collection %s: %w", collectionID, err)
 		}
@@ -394,7 +394,7 @@ func makeRunCollectionsSaved(factory ClientFactory) func(*cobra.Command, []strin
 			params.Set("max_id", cursor)
 		}
 
-		resp, err := client.Get(ctx, "/api/v1/feed/saved/posts/", params)
+		resp, err := client.MobileGet(ctx, "/api/v1/feed/saved/posts/", params)
 		if err != nil {
 			return fmt.Errorf("listing saved posts: %w", err)
 		}
