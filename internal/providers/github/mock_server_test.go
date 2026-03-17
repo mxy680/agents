@@ -17,8 +17,30 @@ import (
 
 // withReposMock registers repo-related mock handlers on mux.
 func withReposMock(mux *http.ServeMux) {
-	// GET /user/repos (list authenticated user's repos)
+	// GET/POST /user/repos (list or create authenticated user's repos)
 	mux.HandleFunc("/user/repos", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			name, _ := body["name"].(string)
+			resp := map[string]any{
+				"id": 1, "name": name, "full_name": "alice/" + name,
+				"owner":            map[string]any{"login": "alice"},
+				"private":          body["private"],
+				"description":      body["description"],
+				"html_url":         "https://github.com/alice/" + name,
+				"clone_url":        "https://github.com/alice/" + name + ".git",
+				"default_branch":   "main",
+				"language":         "",
+				"stargazers_count": 0, "forks_count": 0, "open_issues_count": 0,
+				"created_at": "2026-03-17T00:00:00Z", "updated_at": "2026-03-17T00:00:00Z",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
 		resp := []map[string]any{
 			{
 				"id": 1, "name": "repo-alpha", "full_name": "alice/repo-alpha",

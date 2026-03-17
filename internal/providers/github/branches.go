@@ -278,6 +278,16 @@ func makeRunProtectionUpdate(factory ClientFactory) func(*cobra.Command, []strin
 			return fmt.Errorf("parsing protection settings JSON: %w", err)
 		}
 
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("Would update branch protection for %s in %s/%s", branch, owner, repo), map[string]any{
+				"action":   "update_protection",
+				"owner":    owner,
+				"repo":     repo,
+				"branch":   branch,
+				"settings": body,
+			})
+		}
+
 		ctx := cmd.Context()
 		client, err := factory(ctx)
 		if err != nil {
@@ -331,6 +341,15 @@ func makeRunProtectionDelete(factory ClientFactory) func(*cobra.Command, []strin
 		owner, _ := cmd.Flags().GetString("owner")
 		repo, _ := cmd.Flags().GetString("repo")
 		branch, _ := cmd.Flags().GetString("branch")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("Would delete branch protection for %s in %s/%s", branch, owner, repo), map[string]any{
+				"action": "delete_protection",
+				"owner":  owner,
+				"repo":   repo,
+				"branch": branch,
+			})
+		}
 
 		if err := confirmDestructive(cmd); err != nil {
 			return err
