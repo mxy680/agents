@@ -5,6 +5,7 @@ import (
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/emdash-projects/agents/internal/providers/calendar"
+	"github.com/emdash-projects/agents/internal/providers/drive"
 	"github.com/emdash-projects/agents/internal/providers/gmail"
 )
 
@@ -15,6 +16,9 @@ func main() {
 
 	calendarProvider := calendar.New()
 	calendarProvider.RegisterCommands(cli.RootCmd())
+
+	driveProvider := drive.New()
+	driveProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
