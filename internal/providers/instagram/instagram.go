@@ -1,0 +1,45 @@
+package instagram
+
+import (
+	"github.com/spf13/cobra"
+)
+
+// Provider implements the Instagram integration.
+type Provider struct {
+	// ClientFactory creates the Instagram API client. Defaults to DefaultClientFactory.
+	// Override in tests to inject a mock client pointing at a test server.
+	ClientFactory ClientFactory
+}
+
+// New creates a new Instagram provider using the real Instagram web API.
+func New() *Provider {
+	return &Provider{
+		ClientFactory: DefaultClientFactory(),
+	}
+}
+
+// Name returns the provider identifier.
+func (p *Provider) Name() string {
+	return "instagram"
+}
+
+// RegisterCommands adds all Instagram subcommands to the parent command.
+func (p *Provider) RegisterCommands(parent *cobra.Command) {
+	igCmd := &cobra.Command{
+		Use:     "instagram",
+		Short:   "Interact with Instagram",
+		Long:    "View profiles, media, stories, and more via the Instagram web API.",
+		Aliases: []string{"ig"},
+	}
+
+	profileCmd := &cobra.Command{
+		Use:     "profile",
+		Short:   "View and edit profiles",
+		Aliases: []string{"prof"},
+	}
+	profileCmd.AddCommand(newProfileGetCmd(p.ClientFactory))
+	profileCmd.AddCommand(newProfileEditFormCmd(p.ClientFactory))
+	igCmd.AddCommand(profileCmd)
+
+	parent.AddCommand(igCmd)
+}
