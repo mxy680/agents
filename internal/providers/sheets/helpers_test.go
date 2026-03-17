@@ -106,6 +106,55 @@ func TestParseBatchData(t *testing.T) {
 	}
 }
 
+func TestValidateValueInput(t *testing.T) {
+	if err := validateValueInput("RAW"); err != nil {
+		t.Errorf("RAW should be valid: %v", err)
+	}
+	if err := validateValueInput("USER_ENTERED"); err != nil {
+		t.Errorf("USER_ENTERED should be valid: %v", err)
+	}
+	if err := validateValueInput("INVALID"); err == nil {
+		t.Error("INVALID should be rejected")
+	}
+}
+
+func TestValidateMajorDimension(t *testing.T) {
+	if err := validateMajorDimension("ROWS"); err != nil {
+		t.Errorf("ROWS should be valid: %v", err)
+	}
+	if err := validateMajorDimension("COLUMNS"); err != nil {
+		t.Errorf("COLUMNS should be valid: %v", err)
+	}
+	if err := validateMajorDimension("DIAGONAL"); err == nil {
+		t.Error("DIAGONAL should be rejected")
+	}
+}
+
+func TestSplitAndTrimRanges(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{"A1:B2,C1:D2", []string{"A1:B2", "C1:D2"}},
+		{"A1:B2, C1:D2", []string{"A1:B2", "C1:D2"}},
+		{" A1:B2 , C1:D2 ", []string{"A1:B2", "C1:D2"}},
+		{"A1:B2,,C1:D2", []string{"A1:B2", "C1:D2"}},
+		{"A1:B2", []string{"A1:B2"}},
+	}
+	for _, tt := range tests {
+		got := splitAndTrimRanges(tt.input)
+		if len(got) != len(tt.want) {
+			t.Errorf("splitAndTrimRanges(%q) = %v, want %v", tt.input, got, tt.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("splitAndTrimRanges(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
 func TestFormatCellsTable(t *testing.T) {
 	tests := []struct {
 		name   string

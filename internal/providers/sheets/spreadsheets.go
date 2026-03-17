@@ -223,7 +223,7 @@ func makeRunSpreadsheetsDelete(factory DriveServiceFactory) func(cmd *cobra.Comm
 		if cli.IsDryRun(cmd) {
 			return dryRunResult(cmd, "Would delete spreadsheet "+spreadsheetID, map[string]string{
 				"id":     spreadsheetID,
-				"status": "deleted",
+				"status": "dry-run",
 			})
 		}
 

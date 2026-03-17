@@ -329,9 +329,11 @@ func captureStdout(t *testing.T, f func()) string {
 	w.Close()
 	os.Stdout = old
 
-	buf := make([]byte, 65536)
-	n, _ := r.Read(buf)
-	return string(buf[:n])
+	data, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("reading captured stdout: %v", err)
+	}
+	return string(data)
 }
 
 // newTestRootCmd creates a root command with global flags for testing.

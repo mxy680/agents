@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 
 	"golang.org/x/oauth2"
@@ -95,7 +96,8 @@ func NewToken() (*oauth2.Token, error) {
 	}, nil
 }
 
-// tokenNotifySource wraps a token source and prints new tokens to stderr.
+// tokenNotifySource wraps a token source and logs refresh events to stderr.
+// Token values are redacted — only the event is logged, never the credential.
 type tokenNotifySource struct {
 	base         oauth2.TokenSource
 	lastToken    string
@@ -109,22 +111,21 @@ func (t *tokenNotifySource) Token() (*oauth2.Token, error) {
 	}
 	if tok.AccessToken != t.lastToken {
 		t.lastToken = tok.AccessToken
-		fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: access_token=%s\n", tok.AccessToken)
+		fmt.Fprintln(os.Stderr, "TOKEN_REFRESHED: access_token refreshed")
 		if tok.RefreshToken != "" && tok.RefreshToken != t.refreshToken {
 			t.refreshToken = tok.RefreshToken
-			fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: refresh_token=%s\n", tok.RefreshToken)
+			fmt.Fprintln(os.Stderr, "TOKEN_REFRESHED: refresh_token rotated")
 		}
 	}
 	return tok, nil
 }
 
-// NewGmailService creates an authenticated Gmail API service from environment variables.
-func NewGmailService(ctx context.Context) (*gmail.Service, error) {
+// newAuthenticatedClient creates an OAuth2 HTTP client from environment variables.
+func newAuthenticatedClient(ctx context.Context) (*http.Client, error) {
 	config, err := NewOAuthConfig()
 	if err != nil {
 		return nil, fmt.Errorf("oauth config: %w", err)
 	}
-
 	token, err := NewToken()
 	if err != nil {
 		return nil, fmt.Errorf("oauth token: %w", err)
@@ -136,56 +137,32 @@ func NewGmailService(ctx context.Context) (*gmail.Service, error) {
 		lastToken:    token.AccessToken,
 		refreshToken: token.RefreshToken,
 	}
-
-	client := oauth2.NewClient(ctx, notifySource)
-	return gmail.NewService(ctx, option.WithHTTPClient(client))
+	return oauth2.NewClient(ctx, notifySource), nil
 }
 
-// newAuthenticatedClient creates an OAuth2-authenticated HTTP client from environment variables.
-func newAuthenticatedClient(ctx context.Context) (*oauth2.Config, *oauth2.Token, error) {
-	config, err := NewOAuthConfig()
+// NewGmailService creates an authenticated Gmail API service from environment variables.
+func NewGmailService(ctx context.Context) (*gmail.Service, error) {
+	client, err := newAuthenticatedClient(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("oauth config: %w", err)
+		return nil, err
 	}
-	token, err := NewToken()
-	if err != nil {
-		return nil, nil, fmt.Errorf("oauth token: %w", err)
-	}
-	return config, token, nil
+	return gmail.NewService(ctx, option.WithHTTPClient(client))
 }
 
 // NewSheetsService creates an authenticated Google Sheets API service from environment variables.
 func NewSheetsService(ctx context.Context) (*sheets.Service, error) {
-	config, token, err := newAuthenticatedClient(ctx)
+	client, err := newAuthenticatedClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	baseSource := config.TokenSource(ctx, token)
-	notifySource := &tokenNotifySource{
-		base:         baseSource,
-		lastToken:    token.AccessToken,
-		refreshToken: token.RefreshToken,
-	}
-
-	client := oauth2.NewClient(ctx, notifySource)
 	return sheets.NewService(ctx, option.WithHTTPClient(client))
 }
 
 // NewDriveService creates an authenticated Google Drive API service from environment variables.
 func NewDriveService(ctx context.Context) (*drive.Service, error) {
-	config, token, err := newAuthenticatedClient(ctx)
+	client, err := newAuthenticatedClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	baseSource := config.TokenSource(ctx, token)
-	notifySource := &tokenNotifySource{
-		base:         baseSource,
-		lastToken:    token.AccessToken,
-		refreshToken: token.RefreshToken,
-	}
-
-	client := oauth2.NewClient(ctx, notifySource)
 	return drive.NewService(ctx, option.WithHTTPClient(client))
 }

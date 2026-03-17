@@ -72,19 +72,53 @@ func parseValuesJSON(s string) ([][]interface{}, error) {
 	return values, nil
 }
 
-// parseBatchData parses JSON for batch-update --data flag.
-// Expected format: [{"range":"Sheet1!A1:B2","values":[["a","b"],["c","d"]]}]
-type BatchDataEntry struct {
+// batchDataEntry represents a single range+values pair for batch operations.
+type batchDataEntry struct {
 	Range  string          `json:"range"`
 	Values [][]interface{} `json:"values"`
 }
 
-func parseBatchData(s string) ([]BatchDataEntry, error) {
-	var entries []BatchDataEntry
+// parseBatchData parses JSON for batch-update --data flag.
+// Expected format: [{"range":"Sheet1!A1:B2","values":[["a","b"],["c","d"]]}]
+func parseBatchData(s string) ([]batchDataEntry, error) {
+	var entries []batchDataEntry
 	if err := json.Unmarshal([]byte(s), &entries); err != nil {
 		return nil, fmt.Errorf("invalid JSON for --data: %w (expected array of {range, values} objects)", err)
 	}
 	return entries, nil
+}
+
+// validateValueInput validates the --value-input flag.
+func validateValueInput(v string) error {
+	switch v {
+	case "RAW", "USER_ENTERED":
+		return nil
+	default:
+		return fmt.Errorf("--value-input must be RAW or USER_ENTERED, got %q", v)
+	}
+}
+
+// validateMajorDimension validates the --major-dimension flag.
+func validateMajorDimension(v string) error {
+	switch v {
+	case "ROWS", "COLUMNS":
+		return nil
+	default:
+		return fmt.Errorf("--major-dimension must be ROWS or COLUMNS, got %q", v)
+	}
+}
+
+// splitAndTrimRanges splits a comma-separated ranges string and trims whitespace.
+func splitAndTrimRanges(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }
 
 // formatCellsTable formats a 2D array of values as aligned text columns.
