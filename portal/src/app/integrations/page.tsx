@@ -5,7 +5,12 @@ import { ProviderCard } from "@/components/provider-card";
 import { InstagramForm } from "@/components/instagram-form";
 import { ConnectButton } from "@/components/connect-button";
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error: errorParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,6 +48,11 @@ export default async function IntegrationsPage() {
           Connect your accounts to enable AI agent access.
         </p>
       </div>
+      {errorParam && (
+        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          Error: {errorParam.replace(/_/g, " ")}
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {providers.map((provider) => {
           const integrationId = catalogMap.get(provider.id);

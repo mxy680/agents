@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { encryptCredentials } from "@/lib/crypto";
 
 interface InstagramCookies {
@@ -55,7 +55,8 @@ export async function POST(request: Request) {
   if (body.mid) creds.mid = body.mid;
   if (body.igDid) creds.ig_did = body.igDid;
 
-  const { error } = await supabase.from("user_integrations").upsert(
+  const serviceClient = await createServiceClient();
+  const { error } = await serviceClient.from("user_integrations").upsert(
     {
       user_id: user.id,
       integration_id: integration.id,

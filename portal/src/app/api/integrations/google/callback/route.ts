@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { encryptCredentials } from "@/lib/crypto";
 
 export async function GET(request: Request) {
@@ -70,7 +70,8 @@ export async function GET(request: Request) {
     ).toISOString();
   }
 
-  const { error: upsertError } = await supabase
+  const serviceClient = await createServiceClient();
+  const { error: upsertError } = await serviceClient
     .from("user_integrations")
     .upsert(
       {
@@ -87,7 +88,7 @@ export async function GET(request: Request) {
 
   if (upsertError) {
     return NextResponse.redirect(
-      `${origin}/integrations?error=google_save_failed`
+      `${origin}/integrations?error=${encodeURIComponent(upsertError.message)}`
     );
   }
 
