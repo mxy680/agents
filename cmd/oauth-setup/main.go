@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -70,7 +71,11 @@ func main() {
 	})
 
 	server := &http.Server{Addr: ":8089", Handler: mux}
-	go server.ListenAndServe()
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("HTTP server: %w", err)
+		}
+	}()
 
 	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	fmt.Fprintf(os.Stderr, "\nOpening browser for OAuth consent...\n")

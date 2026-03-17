@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -75,11 +76,23 @@ func NewToken() (*oauth2.Token, error) {
 	}, nil
 }
 
-// tokenNotifySource wraps a token source and prints new tokens to stderr.
+// tokenNotifySource wraps a token source and emits a notification to stderr
+// when the underlying token is refreshed. The host process is expected to
+// consume these lines programmatically; token values are redacted in the output.
 type tokenNotifySource struct {
+	mu           sync.Mutex
 	base         oauth2.TokenSource
 	lastToken    string
 	refreshToken string
+}
+
+// redact returns the last 4 characters of s prefixed with "…", or "****" if s
+// is too short. This avoids leaking full credentials to stderr/logs.
+func redact(s string) string {
+	if len(s) <= 4 {
+		return "****"
+	}
+	return "…" + s[len(s)-4:]
 }
 
 func (t *tokenNotifySource) Token() (*oauth2.Token, error) {
@@ -87,12 +100,16 @@ func (t *tokenNotifySource) Token() (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if tok.AccessToken != t.lastToken {
 		t.lastToken = tok.AccessToken
-		fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: access_token=%s\n", tok.AccessToken)
+		fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: access_token=%s\n", redact(tok.AccessToken))
 		if tok.RefreshToken != "" && tok.RefreshToken != t.refreshToken {
 			t.refreshToken = tok.RefreshToken
-			fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: refresh_token=%s\n", tok.RefreshToken)
+			fmt.Fprintf(os.Stderr, "TOKEN_REFRESHED: refresh_token=%s\n", redact(tok.RefreshToken))
 		}
 	}
 	return tok, nil
