@@ -1,4 +1,4 @@
-.PHONY: build test test-integration lint clean
+.PHONY: build test test-integration lint clean portal-install portal-dev portal-build portal-lint
 
 BINARY := bin/integrations
 
@@ -17,3 +17,16 @@ lint:
 
 clean:
 	rm -rf bin/ coverage.out
+
+# Portal targets
+portal-install:
+	cd portal && npm install
+
+portal-dev:
+	cd portal && npm run dev
+
+portal-build:
+	cd portal && npm run build
+
+portal-lint:
+	cd portal && npm run lint
