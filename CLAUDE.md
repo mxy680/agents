@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, and Google Calendar.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, and Google Drive.
 
 ## Quick Start
 ```bash
@@ -69,6 +69,28 @@ integrations calendar freebusy query --time-min=RFC3339 --time-max=RFC3339 [--ca
 `events` has aliases `event`, `ev`. `calendars` has alias `cal`. `freebusy` has alias `fb`.
 `--calendar-id` defaults to `"primary"` on all events commands and calendars get/update/delete.
 
+## Commands — Drive
+```
+integrations drive files list [--query=Q] [--limit=N] [--page-token=TOKEN] [--order-by=ORDER] [--corpora=CORPORA] [--drive-id=ID] [--include-trashed] [--json]
+integrations drive files get --file-id=ID [--json]
+integrations drive files download --file-id=ID [--output=PATH] [--export-mime=MIME]
+integrations drive files upload --path=PATH [--name=NAME] [--parent=FOLDER_ID] [--mime-type=MIME] [--description=TEXT] [--dry-run] [--json]
+integrations drive files copy --file-id=ID [--name=NAME] [--parent=FOLDER_ID] [--dry-run] [--json]
+integrations drive files move --file-id=ID --parent=FOLDER_ID [--dry-run] [--json]
+integrations drive files trash --file-id=ID [--dry-run] [--json]
+integrations drive files untrash --file-id=ID [--dry-run] [--json]
+integrations drive files delete --file-id=ID [--confirm] [--dry-run] [--json]
+
+integrations drive permissions list --file-id=ID [--json]
+integrations drive permissions get --file-id=ID --permission-id=ID [--json]
+integrations drive permissions create --file-id=ID --role=ROLE --type=TYPE [--email=EMAIL] [--domain=DOMAIN] [--dry-run] [--json]
+integrations drive permissions delete --file-id=ID --permission-id=ID [--confirm] [--dry-run] [--json]
+```
+
+`files` has aliases `file`, `f`. `permissions` has aliases `permission`, `perm`.
+`--include-trashed` defaults to false (auto-adds `trashed = false` to query).
+`--export-mime` is for Google Workspace files (Docs→PDF, Sheets→CSV, etc.).
+
 ## Architecture
 - `cmd/integrations/main.go` — entrypoint, registers providers
 - `internal/cli/` — Cobra root command, output helpers (JSON/text)
@@ -76,6 +98,7 @@ integrations calendar freebusy query --time-min=RFC3339 --time-max=RFC3339 [--ca
 - `internal/providers/gmail/` — Gmail provider with injectable ServiceFactory
 - `internal/providers/sheets/` — Sheets provider with dual ServiceFactory (Sheets + Drive)
 - `internal/providers/calendar/` — Calendar provider with injectable ServiceFactory
+- `internal/providers/drive/` — Drive provider with injectable ServiceFactory
 - `internal/providers/provider.go` — Provider interface
 
 ## Architecture — Gmail Package Layout
@@ -124,10 +147,24 @@ internal/providers/calendar/
   calendar_test.go      # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
 ```
 
+## Architecture — Drive Package Layout
+```
+internal/providers/drive/
+  drive.go              # Provider struct, RegisterCommands (nested: drive → files/permissions)
+  helpers.go            # Shared types (FileSummary, FileDetail, PermissionInfo) and helpers
+  files.go              # 9 file commands (list, get, download, upload, copy, move, trash, untrash, delete)
+  permissions.go        # 4 permission commands (list, get, create, delete)
+  helpers_test.go       # Unit tests for helpers (toFileSummary, formatSize, truncate, etc.)
+  files_test.go         # Integration tests for all files sub-commands
+  permissions_test.go   # Integration tests for all permissions sub-commands
+  mock_server_test.go   # httptest mock server helpers, captureStdout, newTestRootCmd
+  drive_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Testing
 - All providers use `ServiceFactory` for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%)
 
 ## Environment Variables
 ```

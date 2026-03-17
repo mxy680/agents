@@ -44,6 +44,7 @@ func main() {
 			sheets.SpreadsheetsScope,
 			drive.DriveFileScope,
 			calendar.CalendarScope,
+			drive.DriveScope,
 		},
 	}
 

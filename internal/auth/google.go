@@ -74,6 +74,7 @@ func NewOAuthConfig() (*oauth2.Config, error) {
 			sheets.SpreadsheetsScope,
 			drive.DriveFileScope,
 			calendar.CalendarScope,
+			drive.DriveScope,
 		},
 	}, nil
 }
@@ -193,3 +194,4 @@ func NewCalendarService(ctx context.Context) (*calendar.Service, error) {
 	}
 	return calendar.NewService(ctx, option.WithHTTPClient(client))
 }
+
