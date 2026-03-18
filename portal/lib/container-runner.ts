@@ -157,11 +157,23 @@ interface ToolIdRef {
 }
 
 function mapAgentEvent(
-  event: Record<string, unknown>,
+  raw: Record<string, unknown>,
   toolInputAccum: Record<string, string>,
   toolIdRef: ToolIdRef
 ): ChatSSEEvent[] {
-  const type = event.type as string | undefined
+  const rawType = raw.type as string | undefined
+
+  // Agent SDK wraps stream events: {type: "stream_event", event: {type: "content_block_delta", ...}}
+  // Unwrap to get the inner event for content parsing.
+  let event: Record<string, unknown>
+  let type: string | undefined
+  if (rawType === "stream_event" && raw.event && typeof raw.event === "object") {
+    event = raw.event as Record<string, unknown>
+    type = event.type as string | undefined
+  } else {
+    event = raw
+    type = rawType
+  }
 
   switch (type) {
     case "content_block_start": {
@@ -211,7 +223,8 @@ function mapAgentEvent(
     }
 
     case "result": {
-      const sessionId = event.session_id as string | undefined
+      // result events come at top level from Agent SDK (not wrapped in stream_event)
+      const sessionId = (raw.session_id ?? event.session_id) as string | undefined
       const events: ChatSSEEvent[] = []
       if (sessionId) {
         events.push({ event: "session", data: sessionId })
@@ -220,10 +233,10 @@ function mapAgentEvent(
         event: "result",
         data: JSON.stringify({
           sessionId,
-          inputTokens: event.input_tokens,
-          outputTokens: event.output_tokens,
-          cost: event.cost,
-          stopReason: event.stop_reason,
+          result: raw.result ?? event.result,
+          costUsd: raw.total_cost_usd ?? event.total_cost_usd,
+          numTurns: raw.num_turns ?? event.num_turns,
+          stopReason: raw.stop_reason ?? event.stop_reason,
         }),
       })
       return events
