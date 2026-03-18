@@ -15,6 +15,9 @@ RUN useradd -m -s /bin/bash agent
 RUN mkdir -p /agent/workspace && chown -R agent:agent /agent
 RUN mkdir -p /app
 
+# Copy integrations CLI binary
+COPY docker/agent-base/bin/integrations /usr/local/bin/integrations
+
 # Copy entrypoint (lives outside workspace so bind mounts don't overwrite it)
 COPY docker/agent-base/entrypoint.mjs /app/entrypoint.mjs
 

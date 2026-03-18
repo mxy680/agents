@@ -36,7 +36,8 @@ orchestrator-dev:
 
 # Docker images
 docker-agent-base:
-	docker build -t ghcr.io/emdash-projects/agent-base:latest -f docker/agent-base/Dockerfile .
+	GOOS=linux GOARCH=arm64 go build -o docker/agent-base/bin/integrations ./cmd/integrations
+	docker build -t ghcr.io/emdash-projects/agent-base:dev -f docker/agent-base/Dockerfile .
 
 docker-export-creds:
 	go build -o docker/export-creds/bin/export-creds ./cmd/export-creds
