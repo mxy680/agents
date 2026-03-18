@@ -17,7 +17,7 @@ type Config struct {
 	KubeNamespace         string
 	AgentBaseImage        string
 	ExportCredsImage      string
-	ClaudeSessionSecretRef string // K8s Secret name for CLAUDE_SESSION_TOKEN
+	ClaudeSessionSecretRef string // K8s Secret name for CLAUDE_CODE_OAUTH_TOKEN
 
 	// Supabase JWT
 	SupabaseJWTSecret string

@@ -24,7 +24,7 @@ if [ -z "$SYSTEM_PROMPT" ]; then
 fi
 
 # Run Claude Code in non-interactive print mode.
-# CLAUDE_SESSION_TOKEN is injected via K8s secret.
+# CLAUDE_CODE_OAUTH_TOKEN is injected via K8s secret.
 # The integrations CLI binary must be in PATH.
 exec claude --print \
     --system-prompt "$SYSTEM_PROMPT" \

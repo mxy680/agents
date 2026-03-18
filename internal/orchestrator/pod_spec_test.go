@@ -129,10 +129,10 @@ func TestBuildPodSpec_MainContainerClaudeSessionToken(t *testing.T) {
 
 	var found bool
 	for _, ev := range agent.Env {
-		if ev.Name == "CLAUDE_SESSION_TOKEN" {
+		if ev.Name == "CLAUDE_CODE_OAUTH_TOKEN" {
 			found = true
 			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
-				t.Fatal("CLAUDE_SESSION_TOKEN has no SecretKeyRef")
+				t.Fatal("CLAUDE_CODE_OAUTH_TOKEN has no SecretKeyRef")
 			}
 			if ev.ValueFrom.SecretKeyRef.Name != p.Config.ClaudeSessionSecretRef {
 				t.Errorf("secret name = %q, want %q", ev.ValueFrom.SecretKeyRef.Name, p.Config.ClaudeSessionSecretRef)
@@ -143,7 +143,7 @@ func TestBuildPodSpec_MainContainerClaudeSessionToken(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("CLAUDE_SESSION_TOKEN env var not found in main container")
+		t.Error("CLAUDE_CODE_OAUTH_TOKEN env var not found in main container")
 	}
 }
 

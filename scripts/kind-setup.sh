@@ -15,9 +15,9 @@ fi
 echo "Creating namespace: $NAMESPACE"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
-echo "Creating CLAUDE_SESSION_TOKEN secret"
-if [ -z "$CLAUDE_SESSION_TOKEN" ]; then
-    echo "Warning: CLAUDE_SESSION_TOKEN not set, creating placeholder secret"
+echo "Creating CLAUDE_CODE_OAUTH_TOKEN secret"
+if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+    echo "Warning: CLAUDE_CODE_OAUTH_TOKEN not set, creating placeholder secret"
     kubectl create secret generic claude-session-token \
         --namespace="$NAMESPACE" \
         --from-literal=session-token=placeholder \
@@ -25,7 +25,7 @@ if [ -z "$CLAUDE_SESSION_TOKEN" ]; then
 else
     kubectl create secret generic claude-session-token \
         --namespace="$NAMESPACE" \
-        --from-literal=session-token="$CLAUDE_SESSION_TOKEN" \
+        --from-literal=session-token="$CLAUDE_CODE_OAUTH_TOKEN" \
         --dry-run=client -o yaml | kubectl apply -f -
 fi
 

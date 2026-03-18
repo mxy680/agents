@@ -84,7 +84,7 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 					Command: []string{"/bin/sh", "-c", "source /tmp/creds/env.sh && /agent/workspace/entrypoint.sh"},
 					Env: []corev1.EnvVar{
 						{
-							Name: "CLAUDE_SESSION_TOKEN",
+							Name: "CLAUDE_CODE_OAUTH_TOKEN",
 							ValueFrom: &corev1.EnvVarSource{
 								SecretKeyRef: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
