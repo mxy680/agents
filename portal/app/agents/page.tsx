@@ -16,7 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { IconRobot, IconMessageCircle, IconCheck, IconAlertCircle } from "@tabler/icons-react"
+import { IconRobot, IconMessageCircle, IconCheck, IconAlertCircle, IconBuildingStore } from "@tabler/icons-react"
 
 interface AgentTemplate {
   id: string
@@ -25,6 +25,11 @@ interface AgentTemplate {
   description: string
   required_integrations: string[]
   status: string
+}
+
+interface UserAgent {
+  template_id: string
+  agent_templates: AgentTemplate | AgentTemplate[]
 }
 
 interface UserIntegration {
@@ -40,12 +45,11 @@ export default async function AgentsPage() {
     redirect("/login")
   }
 
-  // Fetch active agent templates
-  const { data: templates } = await supabase
-    .from("agent_templates")
-    .select("id, name, display_name, description, required_integrations, status")
-    .eq("status", "active")
-    .order("display_name")
+  // Fetch user's acquired agents joined with template details
+  const { data: userAgents } = await supabase
+    .from("user_agents")
+    .select("template_id, agent_templates(id, name, display_name, description, required_integrations, status)")
+    .eq("user_id", user.id)
 
   // Fetch user's active integrations
   const { data: integrations } = await supabase
@@ -57,6 +61,15 @@ export default async function AgentsPage() {
   const connectedProviders = new Set(
     (integrations ?? []).map((i: UserIntegration) => i.provider)
   )
+
+  // Filter to active templates only
+  // Supabase returns one-to-one FK joins as an object, cast accordingly
+  const acquiredTemplates = (userAgents ?? [])
+    .map((ua: UserAgent) => {
+      const t = ua.agent_templates
+      return Array.isArray(t) ? t[0] : t
+    })
+    .filter((t): t is AgentTemplate => !!t && t.status === "active")
 
   return (
     <SidebarProvider>
@@ -76,27 +89,46 @@ export default async function AgentsPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbPage>Agents</BreadcrumbPage>
+                <BreadcrumbPage>My Agents</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
+          <div className="ml-auto">
+            <Button asChild variant="outline" size="sm">
+              <a href="/marketplace">
+                <IconBuildingStore className="size-4" />
+                Browse Marketplace
+              </a>
+            </Button>
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-6 p-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">My Agents</h1>
             <p className="text-sm text-muted-foreground">
               Chat with AI agents that use your connected integrations.
             </p>
           </div>
 
-          {(!templates || templates.length === 0) ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          {acquiredTemplates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
               <IconRobot className="size-12 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No agents available yet.</p>
+              <div>
+                <p className="text-sm font-medium">No agents yet.</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Browse the marketplace to get started.
+                </p>
+              </div>
+              <Button asChild variant="outline">
+                <a href="/marketplace">
+                  <IconBuildingStore className="size-4" />
+                  Browse Marketplace
+                </a>
+              </Button>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {(templates as AgentTemplate[]).map((template) => {
+              {acquiredTemplates.map((template) => {
                 const missing = template.required_integrations.filter(
                   (p) => !connectedProviders.has(p)
                 )

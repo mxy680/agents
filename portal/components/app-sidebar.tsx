@@ -6,11 +6,9 @@ import {
   IconPlugConnected,
   IconSettings,
   IconLogout,
-  IconBrandGoogle,
-  IconBrandGithub,
-  IconBrandInstagram,
   IconUser,
   IconRobot,
+  IconBuildingStore,
 } from "@tabler/icons-react"
 
 import {
@@ -38,33 +36,31 @@ import { signOut } from "@/app/auth/actions"
 
 const navMain = [
   {
-    title: "Agents",
+    title: "Discover",
     items: [
       {
-        title: "All Agents",
-        url: "/agents",
-        icon: IconRobot,
+        title: "Marketplace",
+        url: "/marketplace",
+        icon: IconBuildingStore,
         isActive: false as const,
       },
     ],
   },
   {
-    title: "Integrations",
+    title: "My Workspace",
     items: [
       {
-        title: "All Integrations",
+        title: "My Agents",
+        url: "/agents",
+        icon: IconRobot,
+        isActive: false as const,
+      },
+      {
+        title: "Integrations",
         url: "/integrations",
         icon: IconPlugConnected,
-        isActive: true as const,
+        isActive: false as const,
       },
-    ],
-  },
-  {
-    title: "Providers",
-    items: [
-      { title: "Google", url: "/integrations#google", icon: IconBrandGoogle, isActive: false as const },
-      { title: "GitHub", url: "/integrations#github", icon: IconBrandGithub, isActive: false as const },
-      { title: "Instagram", url: "/integrations#instagram", icon: IconBrandInstagram, isActive: false as const },
     ],
   },
 ]

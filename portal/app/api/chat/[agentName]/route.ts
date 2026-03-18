@@ -47,6 +47,30 @@ export async function POST(
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })
   }
 
+  // Check that the user has acquired this agent
+  const { data: template } = await supabase
+    .from("agent_templates")
+    .select("id")
+    .eq("name", agentName)
+    .eq("status", "active")
+    .single()
+
+  if (template) {
+    const { data: userAgent } = await supabase
+      .from("user_agents")
+      .select("template_id")
+      .eq("user_id", user.id)
+      .eq("template_id", template.id)
+      .maybeSingle()
+
+    if (!userAgent) {
+      return new Response(
+        JSON.stringify({ error: "Agent not acquired. Visit the marketplace to get this agent." }),
+        { status: 403 }
+      )
+    }
+  }
+
   // Parse request body
   let message: string
   let sessionId: string | undefined
