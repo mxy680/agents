@@ -1,9 +1,18 @@
-.PHONY: build test test-integration lint clean portal-install portal-dev portal-build portal-lint
+.PHONY: build test test-integration lint clean \
+       portal-install portal-dev portal-build portal-lint \
+       orchestrator sync-templates kind-setup orchestrator-dev
 
 BINARY := bin/integrations
 
 build:
 	go build -o $(BINARY) ./cmd/integrations
+
+orchestrator:
+	go build -o bin/orchestrator ./cmd/orchestrator
+
+sync-templates:
+	go build -o bin/sync-templates ./cmd/sync-templates
+	doppler run -- ./bin/sync-templates agents
 
 test:
 	go test -race -coverprofile=coverage.out ./internal/...
@@ -17,6 +26,21 @@ lint:
 
 clean:
 	rm -rf bin/ coverage.out
+
+# Orchestrator dev targets
+kind-setup:
+	bash scripts/kind-setup.sh
+
+orchestrator-dev:
+	doppler run -- go run ./cmd/orchestrator
+
+# Docker images
+docker-agent-base:
+	docker build -t ghcr.io/emdash-projects/agent-base:latest -f docker/agent-base/Dockerfile .
+
+docker-export-creds:
+	go build -o docker/export-creds/bin/export-creds ./cmd/export-creds
+	docker build -t ghcr.io/emdash-projects/export-creds:latest -f docker/export-creds/Dockerfile .
 
 # Portal targets
 portal-install:
