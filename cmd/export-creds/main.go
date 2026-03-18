@@ -28,8 +28,8 @@ func main() {
 
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	if dbURL == "" {
-		// construct from known parts
-		dbURL = fmt.Sprintf("postgres://postgres:%s@db.juetvofnwfjylyfgqbvt.supabase.co:5432/postgres?sslmode=require",
+		// Use Supabase connection pooler (Supavisor)
+		dbURL = fmt.Sprintf("postgres://postgres.juetvofnwfjylyfgqbvt:%s@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require",
 			os.Getenv("SUPABASE_DB_PASSWORD"))
 	}
 
@@ -47,14 +47,13 @@ func main() {
 	defer db.Close()
 
 	query := `
-		SELECT ui.credentials
-		FROM user_integrations ui
-		JOIN integrations i ON i.id = ui.integration_id
-		WHERE ui.user_id = $1 AND i.name = $2 AND ui.status = 'connected'`
+		SELECT credentials
+		FROM user_integrations
+		WHERE user_id = $1 AND provider = $2 AND status = 'active'`
 	args := []any{*userID, *provider}
 
 	if *account != "" {
-		query += " AND ui.account_label = $3"
+		query += " AND label = $3"
 		args = append(args, *account)
 	}
 	query += " LIMIT 1"

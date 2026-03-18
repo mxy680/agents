@@ -7,10 +7,10 @@ import (
 	"fmt"
 )
 
-// UserIntegration represents a joined row from user_integrations + integrations.
+// UserIntegration represents a row from user_integrations.
 type UserIntegration struct {
-	ProviderName string
-	Credentials  []byte // encrypted bytea
+	Provider    string
+	Credentials []byte // encrypted bytea
 }
 
 // DB abstracts the database operations needed by the bridge.
@@ -22,10 +22,9 @@ type DB interface {
 // a map of environment variable names to decrypted values.
 func ExportEnvForUser(ctx context.Context, db DB, userID string, hexKey string) (map[string]string, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT i.name, ui.credentials
-		 FROM user_integrations ui
-		 JOIN integrations i ON i.id = ui.integration_id
-		 WHERE ui.user_id = $1 AND ui.status = 'connected'`,
+		`SELECT provider, credentials
+		 FROM user_integrations
+		 WHERE user_id = $1 AND status = 'active'`,
 		userID,
 	)
 	if err != nil {
@@ -36,7 +35,7 @@ func ExportEnvForUser(ctx context.Context, db DB, userID string, hexKey string) 
 	env := make(map[string]string)
 	for rows.Next() {
 		var ui UserIntegration
-		if err := rows.Scan(&ui.ProviderName, &ui.Credentials); err != nil {
+		if err := rows.Scan(&ui.Provider, &ui.Credentials); err != nil {
 			return nil, fmt.Errorf("scan user_integration: %w", err)
 		}
 
@@ -52,10 +51,10 @@ func ExportEnvForUser(ctx context.Context, db DB, userID string, hexKey string) 
 func processIntegration(ui *UserIntegration, hexKey string, env map[string]string) error {
 	creds, err := DecryptCredentials(ui.Credentials, hexKey)
 	if err != nil {
-		return fmt.Errorf("decrypt %s credentials: %w", ui.ProviderName, err)
+		return fmt.Errorf("decrypt %s credentials: %w", ui.Provider, err)
 	}
 
-	switch ui.ProviderName {
+	switch ui.Provider {
 	case "google":
 		mapCredentials(creds, env, map[string]string{
 			"access_token":  "GOOGLE_ACCESS_TOKEN",

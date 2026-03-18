@@ -121,7 +121,7 @@ func TestProcessIntegrationGoogle(t *testing.T) {
 		"access_token":  "goog-at",
 		"refresh_token": "goog-rt",
 	})
-	ui := &UserIntegration{ProviderName: "google", Credentials: creds}
+	ui := &UserIntegration{Provider: "google", Credentials: creds}
 	env := make(map[string]string)
 	if err := processIntegration(ui, testKey, env); err != nil {
 		t.Fatalf("error = %v", err)
@@ -138,7 +138,7 @@ func TestProcessIntegrationGitHub(t *testing.T) {
 	creds := encryptCredentialsForTest(map[string]string{
 		"access_token": "gh-at",
 	})
-	ui := &UserIntegration{ProviderName: "github", Credentials: creds}
+	ui := &UserIntegration{Provider: "github", Credentials: creds}
 	env := make(map[string]string)
 	if err := processIntegration(ui, testKey, env); err != nil {
 		t.Fatalf("error = %v", err)
@@ -158,7 +158,7 @@ func TestProcessIntegrationInstagram(t *testing.T) {
 		"ds_user_id": "ig-user",
 		"mid":        "ig-mid",
 	})
-	ui := &UserIntegration{ProviderName: "instagram", Credentials: creds}
+	ui := &UserIntegration{Provider: "instagram", Credentials: creds}
 	env := make(map[string]string)
 	if err := processIntegration(ui, testKey, env); err != nil {
 		t.Fatalf("error = %v", err)
@@ -178,7 +178,7 @@ func TestProcessIntegrationInstagram(t *testing.T) {
 
 func TestProcessIntegrationUnknown(t *testing.T) {
 	creds := encryptCredentialsForTest(map[string]string{"key": "val"})
-	ui := &UserIntegration{ProviderName: "slack", Credentials: creds}
+	ui := &UserIntegration{Provider: "slack", Credentials: creds}
 	env := make(map[string]string)
 	if err := processIntegration(ui, testKey, env); err != nil {
 		t.Fatalf("error = %v", err)
@@ -189,7 +189,7 @@ func TestProcessIntegrationUnknown(t *testing.T) {
 }
 
 func TestProcessIntegrationDecryptError(t *testing.T) {
-	ui := &UserIntegration{ProviderName: "google", Credentials: []byte("bad")}
+	ui := &UserIntegration{Provider: "google", Credentials: []byte("bad")}
 	env := make(map[string]string)
 	err := processIntegration(ui, testKey, env)
 	if err == nil {
@@ -214,7 +214,7 @@ func TestExportEnvForUser(t *testing.T) {
 		"session_id": "ig-sess", "csrf_token": "ig-csrf", "ds_user_id": "ig-user",
 	})
 
-	rows := sqlmock.NewRows([]string{"name", "credentials"}).
+	rows := sqlmock.NewRows([]string{"provider", "credentials"}).
 		AddRow("google", googleCreds).
 		AddRow("github", ghCreds).
 		AddRow("instagram", igCreds)
@@ -267,7 +267,7 @@ func TestExportEnvForUserEmpty(t *testing.T) {
 	}
 	defer db.Close()
 
-	rows := sqlmock.NewRows([]string{"name", "credentials"})
+	rows := sqlmock.NewRows([]string{"provider", "credentials"})
 	mock.ExpectQuery("SELECT").WithArgs("user-456").WillReturnRows(rows)
 
 	env, err := ExportEnvForUser(context.Background(), db, "user-456", testKey)
