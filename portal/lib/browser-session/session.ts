@@ -168,10 +168,18 @@ export class BrowserSession {
       this.cookieCheckInterval = null
 
       this.onStatus?.("extracting")
+      // Map Instagram cookie names to the keys the token bridge expects
+      const COOKIE_TO_CRED: Record<string, string> = {
+        sessionid: "session_id",
+        csrftoken: "csrf_token",
+        ds_user_id: "ds_user_id",
+        mid: "mid",
+        ig_did: "ig_did",
+      }
       const cookieMap: Record<string, string> = {}
       for (const name of INSTAGRAM_COOKIES) {
         const found = cookies.find((c) => c.name === name)
-        if (found) cookieMap[name] = found.value
+        if (found) cookieMap[COOKIE_TO_CRED[name] ?? name] = found.value
       }
 
       this.onCookies?.(cookieMap)

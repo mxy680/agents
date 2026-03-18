@@ -84,7 +84,7 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
-        className={step === "browser" ? "max-w-[90vw] max-h-[90vh]" : undefined}
+        className={step === "browser" ? "!max-w-[90vw] w-[90vw] h-[85vh] overflow-hidden flex flex-col" : undefined}
       >
         {step === "label" && (
           <>

@@ -134,10 +134,12 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLCanvasElement>) {
     e.preventDefault()
-    sendMsg({ type: "keydown", key: e.key })
-    // Send keypress for printable characters
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Printable character — use keypress only
       sendMsg({ type: "keypress", text: e.key })
+    } else {
+      // Special keys (Enter, Backspace, Tab, arrows, etc.)
+      sendMsg({ type: "keydown", key: e.key })
     }
   }
 
@@ -149,7 +151,7 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
   const isError = status === "error" || status === "timeout"
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* Status bar */}
       <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm">
         {!isError && !isDone && (
@@ -163,13 +165,12 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
       </div>
 
       {/* Browser canvas */}
-      <div className="relative overflow-hidden rounded-md border bg-black">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-black">
         <canvas
           ref={canvasRef}
           width={viewport.width}
           height={viewport.height}
-          className="w-full cursor-pointer"
-          style={{ aspectRatio: `${viewport.width}/${viewport.height}` }}
+          className="size-full cursor-pointer object-contain"
           tabIndex={0}
           onClick={handleClick}
           onMouseMove={handleMouseMove}
