@@ -8,32 +8,51 @@ import { cn } from "@/lib/utils"
 
 // --- Types ---
 
-interface ToolCall {
+interface TextBlock {
+  type: "text"
+  content: string
+}
+
+interface ToolBlock {
+  type: "tool"
   id: string
   name: string
-  inputParts: string[]
   finalInput: string
   result?: string
 }
+
+type ContentBlock = TextBlock | ToolBlock
 
 type MessageRole = "user" | "assistant"
 
 interface Message {
   id: string
   role: MessageRole
-  text: string
-  toolCalls: ToolCall[]
+  blocks: ContentBlock[]
   isStreaming: boolean
+}
+
+// --- Helper: get or create the last text block in a message ---
+
+function appendText(blocks: ContentBlock[], text: string): ContentBlock[] {
+  const updated = [...blocks]
+  const last = updated[updated.length - 1]
+  if (last?.type === "text") {
+    updated[updated.length - 1] = { ...last, content: last.content + text }
+  } else {
+    updated.push({ type: "text", content: text })
+  }
+  return updated
 }
 
 // --- Tool call card component ---
 
-function ToolCallCard({ tool }: { tool: ToolCall }) {
+function ToolCallCard({ tool }: { tool: ToolBlock }) {
   const [expanded, setExpanded] = useState(false)
   const hasResult = Boolean(tool.result)
 
   return (
-    <div className="my-1 border border-border/60 bg-muted/30 text-xs">
+    <div className="my-1.5 border border-border/60 bg-muted/30 text-xs">
       <button
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-muted/60 transition-colors"
@@ -42,6 +61,9 @@ function ToolCallCard({ tool }: { tool: ToolCall }) {
         <span className="font-mono font-medium">{tool.name}</span>
         {hasResult && (
           <span className="ml-1 text-muted-foreground">— done</span>
+        )}
+        {!hasResult && (
+          <IconLoader2 className="ml-1 size-3 text-muted-foreground animate-spin" />
         )}
         <span className="ml-auto">
           {expanded ? (
@@ -87,7 +109,7 @@ function ToolCallCard({ tool }: { tool: ToolCall }) {
   )
 }
 
-// --- Message bubble ---
+// --- Thinking indicator ---
 
 function ThinkingIndicator() {
   return (
@@ -101,6 +123,8 @@ function ThinkingIndicator() {
     </div>
   )
 }
+
+// --- Markdown renderer ---
 
 function MarkdownContent({ content }: { content: string }) {
   return (
@@ -143,9 +167,16 @@ function MarkdownContent({ content }: { content: string }) {
   )
 }
 
+// --- Message bubble with ordered content blocks ---
+
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === "user"
-  const isThinking = message.isStreaming && message.text.length === 0
+  const hasContent = message.blocks.length > 0
+  const isThinking = message.isStreaming && !hasContent
+
+  // Check if the last block is a streaming text block
+  const lastBlock = message.blocks[message.blocks.length - 1]
+  const isStreamingText = message.isStreaming && lastBlock?.type === "text"
 
   return (
     <div className={cn("flex gap-2.5 mb-4", isUser && "flex-row-reverse")}>
@@ -155,31 +186,40 @@ function MessageBubble({ message }: { message: Message }) {
       )}>
         {isUser ? <IconUser className="size-3.5" /> : <IconRobot className="size-3.5" />}
       </div>
-      <div className={cn("flex flex-col gap-1 max-w-[80%]", isUser && "items-end")}>
-        <div className={cn(
-          "px-3 py-2 text-xs/relaxed",
-          isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted/60 text-foreground border border-border/40"
-        )}>
-          {isThinking ? (
+      <div className={cn("flex flex-col gap-0 max-w-[80%]", isUser && "items-end")}>
+        {isThinking && (
+          <div className="bg-muted/60 border border-border/40">
             <ThinkingIndicator />
-          ) : isUser ? (
-            message.text
-          ) : (
-            <MarkdownContent content={message.text} />
-          )}
-          {message.isStreaming && message.text.length > 0 && (
-            <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse align-text-bottom" />
-          )}
-        </div>
-        {message.toolCalls.length > 0 && (
-          <div className="w-full max-w-full">
-            {message.toolCalls.map((tool) => (
-              <ToolCallCard key={tool.id} tool={tool} />
-            ))}
           </div>
         )}
+
+        {message.blocks.map((block, i) => {
+          if (block.type === "text") {
+            const isLast = i === message.blocks.length - 1
+            return (
+              <div
+                key={i}
+                className={cn(
+                  "px-3 py-2 text-xs/relaxed",
+                  isUser
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/60 text-foreground border border-border/40"
+                )}
+              >
+                {isUser ? block.content : <MarkdownContent content={block.content} />}
+                {isLast && isStreamingText && (
+                  <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse align-text-bottom" />
+                )}
+              </div>
+            )
+          }
+
+          if (block.type === "tool") {
+            return <ToolCallCard key={block.id} tool={block} />
+          }
+
+          return null
+        })}
       </div>
     </div>
   )
@@ -216,8 +256,8 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
 
     setMessages((prev) => [
       ...prev,
-      { id: userMsgId, role: "user", text, toolCalls: [], isStreaming: false },
-      { id: assistantMsgId, role: "assistant", text: "", toolCalls: [], isStreaming: true },
+      { id: userMsgId, role: "user", blocks: [{ type: "text", content: text }], isStreaming: false },
+      { id: assistantMsgId, role: "assistant", blocks: [], isStreaming: true },
     ])
 
     setIsLoading(true)
@@ -242,9 +282,6 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
 
       let lineBuffer = ""
       let currentEventType = ""
-
-      // Tool tracking for the current assistant message
-      const toolCallsMap = new Map<string, ToolCall>()
       let activeToolId: string | null = null
 
       // SSE parser: accumulate data lines, dispatch on blank line (event boundary)
@@ -266,14 +303,12 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
           } else if (line.startsWith("data:")) {
             dataLines.push(line.slice(5))
           } else if (line === "" && dataLines.length > 0) {
-            // Blank line = event boundary — rejoin multi-line data with newlines
             handleSSEData(currentEventType, dataLines.join("\n"))
             dataLines = []
           }
         }
       }
 
-      // Flush any remaining data
       if (dataLines.length > 0) {
         handleSSEData(currentEventType, dataLines.join("\n"))
       }
@@ -281,10 +316,11 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
       function handleSSEData(eventType: string, data: string) {
         switch (eventType) {
           case "delta":
+            // Append text to the last text block, or create a new one
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMsgId
-                  ? { ...m, text: m.text + data }
+                  ? { ...m, blocks: appendText(m.blocks, data) }
                   : m
               )
             )
@@ -294,12 +330,11 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
             try {
               const { name, id } = JSON.parse(data) as { name: string; id: string }
               activeToolId = id
-              const tool: ToolCall = { id, name, inputParts: [], finalInput: "", result: undefined }
-              toolCallsMap.set(id, tool)
+              const toolBlock: ToolBlock = { type: "tool", id, name, finalInput: "", result: undefined }
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsgId
-                    ? { ...m, toolCalls: [...m.toolCalls, tool] }
+                    ? { ...m, blocks: [...m.blocks, toolBlock] }
                     : m
                 )
               )
@@ -312,18 +347,14 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
           case "tool_input": {
             if (!activeToolId) break
             const toolId = activeToolId
-            // Last tool_input event from container-runner sends the accumulated full input
-            // We only have one content_block_stop per tool use, but multiple input_json_delta
-            // We track all incoming tool_input data - the last one from content_block_stop
-            // contains the full accumulated input.
             setMessages((prev) =>
               prev.map((m) => {
                 if (m.id !== assistantMsgId) return m
-                const updatedTools = m.toolCalls.map((t) => {
-                  if (t.id !== toolId) return t
-                  return { ...t, finalInput: data }
+                const updatedBlocks = m.blocks.map((b) => {
+                  if (b.type !== "tool" || b.id !== toolId) return b
+                  return { ...b, finalInput: data }
                 })
-                return { ...m, toolCalls: updatedTools }
+                return { ...m, blocks: updatedBlocks }
               })
             )
             break
@@ -332,17 +363,16 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
           case "tool_result": {
             try {
               const { summary } = JSON.parse(data) as { summary: string }
-              // Match to the most recently started tool
-              const lastToolId = activeToolId
-              if (lastToolId) {
+              if (activeToolId) {
+                const toolId = activeToolId
                 setMessages((prev) =>
                   prev.map((m) => {
                     if (m.id !== assistantMsgId) return m
-                    const updatedTools = m.toolCalls.map((t) => {
-                      if (t.id !== lastToolId) return t
-                      return { ...t, result: summary }
+                    const updatedBlocks = m.blocks.map((b) => {
+                      if (b.type !== "tool" || b.id !== toolId) return b
+                      return { ...b, result: summary }
                     })
-                    return { ...m, toolCalls: updatedTools }
+                    return { ...m, blocks: updatedBlocks }
                   })
                 )
                 activeToolId = null
@@ -358,7 +388,6 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
             break
 
           case "result":
-            // Final result — mark streaming done
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMsgId ? { ...m, isStreaming: false } : m
@@ -377,7 +406,7 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
         }
       }
 
-      // Mark done if not already
+      // Mark done
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMsgId ? { ...m, isStreaming: false } : m
