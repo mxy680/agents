@@ -21,8 +21,8 @@ func defaultTestParams() PodSpecParams {
 			"GOOGLE_REFRESH_TOKEN": "ref-xyz",
 		},
 		Config: Config{
-			ExportCredsImage:   "ghcr.io/emdash/export-creds:latest",
-			AnthropicAPIKeyRef: "anthropic-api-key",
+			ExportCredsImage:       "ghcr.io/emdash/export-creds:latest",
+			ClaudeSessionSecretRef: "claude-session-token",
 		},
 	}
 }
@@ -118,7 +118,7 @@ func TestBuildPodSpec_InitContainerVolumeMount(t *testing.T) {
 	}
 }
 
-func TestBuildPodSpec_MainContainerAnthropicAPIKey(t *testing.T) {
+func TestBuildPodSpec_MainContainerClaudeSessionToken(t *testing.T) {
 	p := defaultTestParams()
 	pod := BuildPodSpec(p)
 
@@ -129,21 +129,21 @@ func TestBuildPodSpec_MainContainerAnthropicAPIKey(t *testing.T) {
 
 	var found bool
 	for _, ev := range agent.Env {
-		if ev.Name == "ANTHROPIC_API_KEY" {
+		if ev.Name == "CLAUDE_SESSION_TOKEN" {
 			found = true
 			if ev.ValueFrom == nil || ev.ValueFrom.SecretKeyRef == nil {
-				t.Fatal("ANTHROPIC_API_KEY has no SecretKeyRef")
+				t.Fatal("CLAUDE_SESSION_TOKEN has no SecretKeyRef")
 			}
-			if ev.ValueFrom.SecretKeyRef.Name != p.Config.AnthropicAPIKeyRef {
-				t.Errorf("secret name = %q, want %q", ev.ValueFrom.SecretKeyRef.Name, p.Config.AnthropicAPIKeyRef)
+			if ev.ValueFrom.SecretKeyRef.Name != p.Config.ClaudeSessionSecretRef {
+				t.Errorf("secret name = %q, want %q", ev.ValueFrom.SecretKeyRef.Name, p.Config.ClaudeSessionSecretRef)
 			}
-			if ev.ValueFrom.SecretKeyRef.Key != "api-key" {
-				t.Errorf("secret key = %q, want %q", ev.ValueFrom.SecretKeyRef.Key, "api-key")
+			if ev.ValueFrom.SecretKeyRef.Key != "session-token" {
+				t.Errorf("secret key = %q, want %q", ev.ValueFrom.SecretKeyRef.Key, "session-token")
 			}
 		}
 	}
 	if !found {
-		t.Error("ANTHROPIC_API_KEY env var not found in main container")
+		t.Error("CLAUDE_SESSION_TOKEN env var not found in main container")
 	}
 }
 
@@ -285,7 +285,22 @@ func TestBuildPodSpec_MainContainerCommand(t *testing.T) {
 	if !strings.Contains(cmd, "source /tmp/creds/env.sh") {
 		t.Errorf("agent command should source creds, got: %q", cmd)
 	}
-	if !strings.Contains(cmd, "python entrypoint.py") {
-		t.Errorf("agent command should run entrypoint, got: %q", cmd)
+	if !strings.Contains(cmd, "/agent/workspace/entrypoint.sh") {
+		t.Errorf("agent command should run entrypoint.sh, got: %q", cmd)
+	}
+}
+
+func TestBuildPodSpec_MainContainerMemoryLimits(t *testing.T) {
+	pod := BuildPodSpec(defaultTestParams())
+	agent := pod.Spec.Containers[0]
+
+	memRequest := agent.Resources.Requests[corev1.ResourceMemory]
+	if memRequest.String() != "512Mi" {
+		t.Errorf("memory request = %q, want %q", memRequest.String(), "512Mi")
+	}
+
+	memLimit := agent.Resources.Limits[corev1.ResourceMemory]
+	if memLimit.String() != "1Gi" {
+		t.Errorf("memory limit = %q, want %q", memLimit.String(), "1Gi")
 	}
 }

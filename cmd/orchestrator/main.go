@@ -39,8 +39,8 @@ func main() {
 	if v := os.Getenv("EXPORT_CREDS_IMAGE"); v != "" {
 		cfg.ExportCredsImage = v
 	}
-	if v := os.Getenv("ANTHROPIC_API_KEY_SECRET"); v != "" {
-		cfg.AnthropicAPIKeyRef = v
+	if v := os.Getenv("CLAUDE_SESSION_SECRET"); v != "" {
+		cfg.ClaudeSessionSecretRef = v
 	}
 
 	// Database

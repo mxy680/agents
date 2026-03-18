@@ -5,7 +5,4 @@ git_path: agents/email-assistant
 docker_image: ghcr.io/emdash-projects/agent-base:latest
 required_integrations:
   - google
-default_config:
-  model: claude-sonnet-4-6
-  max_tokens: 8192
 status: active

@@ -14,10 +14,10 @@ type Config struct {
 	GoogleClientSecret string
 
 	// K8s
-	KubeNamespace      string
-	AgentBaseImage     string
-	ExportCredsImage   string
-	AnthropicAPIKeyRef string // K8s Secret name for ANTHROPIC_API_KEY
+	KubeNamespace         string
+	AgentBaseImage        string
+	ExportCredsImage      string
+	ClaudeSessionSecretRef string // K8s Secret name for CLAUDE_SESSION_TOKEN
 
 	// Supabase JWT
 	SupabaseJWTSecret string
@@ -26,10 +26,10 @@ type Config struct {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Port:               8080,
-		KubeNamespace:      "agents",
-		AgentBaseImage:     "ghcr.io/emdash-projects/agent-base:latest",
-		ExportCredsImage:   "ghcr.io/emdash-projects/export-creds:latest",
-		AnthropicAPIKeyRef: "anthropic-api-key",
+		Port:                   8080,
+		KubeNamespace:          "agents",
+		AgentBaseImage:         "ghcr.io/emdash-projects/agent-base:latest",
+		ExportCredsImage:       "ghcr.io/emdash-projects/export-creds:latest",
+		ClaudeSessionSecretRef: "claude-session-token",
 	}
 }

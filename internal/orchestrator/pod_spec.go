@@ -81,16 +81,16 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 				{
 					Name:    "agent",
 					Image:   agentImage,
-					Command: []string{"/bin/sh", "-c", "source /tmp/creds/env.sh && python entrypoint.py"},
+					Command: []string{"/bin/sh", "-c", "source /tmp/creds/env.sh && /agent/workspace/entrypoint.sh"},
 					Env: []corev1.EnvVar{
 						{
-							Name: "ANTHROPIC_API_KEY",
+							Name: "CLAUDE_SESSION_TOKEN",
 							ValueFrom: &corev1.EnvVarSource{
 								SecretKeyRef: &corev1.SecretKeySelector{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: p.Config.AnthropicAPIKeyRef,
+										Name: p.Config.ClaudeSessionSecretRef,
 									},
-									Key: "api-key",
+									Key: "session-token",
 								},
 							},
 						},
@@ -103,11 +103,11 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("250m"),
-							corev1.ResourceMemory: resource.MustParse("256Mi"),
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
 						},
 						Limits: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("1"),
-							corev1.ResourceMemory: resource.MustParse("512Mi"),
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 					},
 				},

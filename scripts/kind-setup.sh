@@ -15,17 +15,17 @@ fi
 echo "Creating namespace: $NAMESPACE"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
-echo "Creating ANTHROPIC_API_KEY secret"
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "Warning: ANTHROPIC_API_KEY not set, creating placeholder secret"
-    kubectl create secret generic anthropic-api-key \
+echo "Creating CLAUDE_SESSION_TOKEN secret"
+if [ -z "$CLAUDE_SESSION_TOKEN" ]; then
+    echo "Warning: CLAUDE_SESSION_TOKEN not set, creating placeholder secret"
+    kubectl create secret generic claude-session-token \
         --namespace="$NAMESPACE" \
-        --from-literal=api-key=placeholder \
+        --from-literal=session-token=placeholder \
         --dry-run=client -o yaml | kubectl apply -f -
 else
-    kubectl create secret generic anthropic-api-key \
+    kubectl create secret generic claude-session-token \
         --namespace="$NAMESPACE" \
-        --from-literal=api-key="$ANTHROPIC_API_KEY" \
+        --from-literal=session-token="$CLAUDE_SESSION_TOKEN" \
         --dry-run=client -o yaml | kubectl apply -f -
 fi
 
