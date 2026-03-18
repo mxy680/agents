@@ -9,6 +9,7 @@ import {
   IconUser,
   IconRobot,
   IconBuildingStore,
+  IconShieldCheck,
 } from "@tabler/icons-react"
 
 import {
@@ -67,9 +68,10 @@ const navMain = [
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user?: { email?: string; name?: string }
+  isAdmin?: boolean
 }
 
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar({ user, isAdmin, ...props }: AppSidebarProps) {
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase()
     : user?.email?.[0]?.toUpperCase() ?? "?"
@@ -113,6 +115,23 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <a href="/admin">
+                      <IconShieldCheck />
+                      Approvals
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

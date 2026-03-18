@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { isAdmin } from "@/lib/admin"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,6 +30,7 @@ interface AgentTemplate {
 
 interface UserAgent {
   template_id: string
+  status: "pending" | "approved" | "rejected"
 }
 
 interface UserIntegration {
@@ -51,10 +53,10 @@ export default async function MarketplacePage() {
     .eq("status", "active")
     .order("acquisition_count", { ascending: false })
 
-  // Fetch user's acquired agents
+  // Fetch user's acquired agents with status
   const { data: userAgents } = await supabase
     .from("user_agents")
-    .select("template_id")
+    .select("template_id, status")
     .eq("user_id", user.id)
 
   // Fetch user's active integrations
@@ -67,6 +69,13 @@ export default async function MarketplacePage() {
   const acquiredTemplateIds = new Set(
     (userAgents ?? []).map((a: UserAgent) => a.template_id)
   )
+
+  // Map template_id → acquisition status for multi-state UI
+  const acquisitionStatuses = Object.fromEntries(
+    (userAgents ?? []).map((a: UserAgent) => [a.template_id, a.status])
+  )
+
+  const userIsAdmin = isAdmin(user.email)
 
   const connectedProviders = new Set(
     (integrations ?? []).map((i: UserIntegration) => i.provider)
@@ -86,6 +95,7 @@ export default async function MarketplacePage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
+        isAdmin={userIsAdmin}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -113,6 +123,7 @@ export default async function MarketplacePage() {
           <MarketplaceClient
             templates={templateList}
             acquiredTemplateIds={acquiredTemplateIds}
+            acquisitionStatuses={acquisitionStatuses}
             connectedProviders={connectedProviders}
             categories={categories}
           />

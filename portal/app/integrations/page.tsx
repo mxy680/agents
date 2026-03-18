@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { isAdmin } from "@/lib/admin"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -70,6 +71,8 @@ export default async function IntegrationsPage() {
     return acc
   }, {})
 
+  const userIsAdmin = isAdmin(user.email)
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -77,6 +80,7 @@ export default async function IntegrationsPage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
+        isAdmin={userIsAdmin}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

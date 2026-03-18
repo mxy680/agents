@@ -27,9 +27,12 @@ interface AgentTemplate {
   acquisition_count: number
 }
 
+type AcquisitionStatus = "pending" | "approved" | "rejected"
+
 interface MarketplaceClientProps {
   templates: AgentTemplate[]
   acquiredTemplateIds: Set<string>
+  acquisitionStatuses: Record<string, AcquisitionStatus>
   connectedProviders: Set<string>
   categories: string[]
 }
@@ -37,12 +40,14 @@ interface MarketplaceClientProps {
 export function MarketplaceClient({
   templates,
   acquiredTemplateIds,
+  acquisitionStatuses,
   connectedProviders,
   categories,
 }: MarketplaceClientProps) {
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [acquiredIds, setAcquiredIds] = useState<Set<string>>(new Set(acquiredTemplateIds))
+  const [statuses, setStatuses] = useState<Record<string, AcquisitionStatus>>(acquisitionStatuses)
   const [acquiring, setAcquiring] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
@@ -66,8 +71,11 @@ export function MarketplaceClient({
         body: JSON.stringify({ templateId }),
       })
       if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        const newStatus: AcquisitionStatus = data.status ?? "pending"
         startTransition(() => {
           setAcquiredIds((prev) => new Set([...prev, templateId]))
+          setStatuses((prev) => ({ ...prev, [templateId]: newStatus }))
         })
       }
     } finally {
@@ -120,6 +128,10 @@ export function MarketplaceClient({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((template) => {
             const isAcquired = acquiredIds.has(template.id)
+            const acquisitionStatus = statuses[template.id]
+            const isPending = isAcquired && acquisitionStatus === "pending"
+            const isApproved = isAcquired && acquisitionStatus === "approved"
+            const isRejected = isAcquired && acquisitionStatus === "rejected"
             const isAcquiring = acquiring === template.id
             const missing = template.required_integrations.filter(
               (p) => !connectedProviders.has(p)
@@ -203,11 +215,19 @@ export function MarketplaceClient({
                   </div>
 
                   {/* Action button */}
-                  {isAcquired ? (
+                  {isPending ? (
+                    <Button size="sm" className="w-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 cursor-default" disabled>
+                      Pending Approval
+                    </Button>
+                  ) : isRejected ? (
+                    <Button size="sm" className="w-full" variant="outline" disabled>
+                      Access Denied
+                    </Button>
+                  ) : isApproved ? (
                     <Button asChild size="sm" className="w-full">
                       <a href={`/chat/${template.name}`}>
                         <IconMessageCircle className="size-4" />
-                        Open
+                        Open Chat
                       </a>
                     </Button>
                   ) : (
@@ -222,7 +242,7 @@ export function MarketplaceClient({
                       ) : (
                         <IconDownload className="size-4" />
                       )}
-                      {isAcquiring ? "Getting…" : "Get"}
+                      {isAcquiring ? "Getting…" : "Get for Free"}
                     </Button>
                   )}
                 </CardContent>

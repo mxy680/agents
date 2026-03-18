@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const { error: upsertError } = await supabase
     .from("user_agents")
     .upsert(
-      { user_id: user.id, template_id: templateId },
+      { user_id: user.id, template_id: templateId, status: "pending" },
       { onConflict: "user_id,template_id", ignoreDuplicates: true }
     )
 
@@ -67,5 +67,5 @@ export async function POST(request: NextRequest) {
       .eq("id", templateId)
   }
 
-  return Response.json({ acquired: true })
+  return Response.json({ acquired: true, status: "pending" })
 }

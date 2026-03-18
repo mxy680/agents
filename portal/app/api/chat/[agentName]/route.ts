@@ -58,7 +58,7 @@ export async function POST(
   if (template) {
     const { data: userAgent } = await supabase
       .from("user_agents")
-      .select("template_id")
+      .select("template_id, status")
       .eq("user_id", user.id)
       .eq("template_id", template.id)
       .maybeSingle()
@@ -66,6 +66,20 @@ export async function POST(
     if (!userAgent) {
       return new Response(
         JSON.stringify({ error: "Agent not acquired. Visit the marketplace to get this agent." }),
+        { status: 403 }
+      )
+    }
+
+    if (userAgent.status === "pending") {
+      return new Response(
+        JSON.stringify({ error: "Your access to this agent is pending admin approval." }),
+        { status: 403 }
+      )
+    }
+
+    if (userAgent.status === "rejected") {
+      return new Response(
+        JSON.stringify({ error: "Your access to this agent was not approved." }),
         { status: 403 }
       )
     }

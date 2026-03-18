@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
+import { isAdmin } from "@/lib/admin"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,7 +30,14 @@ interface AgentTemplate {
 
 interface UserAgent {
   template_id: string
+  status: "pending" | "approved" | "rejected"
+  reviewer_note: string | null
   agent_templates: AgentTemplate | AgentTemplate[]
+}
+
+interface AcquiredTemplate extends AgentTemplate {
+  acquisitionStatus: "pending" | "approved" | "rejected"
+  reviewerNote: string | null
 }
 
 interface UserIntegration {
@@ -48,7 +56,7 @@ export default async function AgentsPage() {
   // Fetch user's acquired agents joined with template details
   const { data: userAgents } = await supabase
     .from("user_agents")
-    .select("template_id, agent_templates(id, name, display_name, description, required_integrations, status)")
+    .select("template_id, status, reviewer_note, agent_templates(id, name, display_name, description, required_integrations, status)")
     .eq("user_id", user.id)
 
   // Fetch user's active integrations
@@ -62,14 +70,21 @@ export default async function AgentsPage() {
     (integrations ?? []).map((i: UserIntegration) => i.provider)
   )
 
-  // Filter to active templates only
+  // Map to active templates, carrying acquisition status
   // Supabase returns one-to-one FK joins as an object, cast accordingly
   const acquiredTemplates = (userAgents ?? [])
     .map((ua: UserAgent) => {
-      const t = ua.agent_templates
-      return Array.isArray(t) ? t[0] : t
+      const t = Array.isArray(ua.agent_templates) ? ua.agent_templates[0] : ua.agent_templates
+      if (!t || t.status !== "active") return null
+      return {
+        ...t,
+        acquisitionStatus: ua.status,
+        reviewerNote: ua.reviewer_note ?? null,
+      } as AcquiredTemplate
     })
-    .filter((t): t is AgentTemplate => !!t && t.status === "active")
+    .filter((t): t is AcquiredTemplate => !!t)
+
+  const userIsAdmin = isAdmin(user.email)
 
   return (
     <SidebarProvider>
@@ -78,6 +93,7 @@ export default async function AgentsPage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
+        isAdmin={userIsAdmin}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -132,7 +148,10 @@ export default async function AgentsPage() {
                 const missing = template.required_integrations.filter(
                   (p) => !connectedProviders.has(p)
                 )
-                const canChat = missing.length === 0
+                const isApproved = template.acquisitionStatus === "approved"
+                const isPending = template.acquisitionStatus === "pending"
+                const isRejected = template.acquisitionStatus === "rejected"
+                const canChat = isApproved && missing.length === 0
 
                 return (
                   <Card key={template.id}>
@@ -142,7 +161,19 @@ export default async function AgentsPage() {
                           <IconRobot className="size-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-base">{template.display_name}</CardTitle>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <CardTitle className="text-base">{template.display_name}</CardTitle>
+                            {isPending && (
+                              <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                Awaiting Approval
+                              </Badge>
+                            )}
+                            {isRejected && (
+                              <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
+                                Access Denied
+                              </Badge>
+                            )}
+                          </div>
                           <CardDescription className="mt-0.5">{template.description}</CardDescription>
                         </div>
                       </div>
@@ -173,7 +204,7 @@ export default async function AgentsPage() {
                         </div>
                       )}
 
-                      {!canChat && (
+                      {isApproved && !canChat && (
                         <p className="text-xs text-muted-foreground">
                           Connect{" "}
                           <a href="/integrations" className="underline underline-offset-2">
@@ -183,24 +214,42 @@ export default async function AgentsPage() {
                         </p>
                       )}
 
-                      <Button
-                        asChild={canChat}
-                        disabled={!canChat}
-                        size="sm"
-                        className="w-full"
-                      >
-                        {canChat ? (
-                          <a href={`/chat/${template.name}`}>
-                            <IconMessageCircle />
-                            Chat
-                          </a>
-                        ) : (
-                          <>
-                            <IconMessageCircle />
-                            Chat
-                          </>
-                        )}
-                      </Button>
+                      {isRejected && template.reviewerNote && (
+                        <p className="text-xs text-muted-foreground">
+                          Reason: {template.reviewerNote}
+                        </p>
+                      )}
+
+                      {isPending ? (
+                        <Button size="sm" className="w-full" disabled>
+                          <IconMessageCircle />
+                          Awaiting Approval
+                        </Button>
+                      ) : isRejected ? (
+                        <Button size="sm" className="w-full" disabled variant="outline">
+                          <IconMessageCircle />
+                          Access Denied
+                        </Button>
+                      ) : (
+                        <Button
+                          asChild={canChat}
+                          disabled={!canChat}
+                          size="sm"
+                          className="w-full"
+                        >
+                          {canChat ? (
+                            <a href={`/chat/${template.name}`}>
+                              <IconMessageCircle />
+                              Chat
+                            </a>
+                          ) : (
+                            <>
+                              <IconMessageCircle />
+                              Chat
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 )
