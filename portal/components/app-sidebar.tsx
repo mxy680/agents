@@ -10,6 +10,7 @@ import {
   IconBrandGithub,
   IconBrandInstagram,
   IconUser,
+  IconRobot,
 } from "@tabler/icons-react"
 
 import {
@@ -36,6 +37,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { signOut } from "@/app/auth/actions"
 
 const navMain = [
+  {
+    title: "Agents",
+    items: [
+      {
+        title: "All Agents",
+        url: "/agents",
+        icon: IconRobot,
+        isActive: false as const,
+      },
+    ],
+  },
   {
     title: "Integrations",
     items: [
