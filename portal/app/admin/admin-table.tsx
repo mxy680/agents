@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -132,8 +132,8 @@ export function AdminTable({ initialRequests }: AdminTableProps) {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((req) => (
-                    <>
-                      <TableRow key={req.id}>
+                    <React.Fragment key={req.id}>
+                      <TableRow>
                         <TableCell className="font-mono text-xs">{req.user_email}</TableCell>
                         <TableCell>{req.template_display_name}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
@@ -233,7 +233,7 @@ export function AdminTable({ initialRequests }: AdminTableProps) {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>
