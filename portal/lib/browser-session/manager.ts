@@ -4,8 +4,10 @@ const sessions = new Map<string, BrowserSession>()
 const userSessions = new Map<string, string>() // userId -> sessionId
 
 export function createSession(userId: string, label: string): BrowserSession {
-  if (userSessions.has(userId)) {
-    throw new Error("User already has an active browser session")
+  // Destroy any existing session for this user
+  const existingId = userSessions.get(userId)
+  if (existingId) {
+    destroySession(existingId)
   }
 
   const maxSessions = parseInt(process.env.MAX_BROWSER_SESSIONS ?? "10", 10)

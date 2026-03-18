@@ -11,7 +11,9 @@ const PORT = parseInt(process.env.BROWSER_WS_PORT ?? "3001", 10)
 const wss = new WebSocketServer({ port: PORT })
 
 wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
+  console.log("[ws] New connection from", req.socket.remoteAddress)
   const rawUrl = req.url ?? "/"
+  console.log("[ws] URL:", rawUrl)
   const url = new URL(rawUrl, `http://localhost`)
 
   // Path: /browser-session  (session created on connect using token)
@@ -34,14 +36,19 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
     userId = verified.userId
     label = verified.label
   } catch (err) {
+    console.error("[ws] Token verification failed:", err)
     ws.close(4003, `Invalid token: ${String(err)}`)
     return
   }
 
+  console.log("[ws] Authenticated user:", userId, "label:", label)
+
   let session: BrowserSession
   try {
     session = createSession(userId, label)
+    console.log("[ws] Session created:", session.id)
   } catch (err) {
+    console.error("[ws] Session creation failed:", err)
     ws.close(4004, String(err))
     return
   }
@@ -88,8 +95,11 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   })
 
   try {
+    console.log("[ws] Starting browser session...")
     await session.start()
+    console.log("[ws] Browser session started successfully")
   } catch (err) {
+    console.error("[ws] Session start failed:", err)
     send({ type: "status", status: "error" })
     ws.close(4005, `Session start failed: ${String(err)}`)
     destroySession(session.id)
