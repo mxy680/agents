@@ -65,6 +65,7 @@ export async function* runContainer(opts: ContainerOptions): AsyncGenerator<Chat
   }
 
   // Handle timeout
+  let aborted = false
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined
   if (timeoutMs) {
     timeoutHandle = setTimeout(() => {
