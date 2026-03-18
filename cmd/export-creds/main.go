@@ -9,6 +9,9 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/emdash-projects/agents/internal/tokenbridge"
@@ -69,12 +72,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Env var mappings per provider
+	// For Google: always mint a fresh access token using the refresh token.
+	// The stored access_token is ignored — it expires in 1 hour and is never updated.
+	if *provider == "google" {
+		refreshToken := creds["refresh_token"]
+		if refreshToken == "" {
+			fmt.Fprintln(os.Stderr, "no refresh_token found for google")
+			os.Exit(1)
+		}
+
+		freshToken, err := refreshGoogleToken(refreshToken)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "google token refresh:", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("export GOOGLE_ACCESS_TOKEN=%q\n", freshToken)
+		fmt.Printf("export GOOGLE_REFRESH_TOKEN=%q\n", refreshToken)
+		return
+	}
+
+	// Env var mappings for non-Google providers
 	mappings := map[string]map[string]string{
-		"google": {
-			"access_token":  "GOOGLE_ACCESS_TOKEN",
-			"refresh_token": "GOOGLE_REFRESH_TOKEN",
-		},
 		"github": {
 			"access_token":  "GITHUB_ACCESS_TOKEN",
 			"refresh_token": "GITHUB_REFRESH_TOKEN",
@@ -90,7 +109,6 @@ func main() {
 
 	m, ok := mappings[*provider]
 	if !ok {
-		// unknown provider: just dump raw JSON
 		_ = json.NewEncoder(os.Stdout).Encode(creds)
 		return
 	}
@@ -100,4 +118,45 @@ func main() {
 			fmt.Printf("export %s=%q\n", envVar, val)
 		}
 	}
+}
+
+// refreshGoogleToken exchanges a refresh token for a fresh access token.
+func refreshGoogleToken(refreshToken string) (string, error) {
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	if clientID == "" || clientSecret == "" {
+		return "", fmt.Errorf("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
+	}
+
+	resp, err := http.PostForm("https://oauth2.googleapis.com/token", url.Values{
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
+		"refresh_token": {refreshToken},
+		"grant_type":    {"refresh_token"},
+	})
+	if err != nil {
+		return "", fmt.Errorf("token request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, body)
+	}
+
+	var result struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("parse response: %w", err)
+	}
+	if result.AccessToken == "" {
+		return "", fmt.Errorf("empty access_token in response")
+	}
+
+	return result.AccessToken, nil
 }
