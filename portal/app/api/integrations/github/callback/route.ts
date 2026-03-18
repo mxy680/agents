@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { encrypt } from "@/lib/crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
+import { verifyOAuthState } from "@/lib/oauth-state"
 
 interface GitHubTokenResponse {
   access_token: string
@@ -22,16 +24,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/integrations?error=oauth_denied`)
   }
 
-  const colonIdx = state.indexOf(":")
-  if (colonIdx === -1) {
+  let userId: string
+  let label: string
+  try {
+    const verified = verifyOAuthState(state)
+    userId = verified.userId
+    label = verified.label
+  } catch {
     return NextResponse.redirect(`${siteUrl}/integrations?error=invalid_state`)
   }
 
-  const userId = state.slice(0, colonIdx)
-  const label = state.slice(colonIdx + 1)
+  // Verify the authenticated session user matches the state userId
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || user.id !== userId) {
+      return NextResponse.redirect(`${siteUrl}/integrations?error=session_mismatch`)
+    }
+  } catch {
+    return NextResponse.redirect(`${siteUrl}/integrations?error=session_check_failed`)
+  }
 
-  const siteUrlForRedirect = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-  const redirectUri = `${siteUrlForRedirect}/api/integrations/github/callback`
+  const redirectUri = `${siteUrl}/api/integrations/github/callback`
 
   const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -66,13 +82,17 @@ export async function GET(request: NextRequest) {
   const encrypted = encrypt(payload)
 
   const admin = createAdminClient()
-  const { error: dbError } = await admin.from("user_integrations").insert({
-    user_id: userId,
-    provider: "github",
-    label,
-    status: "active",
-    credentials: `\\x${encrypted.toString("hex")}`,
-  })
+  const { error: dbError } = await admin.from("user_integrations").upsert(
+    {
+      user_id: userId,
+      provider: "github",
+      label,
+      status: "active",
+      credentials: `\\x${encrypted.toString("hex")}`,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,provider,label" }
+  )
 
   if (dbError) {
     console.error("Failed to save GitHub integration:", dbError)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createOAuthState } from "@/lib/oauth-state"
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const label = searchParams.get("label") ?? "Google Account"
 
-  const state = `${user.id}:${label}`
+  const state = createOAuthState(user.id, label)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
   const redirectUri = `${siteUrl}/api/integrations/google/callback`
 

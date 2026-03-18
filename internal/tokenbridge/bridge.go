@@ -22,9 +22,10 @@ type DB interface {
 // a map of environment variable names to decrypted values.
 func ExportEnvForUser(ctx context.Context, db DB, userID string, hexKey string) (map[string]string, error) {
 	rows, err := db.QueryContext(ctx,
-		`SELECT provider, credentials
+		`SELECT DISTINCT ON (provider) provider, credentials
 		 FROM user_integrations
-		 WHERE user_id = $1 AND status = 'active'`,
+		 WHERE user_id = $1 AND status = 'active'
+		 ORDER BY provider, updated_at DESC`,
 		userID,
 	)
 	if err != nil {

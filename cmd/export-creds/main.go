@@ -28,9 +28,8 @@ func main() {
 
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	if dbURL == "" {
-		// Use Supabase connection pooler (Supavisor)
-		dbURL = fmt.Sprintf("postgres://postgres.juetvofnwfjylyfgqbvt:%s@aws-0-us-west-2.pooler.supabase.com:6543/postgres?sslmode=require",
-			os.Getenv("SUPABASE_DB_PASSWORD"))
+		fmt.Fprintln(os.Stderr, "SUPABASE_DB_URL not set")
+		os.Exit(1)
 	}
 
 	encKey := os.Getenv("ENCRYPTION_MASTER_KEY")
@@ -56,7 +55,7 @@ func main() {
 		query += " AND label = $3"
 		args = append(args, *account)
 	}
-	query += " LIMIT 1"
+	query += " ORDER BY updated_at DESC LIMIT 1"
 
 	var encrypted []byte
 	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&encrypted); err != nil {

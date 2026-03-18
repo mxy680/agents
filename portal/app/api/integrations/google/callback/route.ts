@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { encrypt } from "@/lib/crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
+import { verifyOAuthState } from "@/lib/oauth-state"
 
 interface GoogleTokenResponse {
   access_token: string
@@ -21,13 +23,28 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/integrations?error=oauth_denied`)
   }
 
-  const colonIdx = state.indexOf(":")
-  if (colonIdx === -1) {
+  let userId: string
+  let label: string
+  try {
+    const verified = verifyOAuthState(state)
+    userId = verified.userId
+    label = verified.label
+  } catch {
     return NextResponse.redirect(`${siteUrl}/integrations?error=invalid_state`)
   }
 
-  const userId = state.slice(0, colonIdx)
-  const label = state.slice(colonIdx + 1)
+  // Verify the authenticated session user matches the state userId
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user || user.id !== userId) {
+      return NextResponse.redirect(`${siteUrl}/integrations?error=session_mismatch`)
+    }
+  } catch {
+    return NextResponse.redirect(`${siteUrl}/integrations?error=session_check_failed`)
+  }
 
   const redirectUri = `${siteUrl}/api/integrations/google/callback`
 

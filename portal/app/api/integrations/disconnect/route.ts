@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
+  const origin = request.headers.get("origin")
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
+  if (!origin || origin !== siteUrl) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
