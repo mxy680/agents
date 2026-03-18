@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, PlugZapIcon, PlugIcon } from "lucide-react";
+import { PlugZapIcon, PlugIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,7 +17,6 @@ import { NavUser } from "@/components/nav-user";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV_ITEMS = [
-  { title: "Home", href: "/", icon: HomeIcon },
   { title: "Integrations", href: "/integrations", icon: PlugZapIcon },
 ];
 

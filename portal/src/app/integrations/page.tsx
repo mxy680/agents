@@ -5,6 +5,7 @@ import { ProviderCard } from "@/components/provider-card";
 import { InstagramForm } from "@/components/instagram-form";
 import { ConnectDialog } from "@/components/connect-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { AlertCircleIcon } from "lucide-react";
 
 export default async function IntegrationsPage({
@@ -35,22 +36,24 @@ export default async function IntegrationsPage({
   }
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-6 lg:px-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Integrations</h1>
-          <p className="text-sm text-muted-foreground">
-            Connect your accounts to enable AI agent access.
+    <div className="@container/main flex flex-1 flex-col">
+      <div className="mx-auto w-full max-w-2xl px-4 py-8 lg:px-6">
+        <div className="mb-6">
+          <h1 className="text-xl font-semibold tracking-tight">Integrations</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Connect accounts to give AI agents access to your services.
           </p>
         </div>
+
         {errorParam && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mb-6">
             <AlertCircleIcon className="size-4" />
             <AlertDescription>{errorParam.replace(/_/g, " ")}</AlertDescription>
           </Alert>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {providers.map((provider) => {
+
+        <div className="rounded-xl border bg-card">
+          {providers.map((provider, i) => {
             const integrationId = catalogMap.get(provider.id);
             const rows = integrationId ? connectedMap.get(integrationId) ?? [] : [];
             const integrations = rows.map((ui) => ({
@@ -61,16 +64,21 @@ export default async function IntegrationsPage({
               connected_at: ui.connected_at,
             }));
             return (
-              <ProviderCard key={provider.id} provider={provider} integrations={integrations}>
-                {provider.authType === "oauth" ? (
-                  <ConnectDialog
-                    href={`/api/integrations/${provider.id}/connect`}
-                    providerName={provider.name}
-                  />
-                ) : provider.id === "instagram" ? (
-                  <InstagramForm />
-                ) : null}
-              </ProviderCard>
+              <div key={provider.id}>
+                {i > 0 && <Separator />}
+                <div className="px-5">
+                  <ProviderCard provider={provider} integrations={integrations}>
+                    {provider.authType === "oauth" ? (
+                      <ConnectDialog
+                        href={`/api/integrations/${provider.id}/connect`}
+                        providerName={provider.name}
+                      />
+                    ) : provider.id === "instagram" ? (
+                      <InstagramForm />
+                    ) : null}
+                  </ProviderCard>
+                </div>
+              </div>
             );
           })}
         </div>

@@ -3,22 +3,31 @@
 import { useRouter } from "next/navigation";
 import { useState, useRef } from "react";
 import type { ProviderMeta } from "@/lib/providers";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MailIcon, GithubIcon, InstagramIcon, PlugIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  MailIcon,
+  GithubIcon,
+  InstagramIcon,
+  PlugIcon,
+  CheckCircle2Icon,
+  PencilIcon,
+  XIcon,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const PROVIDER_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   google: MailIcon,
   github: GithubIcon,
   instagram: InstagramIcon,
+};
+
+const PROVIDER_COLORS: Record<string, string> = {
+  google: "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400",
+  github: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+  instagram: "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400",
 };
 
 interface Integration {
@@ -29,7 +38,7 @@ interface Integration {
   connected_at: string;
 }
 
-function AccountRow({
+function AccountPill({
   integ,
   providerId,
   onRefresh,
@@ -41,7 +50,6 @@ function AccountRow({
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(integ.account_label);
   const [saving, setSaving] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleRename() {
     const newLabel = value.trim();
@@ -68,10 +76,9 @@ function AccountRow({
 
   if (editing) {
     return (
-      <li className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+      <span className="inline-flex items-center gap-1 rounded-full border bg-background pl-3 pr-1 py-1 text-xs">
         <Input
-          ref={inputRef}
-          className="h-6 flex-1 border-0 p-0 text-sm shadow-none focus-visible:ring-0"
+          className="h-4 w-24 border-0 p-0 text-xs shadow-none focus-visible:ring-0"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => {
@@ -82,31 +89,35 @@ function AccountRow({
           disabled={saving}
           autoFocus
         />
-        <Button variant="ghost" size="sm" className="shrink-0 text-xs" onClick={handleRename} disabled={saving}>
-          {saving ? "…" : "Save"}
-        </Button>
-      </li>
+        <button
+          className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+          onClick={() => { setValue(integ.account_label); setEditing(false); }}
+        >
+          <XIcon className="size-3" />
+        </button>
+      </span>
     );
   }
 
   return (
-    <li className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+    <span className="group inline-flex items-center gap-1.5 rounded-full border bg-background pl-2.5 pr-1 py-1 text-xs">
+      <CheckCircle2Icon className="size-3 text-emerald-500 shrink-0" />
+      <span className="text-foreground">{integ.account_label || "(no label)"}</span>
       <button
-        className="truncate text-muted-foreground hover:text-foreground text-left"
+        className="rounded-full p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground transition-opacity"
         onClick={() => setEditing(true)}
-        title="Click to rename"
+        title="Rename"
       >
-        {integ.account_label || "(no label)"}
+        <PencilIcon className="size-3" />
       </button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="ml-2 shrink-0 text-destructive hover:text-destructive"
+      <button
+        className="rounded-full p-0.5 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
         onClick={handleDisconnect}
+        title="Disconnect"
       >
-        Disconnect
-      </Button>
-    </li>
+        <XIcon className="size-3" />
+      </button>
+    </span>
   );
 }
 
@@ -122,36 +133,40 @@ export function ProviderCard({
   const router = useRouter();
   const connectedCount = integrations.filter((i) => i.status === "connected").length;
   const Icon = PROVIDER_ICONS[provider.id] ?? PlugIcon;
+  const iconColor = PROVIDER_COLORS[provider.id] ?? "bg-muted text-muted-foreground";
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-            <Icon className="size-4 text-muted-foreground" />
-          </div>
-          <CardTitle className="text-base font-semibold">{provider.name}</CardTitle>
+    <div className="flex items-start gap-4 py-5">
+      <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", iconColor)}>
+        <Icon className="size-5" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-medium text-sm">{provider.name}</span>
+          {connectedCount > 0 && (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4 font-normal">
+              {connectedCount} connected
+            </Badge>
+          )}
         </div>
-        <Badge variant={connectedCount > 0 ? "default" : "secondary"} className="shrink-0">
-          {connectedCount > 0 ? `${connectedCount} connected` : "Not connected"}
-        </Badge>
-      </CardHeader>
-      <CardContent>
-        <CardDescription className="mb-4">{provider.description}</CardDescription>
+        <p className="text-xs text-muted-foreground mb-3">{provider.description}</p>
+
         {integrations.length > 0 && (
-          <ul className="mb-4 space-y-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {integrations.map((integ) => (
-              <AccountRow
+              <AccountPill
                 key={integ.id}
                 integ={integ}
                 providerId={provider.id}
                 onRefresh={() => router.refresh()}
               />
             ))}
-          </ul>
+          </div>
         )}
+
         {children}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
