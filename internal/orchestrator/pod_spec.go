@@ -81,7 +81,7 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 				{
 					Name:    "agent",
 					Image:   agentImage,
-					Command: []string{"/bin/sh", "-c", "source /tmp/creds/env.sh && /agent/workspace/entrypoint.sh"},
+					Command: []string{"/bin/sh", "-c", "if [ -f /tmp/creds/env.sh ]; then . /tmp/creds/env.sh; fi && node /app/entrypoint.mjs"},
 					Env: []corev1.EnvVar{
 						{
 							Name: "CLAUDE_CODE_OAUTH_TOKEN",

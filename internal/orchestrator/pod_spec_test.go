@@ -282,11 +282,11 @@ func TestBuildPodSpec_MainContainerCommand(t *testing.T) {
 		t.Fatalf("agent command too short: %v", agent.Command)
 	}
 	cmd := agent.Command[2]
-	if !strings.Contains(cmd, "source /tmp/creds/env.sh") {
+	if !strings.Contains(cmd, "/tmp/creds/env.sh") {
 		t.Errorf("agent command should source creds, got: %q", cmd)
 	}
-	if !strings.Contains(cmd, "/agent/workspace/entrypoint.sh") {
-		t.Errorf("agent command should run entrypoint.sh, got: %q", cmd)
+	if !strings.Contains(cmd, "node /app/entrypoint.mjs") {
+		t.Errorf("agent command should run entrypoint.mjs, got: %q", cmd)
 	}
 }
 
