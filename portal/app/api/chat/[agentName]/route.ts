@@ -79,18 +79,29 @@ export async function POST(
   const credEnv: Record<string, string> = {}
   for (const integration of integrations ?? []) {
     try {
-      // credentials is stored as postgres bytea: "\xHEXSTRING"
-      const raw: string = integration.credentials
-      const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
-      const buf = Buffer.from(hex, "hex")
+      // credentials is stored as postgres bytea — Supabase JS returns it as a hex string with \x prefix
+      const raw = integration.credentials
+      let buf: Buffer
+      if (typeof raw === "string") {
+        const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
+        buf = Buffer.from(hex, "hex")
+      } else if (Buffer.isBuffer(raw)) {
+        buf = raw
+      } else {
+        // Supabase may return Uint8Array or other binary types
+        buf = Buffer.from(raw as ArrayBuffer)
+      }
       const decrypted = decrypt(buf)
       const credJson = JSON.parse(decrypted) as Record<string, string>
       const envVars = credentialsToEnv(integration.provider, credJson)
       Object.assign(credEnv, envVars)
+      console.error(`[chat] ${integration.provider}: decrypted OK, env keys: ${Object.keys(envVars).join(", ")}`)
     } catch (e) {
-      console.error(`Failed to decrypt credentials for ${integration.provider}:`, e)
+      console.error(`[chat] Failed to decrypt credentials for ${integration.provider}:`, e)
     }
   }
+
+  console.error(`[chat] Total credential env vars: ${Object.keys(credEnv).length} — keys: ${Object.keys(credEnv).join(", ")}`)
 
   // CLAUDE_CODE_OAUTH_TOKEN is required
   const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN
@@ -134,7 +145,9 @@ export async function POST(
       const encoder = new TextEncoder()
 
       function send(event: string, data: string) {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${data}\n\n`))
+        // SSE spec: multi-line data must be sent as multiple "data:" lines
+        const lines = data.split("\n").map((l) => `data: ${l}`).join("\n")
+        controller.enqueue(encoder.encode(`event: ${event}\n${lines}\n\n`))
       }
 
       const abortController = new AbortController()

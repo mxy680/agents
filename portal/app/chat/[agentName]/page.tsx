@@ -247,6 +247,9 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
       const toolCallsMap = new Map<string, ToolCall>()
       let activeToolId: string | null = null
 
+      // SSE parser: accumulate data lines, dispatch on blank line (event boundary)
+      let dataLines: string[] = []
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -259,12 +262,20 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
           if (line.startsWith("event:")) {
             currentEventType = line.slice(6).trim()
           } else if (line.startsWith("data: ")) {
-            // Slice off "data: " (6 chars) — do NOT trim, as leading spaces are part of the text content
-            handleSSEData(currentEventType, line.slice(6))
+            dataLines.push(line.slice(6))
           } else if (line.startsWith("data:")) {
-            handleSSEData(currentEventType, line.slice(5))
+            dataLines.push(line.slice(5))
+          } else if (line === "" && dataLines.length > 0) {
+            // Blank line = event boundary — rejoin multi-line data with newlines
+            handleSSEData(currentEventType, dataLines.join("\n"))
+            dataLines = []
           }
         }
+      }
+
+      // Flush any remaining data
+      if (dataLines.length > 0) {
+        handleSSEData(currentEventType, dataLines.join("\n"))
       }
 
       function handleSSEData(eventType: string, data: string) {
