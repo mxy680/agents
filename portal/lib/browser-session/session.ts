@@ -1,0 +1,182 @@
+import { chromium, Browser, BrowserContext, Page } from "playwright-core"
+import { applyStealthScripts } from "./stealth"
+import type { SessionStatus, ClientMessage } from "./types"
+
+const SCREENSHOT_INTERVAL_MS = 125 // 8 FPS
+const COOKIE_CHECK_INTERVAL_MS = 2000
+const SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+
+const INSTAGRAM_COOKIES = [
+  "sessionid",
+  "csrftoken",
+  "ds_user_id",
+  "mid",
+  "ig_did",
+]
+
+export class BrowserSession {
+  id: string
+  userId: string
+  label: string
+
+  private browser: Browser | null = null
+  private page: Page | null = null
+  private context: BrowserContext | null = null
+  private screenshotInterval: NodeJS.Timeout | null = null
+  private cookieCheckInterval: NodeJS.Timeout | null = null
+  private timeoutTimer: NodeJS.Timeout | null = null
+  private onFrame: ((data: string) => void) | null = null
+  private onStatus: ((status: SessionStatus) => void) | null = null
+  private onCookies: ((cookies: Record<string, string>) => void) | null = null
+  destroyed = false
+
+  constructor(id: string, userId: string, label: string) {
+    this.id = id
+    this.userId = userId
+    this.label = label
+  }
+
+  setHandlers(handlers: {
+    onFrame: (data: string) => void
+    onStatus: (status: SessionStatus) => void
+    onCookies: (cookies: Record<string, string>) => void
+  }): void {
+    this.onFrame = handlers.onFrame
+    this.onStatus = handlers.onStatus
+    this.onCookies = handlers.onCookies
+  }
+
+  async start(): Promise<void> {
+    this.onStatus?.("loading")
+
+    this.browser = await chromium.launch({
+      headless: true,
+      args: [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+      ],
+    })
+
+    this.context = await this.browser.newContext({
+      viewport: { width: 1280, height: 720 },
+      userAgent:
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      locale: "en-US",
+    })
+
+    this.page = await this.context.newPage()
+    await applyStealthScripts(this.page)
+
+    await this.page.goto("https://www.instagram.com/accounts/login/", {
+      waitUntil: "domcontentloaded",
+    })
+
+    this.onStatus?.("ready")
+
+    // Start screenshot loop
+    this.screenshotInterval = setInterval(() => {
+      this.captureFrame().catch(() => {})
+    }, SCREENSHOT_INTERVAL_MS)
+
+    // Start cookie check loop
+    this.cookieCheckInterval = setInterval(() => {
+      this.checkCookies().catch(() => {})
+    }, COOKIE_CHECK_INTERVAL_MS)
+
+    // Session timeout
+    this.timeoutTimer = setTimeout(() => {
+      if (!this.destroyed) {
+        this.onStatus?.("timeout")
+        this.destroy()
+      }
+    }, SESSION_TIMEOUT_MS)
+  }
+
+  async handleInput(msg: ClientMessage): Promise<void> {
+    if (this.destroyed || !this.page) return
+
+    switch (msg.type) {
+      case "click":
+        await this.page.mouse.click(msg.x, msg.y)
+        break
+      case "mousemove":
+        await this.page.mouse.move(msg.x, msg.y)
+        break
+      case "mousedown":
+        await this.page.mouse.move(msg.x, msg.y)
+        await this.page.mouse.down()
+        break
+      case "mouseup":
+        await this.page.mouse.move(msg.x, msg.y)
+        await this.page.mouse.up()
+        break
+      case "keydown":
+        await this.page.keyboard.down(msg.key)
+        break
+      case "keypress":
+        await this.page.keyboard.type(msg.text)
+        break
+      case "scroll":
+        await this.page.mouse.wheel(msg.deltaX, msg.deltaY)
+        break
+    }
+  }
+
+  async destroy(): Promise<void> {
+    if (this.destroyed) return
+    this.destroyed = true
+
+    if (this.screenshotInterval) clearInterval(this.screenshotInterval)
+    if (this.cookieCheckInterval) clearInterval(this.cookieCheckInterval)
+    if (this.timeoutTimer) clearTimeout(this.timeoutTimer)
+
+    try {
+      await this.browser?.close()
+    } catch {
+      // Ignore close errors
+    }
+
+    this.browser = null
+    this.context = null
+    this.page = null
+  }
+
+  private async captureFrame(): Promise<void> {
+    if (this.destroyed || !this.page) return
+    try {
+      const screenshot = await this.page.screenshot({ type: "jpeg", quality: 50 })
+      const base64 = screenshot.toString("base64")
+      this.onFrame?.(base64)
+    } catch {
+      // Ignore screenshot errors (page may be navigating)
+    }
+  }
+
+  private async checkCookies(): Promise<void> {
+    if (this.destroyed || !this.context) return
+    try {
+      const cookies = await this.context.cookies("https://www.instagram.com")
+      const sessionCookie = cookies.find(
+        (c) => c.name === "sessionid" && c.value !== ""
+      )
+      if (!sessionCookie) return
+
+      // Login detected — extract all relevant cookies
+      this.onStatus?.("login_detected")
+      if (this.cookieCheckInterval) clearInterval(this.cookieCheckInterval)
+      this.cookieCheckInterval = null
+
+      this.onStatus?.("extracting")
+      const cookieMap: Record<string, string> = {}
+      for (const name of INSTAGRAM_COOKIES) {
+        const found = cookies.find((c) => c.name === name)
+        if (found) cookieMap[name] = found.value
+      }
+
+      this.onCookies?.(cookieMap)
+    } catch {
+      // Ignore errors during cookie check
+    }
+  }
+}

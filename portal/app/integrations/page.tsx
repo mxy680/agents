@@ -16,6 +16,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
+import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -128,17 +129,28 @@ export default async function IntegrationsPage() {
                         ))}
                       </div>
                     )}
-                    <ConnectDialog
-                      provider={provider.id}
-                      providerName={provider.name}
-                    >
-                      <Button variant="outline" size="sm" className="w-full">
-                        <IconPlus />
-                        {accounts.length > 0
-                          ? "Add another account"
-                          : "Connect"}
-                      </Button>
-                    </ConnectDialog>
+                    {provider.id === "instagram" ? (
+                      <InstagramConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </InstagramConnectDialog>
+                    ) : (
+                      <ConnectDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </ConnectDialog>
+                    )}
                   </CardContent>
                 </Card>
               )
