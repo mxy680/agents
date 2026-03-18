@@ -27,6 +27,7 @@ export async function signInWithGitHub() {
     provider: "github",
     options: {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      scopes: "user:email",
     },
   })
 
@@ -37,4 +38,10 @@ export async function signInWithGitHub() {
   if (data.url) {
     redirect(data.url)
   }
+}
+
+export async function signOut() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect("/login")
 }
