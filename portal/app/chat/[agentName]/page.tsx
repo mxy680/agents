@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, use } from "react"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import { IconSend, IconRobot, IconUser, IconChevronDown, IconChevronRight, IconTool, IconArrowLeft, IconLoader2 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
@@ -129,10 +130,12 @@ function ThinkingIndicator() {
 function MarkdownContent({ content }: { content: string }) {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
         strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
         em: ({ children }) => <em className="italic">{children}</em>,
+        del: ({ children }) => <del className="line-through text-muted-foreground">{children}</del>,
         ul: ({ children }) => <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>,
         ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>,
         li: ({ children }) => <li className="mb-0.5">{children}</li>,
@@ -151,6 +154,7 @@ function MarkdownContent({ content }: { content: string }) {
         h1: ({ children }) => <h1 className="mb-2 text-base font-bold">{children}</h1>,
         h2: ({ children }) => <h2 className="mb-2 text-sm font-bold">{children}</h2>,
         h3: ({ children }) => <h3 className="mb-1 text-xs font-bold">{children}</h3>,
+        h4: ({ children }) => <h4 className="mb-1 text-xs font-semibold">{children}</h4>,
         blockquote: ({ children }) => (
           <blockquote className="my-2 border-l-2 border-border pl-3 text-muted-foreground italic">{children}</blockquote>
         ),
@@ -159,6 +163,35 @@ function MarkdownContent({ content }: { content: string }) {
           <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:text-primary/80">
             {children}
           </a>
+        ),
+        // Table support (GFM)
+        table: ({ children }) => (
+          <div className="my-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[11px]">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => (
+          <thead className="bg-background/60">{children}</thead>
+        ),
+        tbody: ({ children }) => <tbody>{children}</tbody>,
+        tr: ({ children }) => (
+          <tr className="border-b border-border/40">{children}</tr>
+        ),
+        th: ({ children }) => (
+          <th className="px-2 py-1.5 text-left font-semibold border border-border/40">{children}</th>
+        ),
+        td: ({ children }) => (
+          <td className="px-2 py-1.5 border border-border/40">{children}</td>
+        ),
+        // Task list support (GFM)
+        input: ({ checked, ...props }) => (
+          <input
+            type="checkbox"
+            checked={checked}
+            readOnly
+            className="mr-1.5 align-middle"
+            {...props}
+          />
         ),
       }}
     >
