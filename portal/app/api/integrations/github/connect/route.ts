@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${siteUrl}/api/integrations/github/callback`
 
   const params = new URLSearchParams({
-    client_id: process.env.GITHUB_CLIENT_ID!,
+    client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID!,
     redirect_uri: redirectUri,
     scope: "repo gist read:org workflow user:email",
     state,

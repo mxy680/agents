@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
       Accept: "application/json",
     },
     body: new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID!,
-      client_secret: process.env.GITHUB_CLIENT_SECRET!,
+      client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID!,
+      client_secret: process.env.GITHUB_INTEGRATION_CLIENT_SECRET!,
       code,
       redirect_uri: redirectUri,
     }),
