@@ -222,6 +222,25 @@ function mapAgentEvent(
       return [{ event: "tool_result", data: JSON.stringify({ summary: summary ?? "" }) }]
     }
 
+    // Agent SDK sends tool results as {type: "user", tool_use_result: {...}}
+    case "user": {
+      const toolResult = raw.tool_use_result as Record<string, unknown> | undefined
+      if (!toolResult) return []
+      const msg = raw.message as Record<string, unknown> | undefined
+      const content = (msg?.content as Array<Record<string, unknown>>) ?? []
+      const resultBlock = content.find((c) => c.type === "tool_result")
+      if (!resultBlock) return []
+      const toolUseId = resultBlock.tool_use_id as string | undefined
+      const resultContent = resultBlock.content as string | undefined
+      const summary = resultContent
+        ?? (toolResult.stdout as string | undefined)
+        ?? JSON.stringify(toolResult)
+      return [{
+        event: "tool_result",
+        data: JSON.stringify({ summary, toolUseId }),
+      }]
+    }
+
     case "result": {
       // result events come at top level from Agent SDK (not wrapped in stream_event)
       const sessionId = (raw.session_id ?? event.session_id) as string | undefined

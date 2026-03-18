@@ -395,20 +395,21 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
 
           case "tool_result": {
             try {
-              const { summary } = JSON.parse(data) as { summary: string }
-              if (activeToolId) {
-                const toolId = activeToolId
+              const parsed = JSON.parse(data) as { summary: string; toolUseId?: string }
+              // Match by toolUseId from event, or fall back to activeToolId
+              const toolId = parsed.toolUseId ?? activeToolId
+              if (toolId) {
                 setMessages((prev) =>
                   prev.map((m) => {
                     if (m.id !== assistantMsgId) return m
                     const updatedBlocks = m.blocks.map((b) => {
                       if (b.type !== "tool" || b.id !== toolId) return b
-                      return { ...b, result: summary }
+                      return { ...b, result: parsed.summary }
                     })
                     return { ...m, blocks: updatedBlocks }
                   })
                 )
-                activeToolId = null
+                if (toolId === activeToolId) activeToolId = null
               }
             } catch {
               // ignore
