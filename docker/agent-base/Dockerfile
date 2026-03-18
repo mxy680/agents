@@ -2,7 +2,7 @@ FROM node:22-slim
 
 # Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl git \
+    curl git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code CLI and Agent SDK

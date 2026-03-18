@@ -258,9 +258,11 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
         for (const line of lines) {
           if (line.startsWith("event:")) {
             currentEventType = line.slice(6).trim()
+          } else if (line.startsWith("data: ")) {
+            // Slice off "data: " (6 chars) — do NOT trim, as leading spaces are part of the text content
+            handleSSEData(currentEventType, line.slice(6))
           } else if (line.startsWith("data:")) {
-            const data = line.slice(5).trim()
-            handleSSEData(currentEventType, data)
+            handleSSEData(currentEventType, line.slice(5))
           }
         }
       }
