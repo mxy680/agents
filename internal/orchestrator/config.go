@@ -28,8 +28,8 @@ func DefaultConfig() Config {
 	return Config{
 		Port:                   8080,
 		KubeNamespace:          "agents",
-		AgentBaseImage:         "ghcr.io/emdash-projects/agent-base:latest",
-		ExportCredsImage:       "ghcr.io/emdash-projects/export-creds:latest",
+		AgentBaseImage:         "ghcr.io/emdash-projects/agent-base:dev",
+		ExportCredsImage:       "ghcr.io/emdash-projects/export-creds:dev",
 		ClaudeSessionSecretRef: "claude-session-token",
 	}
 }

@@ -1,8 +1,8 @@
 package orchestrator
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -62,10 +62,11 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 			RestartPolicy: corev1.RestartPolicyNever,
 			InitContainers: []corev1.Container{
 				{
-					Name:    "resolve-creds",
-					Image:   exportCredsImage,
-					Command: []string{"/bin/sh", "-c", writeCredsScript},
-					Env:     credEnvVars,
+					Name:            "resolve-creds",
+					Image:           exportCredsImage,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Command:         []string{"/bin/sh", "-c", writeCredsScript},
+					Env:             credEnvVars,
 					VolumeMounts: []corev1.VolumeMount{
 						{Name: "creds", MountPath: "/tmp/creds"},
 					},
@@ -79,9 +80,10 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 			},
 			Containers: []corev1.Container{
 				{
-					Name:    "agent",
-					Image:   agentImage,
-					Command: []string{"/bin/sh", "-c", "if [ -f /tmp/creds/env.sh ]; then . /tmp/creds/env.sh; fi && node /app/entrypoint.mjs"},
+					Name:            "agent",
+					Image:           agentImage,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Command:         []string{"/bin/sh", "-c", "if [ -f /tmp/creds/env.sh ]; then . /tmp/creds/env.sh; fi && node /app/entrypoint.mjs"},
 					Env: []corev1.EnvVar{
 						{
 							Name: "CLAUDE_CODE_OAUTH_TOKEN",

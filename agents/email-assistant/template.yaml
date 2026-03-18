@@ -2,7 +2,7 @@ name: email-assistant
 display_name: Email Assistant
 description: An AI agent that helps manage your email — reading, summarizing, drafting replies, and organizing your inbox.
 git_path: agents/email-assistant
-docker_image: ghcr.io/emdash-projects/agent-base:latest
+docker_image: ghcr.io/emdash-projects/agent-base:dev
 required_integrations:
   - google
 status: active
