@@ -15,10 +15,13 @@ import {
 } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ConnectDialog } from "@/components/connect-dialog"
 import {
   IconBrandGoogle,
   IconBrandGithub,
   IconBrandInstagram,
+  IconPlus,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -49,6 +52,22 @@ export default async function IntegrationsPage() {
   if (!user) {
     redirect("/login")
   }
+
+  // Fetch user's connected integrations
+  const { data: integrations } = await supabase
+    .from("user_integrations")
+    .select("id, provider, label, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true })
+
+  const integrationsByProvider = (integrations ?? []).reduce<
+    Record<string, typeof integrations>
+  >((acc, integration) => {
+    const key = integration.provider
+    if (!acc[key]) acc[key] = []
+    acc[key]!.push(integration)
+    return acc
+  }, {})
 
   return (
     <SidebarProvider>
@@ -81,26 +100,60 @@ export default async function IntegrationsPage() {
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {providers.map((provider) => (
-              <Card key={provider.id} id={provider.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center bg-muted">
-                      <provider.icon className="size-5" />
+            {providers.map((provider) => {
+              const accounts = integrationsByProvider[provider.id] ?? []
+              return (
+                <Card key={provider.id} id={provider.id}>
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center bg-muted">
+                        <provider.icon className="size-5" />
+                      </div>
+                      <div className="flex-1">
+                        <CardTitle className="text-base">{provider.name}</CardTitle>
+                        <CardDescription>{provider.description}</CardDescription>
+                      </div>
                     </div>
-                    <div>
-                      <CardTitle className="text-base">{provider.name}</CardTitle>
-                      <CardDescription>{provider.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" size="sm" className="w-full">
-                    Connect
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3">
+                    {accounts.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                        {accounts.map((account) => (
+                          <div
+                            key={account.id}
+                            className="flex items-center justify-between gap-2 border p-2 text-sm"
+                          >
+                            <span className="truncate font-medium">
+                              {account.label}
+                            </span>
+                            <Badge
+                              variant={
+                                account.status === "active"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {account.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <ConnectDialog
+                      provider={provider.id}
+                      providerName={provider.name}
+                    >
+                      <Button variant="outline" size="sm" className="w-full">
+                        <IconPlus />
+                        {accounts.length > 0
+                          ? "Add another account"
+                          : "Connect"}
+                      </Button>
+                    </ConnectDialog>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </div>
       </SidebarInset>
