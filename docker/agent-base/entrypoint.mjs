@@ -54,13 +54,24 @@ async function main() {
   let session;
   try {
     session = JSON.parse(readFileSync(SESSION_PATH, "utf-8"));
-  } catch {
-    // No session.json — fall back to env vars or default prompt
-    session = {
-      prompt:
-        process.env.AGENT_PROMPT ||
-        "List my recent unread emails using: integrations gmail messages list --query=is:unread --since=24h --json. Then summarize them.",
-    };
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      // session.json not present — fall back to AGENT_PROMPT env var.
+      const prompt = process.env.AGENT_PROMPT;
+      if (!prompt) {
+        process.stderr.write(
+          `ERROR: ${SESSION_PATH} not found and AGENT_PROMPT is not set. Cannot determine what to do.\n`
+        );
+        process.exit(1);
+      }
+      session = { prompt };
+    } else {
+      // File exists but JSON is malformed — hard error, do not silently swallow.
+      process.stderr.write(
+        `ERROR: Failed to parse ${SESSION_PATH}: ${err.message}\n`
+      );
+      process.exit(1);
+    }
   }
 
   const { prompt, sessionId, model } = session;
@@ -75,9 +86,13 @@ async function main() {
   try {
     await run(prompt, sessionId, model);
   } catch (err) {
-    // If resume fails (stale session), retry without sessionId
+    // If resume fails (stale session), retry without sessionId.
+    // WARNING: retrying without a session may cause duplicate side effects if the
+    // previous run partially completed.
     if (sessionId && err.message?.includes("No conversation found")) {
-      process.stderr.write(`Session ${sessionId} not found, starting fresh\n`);
+      process.stderr.write(
+        `WARNING: Session ${sessionId} not found. Retrying without session — this may cause duplicate actions if the previous run partially completed.\n`
+      );
       try {
         await run(prompt, null, model);
         return;

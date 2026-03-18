@@ -1,10 +1,18 @@
 package orchestrator
 
 import (
+	"fmt"
+	"os"
+	"regexp"
+	"sort"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// validCredKeyRe matches safe environment variable names only (e.g. GOOGLE_ACCESS_TOKEN).
+var validCredKeyRe = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
 
 // PodSpecParams contains all inputs needed to build an agent pod spec.
 type PodSpecParams struct {
@@ -22,7 +30,12 @@ type PodSpecParams struct {
 
 // BuildPodSpec creates a Kubernetes Pod specification for an agent deployment.
 func BuildPodSpec(p PodSpecParams) *corev1.Pod {
-	podName := "agent-" + p.InstanceID[:8]
+	// Guard against short InstanceID to prevent slice panic.
+	id := p.InstanceID
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	podName := "agent-" + id
 
 	exportCredsImage := p.Config.ExportCredsImage
 	if p.ExportCredsImage != "" {
@@ -34,15 +47,27 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 		agentImage = p.AgentImage
 	}
 
-	// Build credential env vars for init container
-	credEnvVars := make([]corev1.EnvVar, 0, len(p.Credentials))
-	for k, v := range p.Credentials {
-		credEnvVars = append(credEnvVars, corev1.EnvVar{Name: k, Value: v})
+	// Sort credential keys for deterministic output and to simplify auditing.
+	credKeys := make([]string, 0, len(p.Credentials))
+	for k := range p.Credentials {
+		if validCredKeyRe.MatchString(k) {
+			credKeys = append(credKeys, k)
+		} else {
+			fmt.Fprintf(os.Stderr, "WARNING: skipping credential key with unsafe name: %q\n", k)
+		}
+	}
+	sort.Strings(credKeys)
+
+	// Build credential env vars for init container using only validated keys.
+	credEnvVars := make([]corev1.EnvVar, 0, len(credKeys))
+	for _, k := range credKeys {
+		credEnvVars = append(credEnvVars, corev1.EnvVar{Name: k, Value: p.Credentials[k]})
 	}
 
-	// Build the shell script that writes env vars to /tmp/creds/env.sh
+	// Build the shell script that writes env vars to /tmp/creds/env.sh.
+	// Keys are pre-validated against validCredKeyRe so no injection is possible.
 	writeCredsScript := "#!/bin/sh\n"
-	for k := range p.Credentials {
+	for _, k := range credKeys {
 		writeCredsScript += "echo 'export " + k + "='\\\"$" + k + "\\\"'' >> /tmp/creds/env.sh\n"
 	}
 
@@ -50,6 +75,24 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 		"app":         "agent",
 		"instance-id": p.InstanceID,
 		"user-id":     p.UserID,
+	}
+
+	// Security contexts.
+	falseVal := false
+	trueVal := true
+	runAsUser := int64(1000)
+
+	// Init container runs as root to write creds but must not escalate privileges.
+	initSecCtx := &corev1.SecurityContext{
+		RunAsNonRoot:             &falseVal,
+		AllowPrivilegeEscalation: &falseVal,
+	}
+
+	// Main agent container runs as non-root uid 1000 (the 'agent' user from the Dockerfile).
+	agentSecCtx := &corev1.SecurityContext{
+		RunAsNonRoot:             &trueVal,
+		AllowPrivilegeEscalation: &falseVal,
+		RunAsUser:                &runAsUser,
 	}
 
 	pod := &corev1.Pod{
@@ -67,6 +110,7 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/bin/sh", "-c", writeCredsScript},
 					Env:             credEnvVars,
+					SecurityContext: initSecCtx,
 					VolumeMounts: []corev1.VolumeMount{
 						{Name: "creds", MountPath: "/tmp/creds"},
 					},
@@ -84,6 +128,7 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 					Image:           agentImage,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/bin/sh", "-c", "if [ -f /tmp/creds/env.sh ]; then . /tmp/creds/env.sh; fi && node /app/entrypoint.mjs"},
+					SecurityContext: agentSecCtx,
 					Env: []corev1.EnvVar{
 						{
 							Name: "CLAUDE_CODE_OAUTH_TOKEN",
@@ -118,7 +163,10 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 				{
 					Name: "creds",
 					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
+						// Use Memory medium so credentials are never flushed to disk.
+						EmptyDir: &corev1.EmptyDirVolumeSource{
+							Medium: corev1.StorageMediumMemory,
+						},
 					},
 				},
 			},
