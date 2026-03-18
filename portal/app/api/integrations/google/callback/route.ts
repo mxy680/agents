@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
       provider: "google",
       label,
       status: "active",
-      credentials: encrypted,
+      credentials: `\\x${encrypted.toString("hex")}`,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,provider,label" }

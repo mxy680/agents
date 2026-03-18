@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     provider: "github",
     label,
     status: "active",
-    credentials: encrypted,
+    credentials: `\\x${encrypted.toString("hex")}`,
   })
 
   if (dbError) {

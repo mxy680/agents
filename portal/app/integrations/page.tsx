@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/sidebar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ConnectDialog } from "@/components/connect-dialog"
+import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
   IconBrandGithub,
@@ -119,23 +119,12 @@ export default async function IntegrationsPage() {
                     {accounts.length > 0 && (
                       <div className="flex flex-col gap-2">
                         {accounts.map((account) => (
-                          <div
+                          <AccountItem
                             key={account.id}
-                            className="flex items-center justify-between gap-2 border p-2 text-sm"
-                          >
-                            <span className="truncate font-medium">
-                              {account.label}
-                            </span>
-                            <Badge
-                              variant={
-                                account.status === "active"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                            >
-                              {account.status}
-                            </Badge>
-                          </div>
+                            id={account.id}
+                            label={account.label}
+                            status={account.status}
+                          />
                         ))}
                       </div>
                     )}
