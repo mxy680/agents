@@ -28,6 +28,7 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
   const [label, setLabel] = useState("")
   const [step, setStep] = useState<Step>("label")
   const [wsUrl, setWsUrl] = useState<string | null>(null)
+  const [wsToken, setWsToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -38,6 +39,7 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
       setLabel("")
       setStep("label")
       setWsUrl(null)
+      setWsToken(null)
       setError(null)
     }
   }
@@ -60,8 +62,9 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
           return
         }
 
-        const { wsUrl: url } = await res.json()
+        const { wsUrl: url, token } = await res.json()
         setWsUrl(url)
+        setWsToken(token)
         setStep("browser")
       } catch {
         setError("Network error. Please try again.")
@@ -124,7 +127,7 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
           </>
         )}
 
-        {step === "browser" && wsUrl && (
+        {step === "browser" && wsUrl && wsToken && (
           <>
             <DialogHeader>
               <DialogTitle>Log in to Instagram</DialogTitle>
@@ -135,6 +138,7 @@ export function InstagramConnectDialog({ children }: InstagramConnectDialogProps
             </DialogHeader>
             <InstagramBrowser
               wsUrl={wsUrl}
+              token={wsToken}
               onComplete={handleComplete}
               onCancel={handleCancel}
             />

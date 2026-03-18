@@ -1,11 +1,12 @@
+// TODO: Add unit tests for createOAuthState/verifyOAuthState (colon edge cases, expiry, forged sigs)
 import { createHmac, timingSafeEqual } from "crypto"
 
 const STATE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 
 function getKey(): string {
-  const hex = process.env.ENCRYPTION_MASTER_KEY
+  const hex = process.env.TOKEN_SIGNING_KEY
   if (!hex || hex.length !== 64) {
-    throw new Error("ENCRYPTION_MASTER_KEY must be a 64-char hex string (32 bytes)")
+    throw new Error("TOKEN_SIGNING_KEY must be a 64-char hex string (32 bytes)")
   }
   return hex
 }
@@ -17,11 +18,14 @@ function sign(payload: string, key: string): string {
 /**
  * Builds an HMAC-SHA256-signed OAuth state token.
  * Format: base64url(payload + "." + signature)
- * where payload = "userId:label:timestampMs"
+ * where payload = "userId:base64url(label):timestampMs"
+ *
+ * The label is base64url-encoded so colons in it don't break parsing.
  */
 export function createOAuthState(userId: string, label: string): string {
   const key = getKey()
-  const payload = `${userId}:${label}:${Date.now()}`
+  const labelB64 = Buffer.from(label).toString("base64url")
+  const payload = `${userId}:${labelB64}:${Date.now()}`
   const signature = sign(payload, key)
   const combined = `${payload}.${signature}`
   return Buffer.from(combined).toString("base64url")
@@ -61,8 +65,9 @@ export function verifyOAuthState(state: string): { userId: string; label: string
     throw new Error("Invalid state signature")
   }
 
-  // payload = "userId:label:timestampMs"
-  // userId may contain colons (UUIDs don't, but be safe by splitting on last two colons)
+  // payload = "userId:base64url(label):timestampMs"
+  // Split on the last two colons: everything before the second-to-last colon is userId,
+  // between them is the base64url label, after the last is the timestamp.
   const lastColon = payload.lastIndexOf(":")
   if (lastColon === -1) {
     throw new Error("Invalid state payload: missing timestamp")
@@ -82,7 +87,8 @@ export function verifyOAuthState(state: string): { userId: string; label: string
   }
 
   const userId = rest.slice(0, firstColon)
-  const label = rest.slice(firstColon + 1)
+  const labelB64 = rest.slice(firstColon + 1)
+  const label = Buffer.from(labelB64, "base64url").toString()
 
   return { userId, label }
 }

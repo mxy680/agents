@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
-  const label = searchParams.get("label") ?? "GitHub Account"
+  const rawLabel = searchParams.get("label") ?? ""
+  const label = rawLabel.trim().slice(0, 100) || "GitHub Account"
 
   const state = createOAuthState(user.id, label)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"

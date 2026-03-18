@@ -35,6 +35,12 @@ export function destroySession(sessionId: string): void {
   }
 }
 
+export function destroyAllSessions(): void {
+  for (const [id] of sessions.entries()) {
+    destroySession(id)
+  }
+}
+
 // Cleanup stale sessions every 30 seconds
 setInterval(() => {
   for (const [id, session] of sessions.entries()) {

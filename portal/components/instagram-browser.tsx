@@ -6,6 +6,7 @@ import type { ServerMessage, ClientMessage, SessionStatus } from "@/lib/browser-
 
 interface InstagramBrowserProps {
   wsUrl: string
+  token: string
   onComplete: () => void
   onCancel: () => void
 }
@@ -20,10 +21,16 @@ const STATUS_MESSAGES: Record<SessionStatus, string> = {
   timeout: "Session timed out. Please try again.",
 }
 
-export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrowserProps) {
+export function InstagramBrowser({ wsUrl, token, onComplete, onCancel }: InstagramBrowserProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const lastMoveRef = useRef<number>(0)
+  // Stable ref for onComplete to avoid WS reconnects when the callback identity changes
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
+
   const [viewport, setViewport] = useState({ width: 1280, height: 720 })
   const [status, setStatus] = useState<SessionStatus>("loading")
   const [isDone, setIsDone] = useState(false)
@@ -38,6 +45,11 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
   useEffect(() => {
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
+
+    ws.onopen = () => {
+      // Send auth token as first message instead of embedding it in the URL
+      ws.send(JSON.stringify({ type: "auth", token }))
+    }
 
     ws.onmessage = (event) => {
       try {
@@ -64,7 +76,7 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
             setStatus(msg.status)
             if (msg.status === "complete") {
               setIsDone(true)
-              setTimeout(() => onComplete(), 1500)
+              setTimeout(() => onCompleteRef.current(), 1500)
             }
             break
 
@@ -89,7 +101,7 @@ export function InstagramBrowser({ wsUrl, onComplete, onCancel }: InstagramBrows
       ws.close()
       wsRef.current = null
     }
-  }, [wsUrl, onComplete])
+  }, [wsUrl, token])
 
   function getScaledCoords(
     e: React.MouseEvent<HTMLCanvasElement>
