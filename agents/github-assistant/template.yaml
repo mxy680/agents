@@ -1,0 +1,8 @@
+name: github-assistant
+display_name: GitHub Assistant
+description: An AI agent that helps manage your GitHub — repos, issues, pull requests, code search, releases, and workflow runs.
+git_path: agents/github-assistant
+docker_image: ghcr.io/emdash-projects/agent-base:dev
+required_integrations:
+  - github
+status: active
