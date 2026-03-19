@@ -404,7 +404,8 @@ export default function ChatPage({ params }: { params: Promise<{ agentName: stri
                     if (m.id !== assistantMsgId) return m
                     const updatedBlocks = m.blocks.map((b) => {
                       if (b.type !== "tool" || b.id !== toolId) return b
-                      return { ...b, result: parsed.summary }
+                      const resultStr = typeof parsed.summary === "string" ? parsed.summary : JSON.stringify(parsed.summary)
+                      return { ...b, result: resultStr }
                     })
                     return { ...m, blocks: updatedBlocks }
                   })
