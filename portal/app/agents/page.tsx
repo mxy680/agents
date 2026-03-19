@@ -154,7 +154,7 @@ export default async function AgentsPage() {
                 const canChat = isApproved && missing.length === 0
 
                 return (
-                  <Card key={template.id}>
+                  <Card key={template.id} className="flex flex-col">
                     <CardHeader>
                       <div className="flex items-start gap-3">
                         <div className="flex size-10 shrink-0 items-center justify-center bg-muted">
@@ -178,7 +178,7 @@ export default async function AgentsPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
+                    <CardContent className="flex flex-1 flex-col gap-3">
                       {template.required_integrations.length > 0 && (
                         <div className="flex flex-col gap-1.5">
                           <p className="text-xs text-muted-foreground font-medium">Required integrations</p>
@@ -221,12 +221,12 @@ export default async function AgentsPage() {
                       )}
 
                       {isPending ? (
-                        <Button size="sm" className="w-full" disabled>
+                        <Button size="sm" className="w-full mt-auto" disabled>
                           <IconMessageCircle />
                           Awaiting Approval
                         </Button>
                       ) : isRejected ? (
-                        <Button size="sm" className="w-full" disabled variant="outline">
+                        <Button size="sm" className="w-full mt-auto" disabled variant="outline">
                           <IconMessageCircle />
                           Access Denied
                         </Button>
@@ -235,7 +235,7 @@ export default async function AgentsPage() {
                           asChild={canChat}
                           disabled={!canChat}
                           size="sm"
-                          className="w-full"
+                          className="w-full mt-auto"
                         >
                           {canChat ? (
                             <a href={`/chat/${template.name}`}>
