@@ -1,0 +1,7 @@
+jobs:
+  - slug: engagement-report
+    display_name: Daily Engagement Report
+    description: Summarizes recent activity, new followers, comments, and post performance
+    schedule: "0 10 * * *"
+    prompt_file: engagement-report.md
+    timeout_minutes: 10

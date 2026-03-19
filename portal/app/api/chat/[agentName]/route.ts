@@ -1,35 +1,9 @@
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { decrypt } from "@/lib/crypto"
+import { resolveUserCredentials } from "@/lib/credentials"
 import { runContainer } from "@/lib/container-runner"
 import path from "path"
 import os from "os"
-
-// Resolve credentials from a decrypted JSON payload to env vars
-function credentialsToEnv(provider: string, credJson: Record<string, string>): Record<string, string> {
-  const env: Record<string, string> = {}
-  switch (provider) {
-    case "google":
-      if (credJson.access_token) env.GOOGLE_ACCESS_TOKEN = credJson.access_token
-      if (credJson.refresh_token) env.GOOGLE_REFRESH_TOKEN = credJson.refresh_token
-      if (process.env.GOOGLE_CLIENT_ID) env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
-      if (process.env.GOOGLE_CLIENT_SECRET) env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-      break
-    case "github":
-      if (credJson.access_token) env.GITHUB_ACCESS_TOKEN = credJson.access_token
-      if (credJson.refresh_token) env.GITHUB_REFRESH_TOKEN = credJson.refresh_token
-      if (process.env.GITHUB_CLIENT_ID) env.GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID
-      if (process.env.GITHUB_CLIENT_SECRET) env.GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET
-      break
-    case "instagram":
-      if (credJson.session_id) env.INSTAGRAM_SESSION_ID = credJson.session_id
-      if (credJson.csrf_token) env.INSTAGRAM_CSRF_TOKEN = credJson.csrf_token
-      if (credJson.ds_user_id) env.INSTAGRAM_DS_USER_ID = credJson.ds_user_id
-      break
-  }
-  return env
-}
 
 export async function POST(
   request: NextRequest,
@@ -102,46 +76,14 @@ export async function POST(
     return new Response(JSON.stringify({ error: "message is required" }), { status: 400 })
   }
 
-  // Get user's active integrations via admin client (bypasses RLS for credentials)
-  const admin = createAdminClient()
-  const { data: integrations, error: integError } = await admin
-    .from("user_integrations")
-    .select("provider, credentials, status")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-
-  if (integError) {
-    console.error("Failed to fetch integrations:", integError)
+  // Resolve credentials for all active integrations
+  let credEnv: Record<string, string>
+  try {
+    credEnv = await resolveUserCredentials(user.id)
+  } catch (e) {
+    console.error("Failed to resolve user credentials:", e)
     return new Response(JSON.stringify({ error: "Failed to fetch integrations" }), { status: 500 })
   }
-
-  // Decrypt credentials and build env vars
-  const credEnv: Record<string, string> = {}
-  for (const integration of integrations ?? []) {
-    try {
-      // credentials is stored as postgres bytea — Supabase JS returns it as a hex string with \x prefix
-      const raw = integration.credentials
-      let buf: Buffer
-      if (typeof raw === "string") {
-        const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
-        buf = Buffer.from(hex, "hex")
-      } else if (Buffer.isBuffer(raw)) {
-        buf = raw
-      } else {
-        // Supabase may return Uint8Array or other binary types
-        buf = Buffer.from(raw as ArrayBuffer)
-      }
-      const decrypted = decrypt(buf)
-      const credJson = JSON.parse(decrypted) as Record<string, string>
-      const envVars = credentialsToEnv(integration.provider, credJson)
-      Object.assign(credEnv, envVars)
-      console.error(`[chat] ${integration.provider}: decrypted OK, env keys: ${Object.keys(envVars).join(", ")}`)
-    } catch (e) {
-      console.error(`[chat] Failed to decrypt credentials for ${integration.provider}:`, e)
-    }
-  }
-
-  console.error(`[chat] Total credential env vars: ${Object.keys(credEnv).length} — keys: ${Object.keys(credEnv).join(", ")}`)
 
   // CLAUDE_CODE_OAUTH_TOKEN is required
   const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN
