@@ -90,6 +90,7 @@ export async function runJob(userId: string, jobDefinitionId: string): Promise<s
 
     // Collect output text from container
     let outputText = ""
+    let lastError = ""
     for await (const event of runContainer({
       instancePath,
       message: typedJobDef.prompt,
@@ -98,7 +99,15 @@ export async function runJob(userId: string, jobDefinitionId: string): Promise<s
     })) {
       if (event.event === "delta") {
         outputText += event.data
+      } else if (event.event === "error") {
+        lastError = event.data
+        console.error(`[job-runner] Error for job ${typedJobDef.slug}:`, event.data)
       }
+    }
+
+    // If no output but there was an error, treat as failure
+    if (!outputText && lastError) {
+      throw new Error(lastError)
     }
 
     const durationMs = Date.now() - startTime
