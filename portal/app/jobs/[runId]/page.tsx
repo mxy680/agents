@@ -20,8 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IconArrowLeft } from "@tabler/icons-react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import { MarkdownContent } from "@/components/markdown-content"
 
 interface JobRun {
   id: string
@@ -193,13 +192,9 @@ export default async function JobRunPage({
           </div>
 
           {typedRun.status === "completed" && typedRun.output_markdown && (
-            <div className="border border-border bg-muted/20 p-4">
-              <h2 className="text-sm font-semibold mb-3">Output</h2>
-              <div className="prose prose-sm dark:prose-invert max-w-none text-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {typedRun.output_markdown}
-                </ReactMarkdown>
-              </div>
+            <div className="border border-border bg-muted/20 p-6">
+              <h2 className="text-sm font-semibold mb-4">Output</h2>
+              <MarkdownContent content={typedRun.output_markdown} className="text-sm" />
             </div>
           )}
 
