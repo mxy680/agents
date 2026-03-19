@@ -10,6 +10,7 @@ import {
   IconRobot,
   IconBuildingStore,
   IconShieldCheck,
+  IconCalendarEvent,
 } from "@tabler/icons-react"
 
 import {
@@ -54,6 +55,12 @@ const navMain = [
         title: "My Agents",
         url: "/agents",
         icon: IconRobot,
+        isActive: false as const,
+      },
+      {
+        title: "Jobs",
+        url: "/jobs",
+        icon: IconCalendarEvent,
         isActive: false as const,
       },
       {
