@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { AppSidebar } from "@/components/app-sidebar"
 import { isAdmin } from "@/lib/admin"
 import {
@@ -16,11 +15,9 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { IconCalendarEvent, IconHistory, IconFileText } from "@tabler/icons-react"
+import { IconCalendarEvent } from "@tabler/icons-react"
 import { getNextRun, toHumanReadable } from "@/lib/cron"
+import { JobCard } from "./job-card"
 
 interface AgentTemplate {
   id: string
@@ -54,53 +51,6 @@ interface EnrichedJob {
   agentName: string
   lastRun: JobRun | null
   nextRun: Date
-}
-
-function formatDateShort(iso: string | null): string {
-  if (!iso) return "—"
-  return new Date(iso).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
-
-function StatusBadge({ status }: { status: JobRun["status"] | null }) {
-  if (!status) {
-    return (
-      <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
-        Never run
-      </Badge>
-    )
-  }
-  switch (status) {
-    case "completed":
-      return (
-        <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
-          Completed
-        </Badge>
-      )
-    case "failed":
-    case "timed_out":
-      return (
-        <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
-          {status === "timed_out" ? "Timed out" : "Failed"}
-        </Badge>
-      )
-    case "running":
-      return (
-        <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-          Running
-        </Badge>
-      )
-    case "pending":
-      return (
-        <Badge variant="outline" className="text-xs bg-muted text-muted-foreground border-muted-foreground/30">
-          Pending
-        </Badge>
-      )
-  }
 }
 
 export default async function JobsPage() {
@@ -206,61 +156,22 @@ export default async function JobsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {enrichedJobs.map(({ definition, agentName, lastRun, nextRun }) => (
-                <Card key={definition.id} className="flex flex-col">
-                  <CardHeader>
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center bg-muted">
-                        <IconCalendarEvent className="size-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base">{definition.display_name}</CardTitle>
-                        <p className="text-xs text-muted-foreground mt-0.5">{agentName}</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col gap-3">
-                    <CardDescription className="flex-1">{definition.description}</CardDescription>
-
-                    <div className="flex flex-col gap-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Schedule</span>
-                        <span className="font-medium">{toHumanReadable(definition.schedule)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Last run</span>
-                        <div className="flex items-center gap-1.5">
-                          <StatusBadge status={lastRun?.status ?? null} />
-                          {lastRun && (
-                            <span className="text-muted-foreground">
-                              {formatDateShort(lastRun.completed_at ?? lastRun.started_at)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Next run</span>
-                        <span>{formatDateShort(nextRun.toISOString())}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      {lastRun?.status === "completed" && (
-                        <Button asChild size="sm" className="flex-1">
-                          <Link href={`/jobs/${lastRun.id}`}>
-                            <IconFileText className="size-3.5" />
-                            View Output
-                          </Link>
-                        </Button>
-                      )}
-                      <Button asChild size="sm" variant="outline" className="flex-1">
-                        <Link href={`/jobs/history/${definition.id}`}>
-                          <IconHistory className="size-3.5" />
-                          View History
-                        </Link>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <JobCard
+                  key={definition.id}
+                  definitionId={definition.id}
+                  displayName={definition.display_name}
+                  description={definition.description}
+                  agentDisplayName={agentName}
+                  schedule={definition.schedule}
+                  scheduleHuman={toHumanReadable(definition.schedule)}
+                  lastRun={lastRun ? {
+                    id: lastRun.id,
+                    status: lastRun.status,
+                    startedAt: lastRun.started_at,
+                    completedAt: lastRun.completed_at,
+                  } : null}
+                  nextRun={nextRun.toISOString()}
+                />
               ))}
             </div>
           )}
