@@ -1,20 +1,10 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import {
-  IconRobot,
-  IconCheck,
-  IconAlertCircle,
-  IconSearch,
-  IconMessageCircle,
-  IconDownload,
-  IconLoader2,
-  IconUsers,
-} from "@tabler/icons-react"
+import { ExpandableAgentCard } from "@/components/expandable-agent-card"
+import { IconRobot, IconSearch } from "@tabler/icons-react"
 
 interface AgentTemplate {
   id: string
@@ -29,12 +19,20 @@ interface AgentTemplate {
 
 type AcquisitionStatus = "pending" | "approved" | "rejected"
 
+interface JobRow {
+  id: string
+  displayName: string
+  description: string
+  schedule: string
+}
+
 interface MarketplaceClientProps {
   templates: AgentTemplate[]
   acquiredTemplateIds: Set<string>
   acquisitionStatuses: Record<string, AcquisitionStatus>
   connectedProviders: Set<string>
   categories: string[]
+  jobsByTemplate: Record<string, JobRow[]>
 }
 
 export function MarketplaceClient({
@@ -43,6 +41,7 @@ export function MarketplaceClient({
   acquisitionStatuses,
   connectedProviders,
   categories,
+  jobsByTemplate,
 }: MarketplaceClientProps) {
   const [search, setSearch] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -50,6 +49,8 @@ export function MarketplaceClient({
   const [statuses, setStatuses] = useState<Record<string, AcquisitionStatus>>(acquisitionStatuses)
   const [acquiring, setAcquiring] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+
+  const connectedProvidersArray = Array.from(connectedProviders)
 
   const filtered = templates.filter((t) => {
     const matchesSearch =
@@ -128,125 +129,24 @@ export function MarketplaceClient({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((template) => {
             const isAcquired = acquiredIds.has(template.id)
-            const acquisitionStatus = statuses[template.id]
-            const isPending = isAcquired && acquisitionStatus === "pending"
-            const isApproved = isAcquired && acquisitionStatus === "approved"
-            const isRejected = isAcquired && acquisitionStatus === "rejected"
+            const acquisitionStatus = isAcquired ? (statuses[template.id] ?? null) : null
             const isAcquiring = acquiring === template.id
-            const missing = template.required_integrations.filter(
-              (p) => !connectedProviders.has(p)
-            )
 
             return (
-              <Card key={template.id} className="flex flex-col">
-                <CardHeader>
-                  <div className="flex items-start gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center bg-muted">
-                      <IconRobot className="size-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-base">{template.display_name}</CardTitle>
-                        <Badge variant="secondary" className="capitalize text-xs">
-                          {template.category}
-                        </Badge>
-                      </div>
-                      <CardDescription className="mt-0.5">{template.description}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-3 flex-1">
-                  {/* Tags */}
-                  {template.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {template.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Required integrations */}
-                  {template.required_integrations.length > 0 && (
-                    <div className="flex flex-col gap-1.5">
-                      <p className="text-xs text-muted-foreground font-medium">Required integrations</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {template.required_integrations.map((provider) => {
-                          const connected = connectedProviders.has(provider)
-                          return (
-                            <Badge
-                              key={provider}
-                              variant={connected ? "outline" : "destructive"}
-                              className="gap-1 capitalize"
-                            >
-                              {connected ? (
-                                <IconCheck className="size-2.5" />
-                              ) : (
-                                <IconAlertCircle className="size-2.5" />
-                              )}
-                              {provider}
-                            </Badge>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Missing integrations hint */}
-                  {!isAcquired && missing.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Connect{" "}
-                      <a href="/integrations" className="underline underline-offset-2">
-                        {missing.join(", ")}
-                      </a>{" "}
-                      to use this agent.
-                    </p>
-                  )}
-
-                  {/* Acquisition count */}
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-auto">
-                    <IconUsers className="size-3" />
-                    <span>
-                      {template.acquisition_count > 0
-                        ? `${template.acquisition_count} user${template.acquisition_count === 1 ? "" : "s"}`
-                        : "Be the first"}
-                    </span>
-                  </div>
-
-                  {/* Action button */}
-                  {isPending ? (
-                    <Button size="sm" className="w-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 cursor-default" disabled>
-                      Pending Approval
-                    </Button>
-                  ) : isRejected ? (
-                    <Button size="sm" className="w-full" variant="outline" disabled>
-                      Access Denied
-                    </Button>
-                  ) : isApproved ? (
-                    <Button asChild size="sm" className="w-full">
-                      <a href={`/chat/${template.name}`}>
-                        <IconMessageCircle className="size-4" />
-                        Open Chat
-                      </a>
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleAcquire(template.id)}
-                      disabled={isAcquiring}
-                    >
-                      {isAcquiring ? (
-                        <IconLoader2 className="size-4 animate-spin" />
-                      ) : (
-                        <IconDownload className="size-4" />
-                      )}
-                      {isAcquiring ? "Getting…" : "Get for Free"}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+              <ExpandableAgentCard
+                key={template.id}
+                templateId={template.id}
+                name={template.name}
+                displayName={template.display_name}
+                description={template.description}
+                requiredIntegrations={template.required_integrations}
+                connectedProviders={connectedProvidersArray}
+                acquisitionStatus={acquisitionStatus}
+                jobs={jobsByTemplate[template.id] ?? []}
+                variant="marketplace"
+                onAcquire={handleAcquire}
+                acquiring={isAcquiring}
+              />
             )
           })}
         </div>

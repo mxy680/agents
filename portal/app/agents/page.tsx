@@ -14,10 +14,10 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { IconRobot, IconMessageCircle, IconCheck, IconAlertCircle, IconBuildingStore } from "@tabler/icons-react"
+import { IconBuildingStore } from "@tabler/icons-react"
+import { toHumanReadable } from "@/lib/cron"
+import { AgentsClient } from "./agents-client"
 
 interface AgentTemplate {
   id: string
@@ -45,6 +45,14 @@ interface UserIntegration {
   status: string
 }
 
+interface JobDefinition {
+  id: string
+  template_id: string
+  display_name: string
+  description: string
+  schedule: string
+}
+
 export default async function AgentsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -66,9 +74,7 @@ export default async function AgentsPage() {
     .eq("user_id", user.id)
     .eq("status", "active")
 
-  const connectedProviders = new Set(
-    (integrations ?? []).map((i: UserIntegration) => i.provider)
-  )
+  const connectedProviders = (integrations ?? []).map((i: UserIntegration) => i.provider)
 
   // Map to active templates, carrying acquisition status
   // Supabase returns one-to-one FK joins as an object, cast accordingly
@@ -83,6 +89,30 @@ export default async function AgentsPage() {
       } as AcquiredTemplate
     })
     .filter((t): t is AcquiredTemplate => !!t)
+
+  // Fetch job definitions for all acquired template IDs
+  const templateIds = acquiredTemplates.map((t) => t.id)
+  const jobsByTemplate: Record<string, Array<{ id: string; displayName: string; description: string; schedule: string }>> = {}
+
+  if (templateIds.length > 0) {
+    const { data: jobDefs } = await supabase
+      .from("job_definitions")
+      .select("id, template_id, display_name, description, schedule")
+      .in("template_id", templateIds)
+      .eq("enabled", true)
+
+    for (const job of (jobDefs ?? []) as JobDefinition[]) {
+      if (!jobsByTemplate[job.template_id]) {
+        jobsByTemplate[job.template_id] = []
+      }
+      jobsByTemplate[job.template_id].push({
+        id: job.id,
+        displayName: job.display_name,
+        description: job.description,
+        schedule: toHumanReadable(job.schedule),
+      })
+    }
+  }
 
   const userIsAdmin = isAdmin(user.email)
 
@@ -126,138 +156,11 @@ export default async function AgentsPage() {
             </p>
           </div>
 
-          {acquiredTemplates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <IconRobot className="size-12 text-muted-foreground/50" />
-              <div>
-                <p className="text-sm font-medium">No agents yet.</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Browse the marketplace to get started.
-                </p>
-              </div>
-              <Button asChild variant="outline">
-                <a href="/marketplace">
-                  <IconBuildingStore className="size-4" />
-                  Browse Marketplace
-                </a>
-              </Button>
-            </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {acquiredTemplates.map((template) => {
-                const missing = template.required_integrations.filter(
-                  (p) => !connectedProviders.has(p)
-                )
-                const isApproved = template.acquisitionStatus === "approved"
-                const isPending = template.acquisitionStatus === "pending"
-                const isRejected = template.acquisitionStatus === "rejected"
-                const canChat = isApproved && missing.length === 0
-
-                return (
-                  <Card key={template.id} className="flex flex-col">
-                    <CardHeader>
-                      <div className="flex items-start gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center bg-muted">
-                          <IconRobot className="size-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <CardTitle className="text-base">{template.display_name}</CardTitle>
-                            {isPending && (
-                              <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                                Awaiting Approval
-                              </Badge>
-                            )}
-                            {isRejected && (
-                              <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
-                                Access Denied
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-1 flex-col gap-3">
-                      {/* Description grows to fill space, pushing integrations+button to bottom */}
-                      <CardDescription className="flex-1">{template.description}</CardDescription>
-
-                      {template.required_integrations.length > 0 && (
-                        <div className="flex flex-col gap-1.5">
-                          <p className="text-xs text-muted-foreground font-medium">Required integrations</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {template.required_integrations.map((provider) => {
-                              const connected = connectedProviders.has(provider)
-                              return (
-                                <Badge
-                                  key={provider}
-                                  variant={connected ? "outline" : "destructive"}
-                                  className="gap-1 capitalize"
-                                >
-                                  {connected ? (
-                                    <IconCheck className="size-2.5" />
-                                  ) : (
-                                    <IconAlertCircle className="size-2.5" />
-                                  )}
-                                  {provider}
-                                </Badge>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {isApproved && !canChat && (
-                        <p className="text-xs text-muted-foreground">
-                          Connect{" "}
-                          <a href="/integrations" className="underline underline-offset-2">
-                            {missing.join(", ")}
-                          </a>{" "}
-                          to use this agent.
-                        </p>
-                      )}
-
-                      {isRejected && template.reviewerNote && (
-                        <p className="text-xs text-muted-foreground">
-                          Reason: {template.reviewerNote}
-                        </p>
-                      )}
-
-                      {isPending ? (
-                        <Button size="sm" className="w-full" disabled>
-                          <IconMessageCircle />
-                          Awaiting Approval
-                        </Button>
-                      ) : isRejected ? (
-                        <Button size="sm" className="w-full" disabled variant="outline">
-                          <IconMessageCircle />
-                          Access Denied
-                        </Button>
-                      ) : (
-                        <Button
-                          asChild={canChat}
-                          disabled={!canChat}
-                          size="sm"
-                          className="w-full"
-                        >
-                          {canChat ? (
-                            <a href={`/chat/${template.name}`}>
-                              <IconMessageCircle />
-                              Chat
-                            </a>
-                          ) : (
-                            <>
-                              <IconMessageCircle />
-                              Chat
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
+          <AgentsClient
+            templates={acquiredTemplates}
+            connectedProviders={connectedProviders}
+            jobsByTemplate={jobsByTemplate}
+          />
         </div>
       </SidebarInset>
     </SidebarProvider>

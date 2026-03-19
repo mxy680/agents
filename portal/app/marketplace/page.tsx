@@ -14,6 +14,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { toHumanReadable } from "@/lib/cron"
 import { MarketplaceClient } from "./marketplace-client"
 
 interface AgentTemplate {
@@ -36,6 +37,14 @@ interface UserAgent {
 interface UserIntegration {
   provider: string
   status: string
+}
+
+interface JobDefinition {
+  id: string
+  template_id: string
+  display_name: string
+  description: string
+  schedule: string
 }
 
 export default async function MarketplacePage() {
@@ -88,6 +97,30 @@ export default async function MarketplacePage() {
     new Set(templateList.map((t) => t.category))
   ).filter(Boolean).sort()
 
+  // Fetch job definitions for all active templates
+  const templateIds = templateList.map((t) => t.id)
+  const jobsByTemplate: Record<string, Array<{ id: string; displayName: string; description: string; schedule: string }>> = {}
+
+  if (templateIds.length > 0) {
+    const { data: jobDefs } = await supabase
+      .from("job_definitions")
+      .select("id, template_id, display_name, description, schedule")
+      .in("template_id", templateIds)
+      .eq("enabled", true)
+
+    for (const job of (jobDefs ?? []) as JobDefinition[]) {
+      if (!jobsByTemplate[job.template_id]) {
+        jobsByTemplate[job.template_id] = []
+      }
+      jobsByTemplate[job.template_id].push({
+        id: job.id,
+        displayName: job.display_name,
+        description: job.description,
+        schedule: toHumanReadable(job.schedule),
+      })
+    }
+  }
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -126,6 +159,7 @@ export default async function MarketplacePage() {
             acquisitionStatuses={acquisitionStatuses}
             connectedProviders={connectedProviders}
             categories={categories}
+            jobsByTemplate={jobsByTemplate}
           />
         </div>
       </SidebarInset>
