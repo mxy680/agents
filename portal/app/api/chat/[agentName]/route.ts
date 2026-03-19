@@ -19,6 +19,8 @@ function credentialsToEnv(provider: string, credJson: Record<string, string>): R
     case "github":
       if (credJson.access_token) env.GITHUB_ACCESS_TOKEN = credJson.access_token
       if (credJson.refresh_token) env.GITHUB_REFRESH_TOKEN = credJson.refresh_token
+      if (process.env.GITHUB_CLIENT_ID) env.GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID
+      if (process.env.GITHUB_CLIENT_SECRET) env.GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET
       break
     case "instagram":
       if (credJson.session_id) env.INSTAGRAM_SESSION_ID = credJson.session_id
