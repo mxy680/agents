@@ -174,11 +174,13 @@ export default async function AgentsPage() {
                               </Badge>
                             )}
                           </div>
-                          <CardDescription className="mt-0.5">{template.description}</CardDescription>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="flex flex-1 flex-col gap-3">
+                      {/* Description grows to fill space, pushing integrations+button to bottom */}
+                      <CardDescription className="flex-1">{template.description}</CardDescription>
+
                       {template.required_integrations.length > 0 && (
                         <div className="flex flex-col gap-1.5">
                           <p className="text-xs text-muted-foreground font-medium">Required integrations</p>
@@ -221,12 +223,12 @@ export default async function AgentsPage() {
                       )}
 
                       {isPending ? (
-                        <Button size="sm" className="w-full mt-auto" disabled>
+                        <Button size="sm" className="w-full" disabled>
                           <IconMessageCircle />
                           Awaiting Approval
                         </Button>
                       ) : isRejected ? (
-                        <Button size="sm" className="w-full mt-auto" disabled variant="outline">
+                        <Button size="sm" className="w-full" disabled variant="outline">
                           <IconMessageCircle />
                           Access Denied
                         </Button>
@@ -235,7 +237,7 @@ export default async function AgentsPage() {
                           asChild={canChat}
                           disabled={!canChat}
                           size="sm"
-                          className="w-full mt-auto"
+                          className="w-full"
                         >
                           {canChat ? (
                             <a href={`/chat/${template.name}`}>
