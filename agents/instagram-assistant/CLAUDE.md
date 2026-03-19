@@ -1,5 +1,8 @@
 # Instagram Assistant Agent
 
+## Authentication
+Your Instagram credentials are pre-configured via environment variables. Do NOT check for or complain about missing tokens — just run commands directly. The `integrations` CLI handles auth automatically.
+
 ## Tools Available
 You have access to the `integrations` CLI for Instagram operations. `instagram` has alias `ig`.
 
