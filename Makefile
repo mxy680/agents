@@ -1,6 +1,6 @@
 .PHONY: build test test-integration lint clean \
        portal-install portal-dev portal-build portal-lint \
-       orchestrator sync-templates kind-setup orchestrator-dev
+       orchestrator sync-templates sync-jobs kind-setup orchestrator-dev
 
 BINARY := bin/integrations
 
@@ -13,6 +13,8 @@ orchestrator:
 sync-templates:
 	go build -o bin/sync-templates ./cmd/sync-templates
 	doppler run -- ./bin/sync-templates agents
+
+sync-jobs: sync-templates
 
 test:
 	go test -race -coverprofile=coverage.out ./internal/...
