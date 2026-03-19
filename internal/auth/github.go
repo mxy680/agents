@@ -71,15 +71,13 @@ func newGitHubOAuthConfig() (*oauth2.Config, error) {
 }
 
 // newGitHubToken builds an oauth2.Token from environment variables.
+// RefreshToken is optional — GitHub OAuth Apps issue non-expiring tokens.
 func newGitHubToken() (*oauth2.Token, error) {
 	accessToken, err := readEnv(GitHubEnvConfig.AccessToken)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := readEnv(GitHubEnvConfig.RefreshToken)
-	if err != nil {
-		return nil, err
-	}
+	refreshToken := os.Getenv(GitHubEnvConfig.RefreshToken) // optional
 
 	return &oauth2.Token{
 		AccessToken:  accessToken,

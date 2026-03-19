@@ -53,16 +53,22 @@ func TestNewGitHubToken(t *testing.T) {
 		}
 	})
 
-	t.Run("missing refresh token", func(t *testing.T) {
+	t.Run("optional refresh token", func(t *testing.T) {
 		t.Setenv("GITHUB_ACCESS_TOKEN", "test-access")
 		t.Setenv("GITHUB_REFRESH_TOKEN", "")
-		_, err := newGitHubToken()
-		if err == nil {
-			t.Fatal("expected error for missing refresh token")
+		tok, err := newGitHubToken()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if tok.AccessToken != "test-access" {
+			t.Errorf("expected access token test-access, got %s", tok.AccessToken)
+		}
+		if tok.RefreshToken != "" {
+			t.Errorf("expected empty refresh token, got %s", tok.RefreshToken)
 		}
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success with refresh token", func(t *testing.T) {
 		t.Setenv("GITHUB_ACCESS_TOKEN", "test-access")
 		t.Setenv("GITHUB_REFRESH_TOKEN", "test-refresh")
 		tok, err := newGitHubToken()
@@ -71,6 +77,9 @@ func TestNewGitHubToken(t *testing.T) {
 		}
 		if tok.AccessToken != "test-access" {
 			t.Errorf("expected access token test-access, got %s", tok.AccessToken)
+		}
+		if tok.RefreshToken != "test-refresh" {
+			t.Errorf("expected refresh token test-refresh, got %s", tok.RefreshToken)
 		}
 	})
 }
