@@ -1,0 +1,36 @@
+package linkedin
+
+import (
+	"github.com/spf13/cobra"
+)
+
+// Provider implements the LinkedIn integration.
+type Provider struct {
+	ClientFactory ClientFactory
+}
+
+// New creates a new LinkedIn provider using the real LinkedIn Voyager API.
+func New() *Provider {
+	return &Provider{
+		ClientFactory: DefaultClientFactory(),
+	}
+}
+
+// Name returns the provider identifier.
+func (p *Provider) Name() string {
+	return "linkedin"
+}
+
+// RegisterCommands adds all LinkedIn subcommands to the parent command.
+func (p *Provider) RegisterCommands(parent *cobra.Command) {
+	liCmd := &cobra.Command{
+		Use:     "linkedin",
+		Short:   "Interact with LinkedIn",
+		Long:    "View profiles, posts, connections, messages, and more via the LinkedIn Voyager API.",
+		Aliases: []string{"li"},
+	}
+
+	liCmd.AddCommand(newProfileCmd(p.ClientFactory))
+
+	parent.AddCommand(liCmd)
+}
