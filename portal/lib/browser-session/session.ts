@@ -35,10 +35,13 @@ export const PROVIDER_CONFIGS: Record<string, ProviderSessionConfig> = {
     loginUrl: "https://www.linkedin.com/login",
     cookieDomain: "https://www.linkedin.com",
     loginCookieName: "li_at",
-    cookieNames: ["li_at", "JSESSIONID"],
+    cookieNames: ["li_at", "JSESSIONID", "bcookie", "lidc", "li_mc"],
     cookieToCredKey: {
       li_at: "li_at",
       JSESSIONID: "jsessionid",
+      bcookie: "bcookie",
+      lidc: "lidc",
+      li_mc: "li_mc",
     },
   },
 }

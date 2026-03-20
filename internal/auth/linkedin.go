@@ -13,10 +13,16 @@ const (
 var LinkedInEnvConfig = struct {
 	LiAt       string
 	JSESSIONID string
+	BCookie    string
+	Lidc       string
+	LiMc       string
 	UserAgent  string
 }{
 	LiAt:       "LINKEDIN_LI_AT",
 	JSESSIONID: "LINKEDIN_JSESSIONID",
+	BCookie:    "LINKEDIN_BCOOKIE",
+	Lidc:       "LINKEDIN_LIDC",
+	LiMc:       "LINKEDIN_LI_MC",
 	UserAgent:  "LINKEDIN_USER_AGENT",
 }
 
@@ -25,12 +31,15 @@ var LinkedInEnvConfig = struct {
 type LinkedInSession struct {
 	LiAt       string // li_at cookie (primary session token)
 	JSESSIONID string // JSESSIONID cookie (also used as CSRF token)
+	BCookie    string // bcookie (browser ID, optional but reduces bot detection)
+	Lidc       string // lidc cookie (optional, reduces bot detection)
+	LiMc       string // li_mc cookie (optional, reduces bot detection)
 	UserAgent  string
 }
 
 // NewLinkedInSession reads LinkedIn session credentials from environment variables.
 // Required: LINKEDIN_LI_AT, LINKEDIN_JSESSIONID.
-// Optional: LINKEDIN_USER_AGENT.
+// Optional: LINKEDIN_BCOOKIE, LINKEDIN_LIDC, LINKEDIN_LI_MC, LINKEDIN_USER_AGENT.
 func NewLinkedInSession() (*LinkedInSession, error) {
 	liAt, err := readEnv(LinkedInEnvConfig.LiAt)
 	if err != nil {
@@ -49,13 +58,26 @@ func NewLinkedInSession() (*LinkedInSession, error) {
 	return &LinkedInSession{
 		LiAt:       liAt,
 		JSESSIONID: jsessionID,
+		BCookie:    os.Getenv(LinkedInEnvConfig.BCookie),
+		Lidc:       os.Getenv(LinkedInEnvConfig.Lidc),
+		LiMc:       os.Getenv(LinkedInEnvConfig.LiMc),
 		UserAgent:  userAgent,
 	}, nil
 }
 
 // CookieString builds the Cookie header value from the session fields.
 func (s *LinkedInSession) CookieString() string {
-	return fmt.Sprintf("li_at=%s; JSESSIONID=\"%s\"", s.LiAt, s.JSESSIONID)
+	cookie := fmt.Sprintf("li_at=%s; JSESSIONID=\"%s\"", s.LiAt, s.JSESSIONID)
+	if s.BCookie != "" {
+		cookie += fmt.Sprintf("; bcookie=\"%s\"", s.BCookie)
+	}
+	if s.Lidc != "" {
+		cookie += fmt.Sprintf("; lidc=\"%s\"", s.Lidc)
+	}
+	if s.LiMc != "" {
+		cookie += fmt.Sprintf("; li_mc=\"%s\"", s.LiMc)
+	}
+	return cookie
 }
 
 // redactLinkedInSession returns a log-safe representation of the session.
