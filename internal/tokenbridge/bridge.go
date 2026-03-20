@@ -82,6 +82,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"lidc":       "LINKEDIN_LIDC",
 			"li_mc":      "LINKEDIN_LI_MC",
 		})
+	case "supabase":
+		mapCredentials(creds, env, map[string]string{
+			"access_token":  "SUPABASE_ACCESS_TOKEN",
+			"refresh_token": "SUPABASE_REFRESH_TOKEN",
+		})
 	}
 	return nil
 }

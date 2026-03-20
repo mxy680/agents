@@ -25,6 +25,7 @@ import {
   IconBrandGithub,
   IconBrandInstagram,
   IconBrandLinkedin,
+  IconBrandSupabase,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -52,6 +53,12 @@ const providers = [
     name: "LinkedIn",
     description: "Posts, Connections, Messages, Jobs",
     icon: IconBrandLinkedin,
+  },
+  {
+    id: "supabase",
+    name: "Supabase",
+    description: "Projects, Branches, Auth, Database",
+    icon: IconBrandSupabase,
   },
 ]
 
