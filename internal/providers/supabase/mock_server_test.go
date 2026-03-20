@@ -336,6 +336,127 @@ func withKeysMock(mux *http.ServeMux) {
 	})
 }
 
+// withSecretsMock registers Edge Function secret mock handlers on mux.
+func withSecretsMock(mux *http.ServeMux) {
+	secretsData := []map[string]any{
+		{"name": "MY_SECRET", "value": "super-secret-value"},
+		{"name": "DB_URL", "value": "postgresql://user:pass@host:5432/db"},
+	}
+
+	// GET /v1/projects/test-ref/secrets — list secrets
+	// POST /v1/projects/test-ref/secrets — create/upsert secrets
+	// DELETE /v1/projects/test-ref/secrets — delete secrets
+	mux.HandleFunc("/v1/projects/test-ref/secrets", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(secretsData)
+		case http.MethodPost:
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]string{"status": "created"})
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+// withAuthMock registers Auth configuration mock handlers on mux.
+func withAuthMock(mux *http.ServeMux) {
+	authConfig := map[string]any{
+		"site_url":              "http://localhost:3000",
+		"jwt_exp":               3600,
+		"enable_signup":         true,
+		"mailer_autoconfirm":    false,
+		"sms_autoconfirm":       false,
+		"external_email_enabled": true,
+	}
+
+	signingKeysData := []map[string]any{
+		{"id": "sk-001", "status": "active", "created_at": "2026-01-01T00:00:00Z"},
+	}
+
+	tpaData := []map[string]any{
+		{"id": "tpa-001", "type": "google", "created_at": "2026-01-01T00:00:00Z"},
+	}
+
+	// GET /v1/projects/test-ref/config/auth — get auth config
+	// PATCH /v1/projects/test-ref/config/auth — update auth config
+	mux.HandleFunc("/v1/projects/test-ref/config/auth", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(authConfig)
+		case http.MethodPatch:
+			json.NewEncoder(w).Encode(authConfig)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/projects/test-ref/config/auth/signing-keys — list signing keys
+	// POST /v1/projects/test-ref/config/auth/signing-keys — create signing key
+	mux.HandleFunc("/v1/projects/test-ref/config/auth/signing-keys", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(signingKeysData)
+		case http.MethodPost:
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(signingKeysData[0])
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/projects/test-ref/config/auth/signing-keys/sk-001 — get signing key
+	// PATCH /v1/projects/test-ref/config/auth/signing-keys/sk-001 — update signing key
+	// DELETE /v1/projects/test-ref/config/auth/signing-keys/sk-001 — delete signing key
+	mux.HandleFunc("/v1/projects/test-ref/config/auth/signing-keys/sk-001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(signingKeysData[0])
+		case http.MethodPatch:
+			json.NewEncoder(w).Encode(signingKeysData[0])
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/projects/test-ref/config/auth/third-party-auth — list TPA
+	// POST /v1/projects/test-ref/config/auth/third-party-auth — create TPA
+	mux.HandleFunc("/v1/projects/test-ref/config/auth/third-party-auth", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(tpaData)
+		case http.MethodPost:
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(tpaData[0])
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/projects/test-ref/config/auth/third-party-auth/tpa-001 — get TPA
+	// DELETE /v1/projects/test-ref/config/auth/third-party-auth/tpa-001 — delete TPA
+	mux.HandleFunc("/v1/projects/test-ref/config/auth/third-party-auth/tpa-001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(tpaData[0])
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all Supabase Management API routes mocked.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -345,6 +466,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withOrgsMock(mux)
 	withBranchesMock(mux)
 	withKeysMock(mux)
+	withSecretsMock(mux)
+	withAuthMock(mux)
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
