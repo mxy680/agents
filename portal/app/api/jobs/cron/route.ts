@@ -26,11 +26,13 @@ interface JobRun {
 export async function GET(req: NextRequest) {
   // Validate CRON_SECRET header to prevent external abuse
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = req.headers.get("x-cron-secret")
-    if (authHeader !== cronSecret) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error("[cron] CRON_SECRET is not configured")
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 })
+  }
+  const authHeader = req.headers.get("x-cron-secret")
+  if (authHeader !== cronSecret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const admin = createAdminClient()

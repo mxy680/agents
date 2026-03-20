@@ -44,6 +44,20 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate config_overrides: must be a JSON object and within size limit.
+	if len(req.ConfigOverrides) > 0 {
+		const maxConfigSize = 8192 // 8 KiB
+		if len(req.ConfigOverrides) > maxConfigSize {
+			writeError(w, http.StatusBadRequest, "config_overrides too large")
+			return
+		}
+		var obj map[string]any
+		if err := json.Unmarshal(req.ConfigOverrides, &obj); err != nil {
+			writeError(w, http.StatusBadRequest, "config_overrides must be a JSON object")
+			return
+		}
+	}
+
 	// Get template
 	tmpl, err := s.store.GetTemplate(r.Context(), req.TemplateID)
 	if err != nil {
