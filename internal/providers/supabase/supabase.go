@@ -39,7 +39,8 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 		Long:    "Manage Supabase projects, organizations, branches, secrets, and more via the Supabase Management API.",
 	}
 
-	// Resource subcommands will be added here incrementally
+	rootCmd.AddCommand(newProjectsCmd(p.ClientFactory))
+	rootCmd.AddCommand(newOrgsCmd(p.ClientFactory))
 
 	parent.AddCommand(rootCmd)
 }
