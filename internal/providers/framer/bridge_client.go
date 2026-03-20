@@ -145,5 +145,10 @@ func (b *BridgeClient) Close() error {
 	b.stdin.Write(data) //nolint:errcheck
 
 	b.stdin.Close()
+
+	// cmd is nil when using a mock client (no subprocess to wait on).
+	if b.cmd == nil {
+		return nil
+	}
 	return b.cmd.Wait()
 }
