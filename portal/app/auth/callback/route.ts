@@ -6,7 +6,8 @@ export async function GET(request: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin
   const code = searchParams.get("code")
   const errorParam = searchParams.get("error_description") ?? searchParams.get("error")
-  const next = searchParams.get("next") ?? "/integrations"
+  const nextParam = searchParams.get("next") ?? "/integrations"
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/integrations"
 
   if (errorParam) {
     return NextResponse.redirect(
