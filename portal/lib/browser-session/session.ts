@@ -68,29 +68,35 @@ export class BrowserSession {
     this.page = await this.context.newPage()
     await applyStealthScripts(this.page)
 
-    await this.page.goto("https://www.instagram.com/accounts/login/", {
-      waitUntil: "domcontentloaded",
+    // Inject visible cursor on every page load/navigation
+    await this.context.addInitScript(() => {
+      function injectCursor() {
+        if (document.getElementById("__remote_cursor__")) return
+        const cursor = document.createElement("div")
+        cursor.id = "__remote_cursor__"
+        Object.assign(cursor.style, {
+          position: "fixed",
+          top: "0px",
+          left: "0px",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          border: "2px solid rgba(255, 80, 80, 0.9)",
+          backgroundColor: "rgba(255, 80, 80, 0.3)",
+          pointerEvents: "none",
+          zIndex: "2147483647",
+          transform: "translate(-50%, -50%)",
+          transition: "left 0.05s linear, top 0.05s linear",
+        })
+        document.body.appendChild(cursor)
+      }
+      // Inject immediately if body exists, otherwise wait for DOMContentLoaded
+      if (document.body) injectCursor()
+      else document.addEventListener("DOMContentLoaded", injectCursor)
     })
 
-    // Inject visible cursor so users can see where clicks land
-    await this.page.evaluate(() => {
-      const cursor = document.createElement("div")
-      cursor.id = "__remote_cursor__"
-      Object.assign(cursor.style, {
-        position: "fixed",
-        top: "0px",
-        left: "0px",
-        width: "20px",
-        height: "20px",
-        borderRadius: "50%",
-        border: "2px solid rgba(255, 80, 80, 0.9)",
-        backgroundColor: "rgba(255, 80, 80, 0.3)",
-        pointerEvents: "none",
-        zIndex: "2147483647",
-        transform: "translate(-50%, -50%)",
-        transition: "left 0.05s linear, top 0.05s linear",
-      })
-      document.body.appendChild(cursor)
+    await this.page.goto("https://www.instagram.com/accounts/login/", {
+      waitUntil: "domcontentloaded",
     })
 
     this.onStatus?.("ready")
