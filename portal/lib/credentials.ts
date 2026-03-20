@@ -36,6 +36,12 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.api_key) env.FRAMER_API_KEY = credJson.api_key
       if (credJson.project_url) env.FRAMER_PROJECT_URL = credJson.project_url
       break
+    case "supabase":
+      if (credJson.access_token) env.SUPABASE_ACCESS_TOKEN = credJson.access_token
+      if (credJson.refresh_token) env.SUPABASE_REFRESH_TOKEN = credJson.refresh_token
+      if (process.env.SUPABASE_INTEGRATION_CLIENT_ID) env.SUPABASE_INTEGRATION_CLIENT_ID = process.env.SUPABASE_INTEGRATION_CLIENT_ID
+      if (process.env.SUPABASE_INTEGRATION_CLIENT_SECRET) env.SUPABASE_INTEGRATION_CLIENT_SECRET = process.env.SUPABASE_INTEGRATION_CLIENT_SECRET
+      break
   }
   return env
 }

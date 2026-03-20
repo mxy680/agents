@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, LinkedIn, and Framer. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, LinkedIn, Framer, and Supabase. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -467,7 +467,7 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%)
 
 ## Commands — Framer
 ```
@@ -756,6 +756,147 @@ internal/providers/linkedin/
   mock_server_test.go   # httptest mock server helpers for all endpoints
 ```
 
+## Commands — Supabase
+```
+# Projects [alias: proj]
+integrations supabase projects list [--json]
+integrations supabase projects get --ref=REF [--json]
+integrations supabase projects create --name=NAME --region=REGION --org-id=ID [--db-pass=PASS] [--plan=free|pro] [--dry-run] [--json]
+integrations supabase projects update --ref=REF [--name=NAME] [--dry-run] [--json]
+integrations supabase projects delete --ref=REF [--confirm] [--dry-run] [--json]
+integrations supabase projects pause --ref=REF [--dry-run] [--json]
+integrations supabase projects restore --ref=REF [--dry-run] [--json]
+integrations supabase projects health --ref=REF [--json]
+integrations supabase projects regions [--json]
+
+# Organizations [alias: org]
+integrations supabase orgs list [--json]
+integrations supabase orgs create --name=NAME [--dry-run] [--json]
+
+# Branches (Preview Environments) [alias: branch]
+integrations supabase branches list --ref=REF [--json]
+integrations supabase branches get --branch-id=ID [--json]
+integrations supabase branches create --ref=REF --git-branch=NAME [--region=REGION] [--dry-run] [--json]
+integrations supabase branches update --branch-id=ID [--git-branch=NAME] [--reset-on-push] [--dry-run] [--json]
+integrations supabase branches delete --branch-id=ID [--confirm] [--dry-run] [--json]
+integrations supabase branches push --branch-id=ID [--dry-run] [--json]
+integrations supabase branches merge --branch-id=ID [--dry-run] [--json]
+integrations supabase branches reset --branch-id=ID [--dry-run] [--json]
+integrations supabase branches diff --branch-id=ID [--json]
+integrations supabase branches disable --ref=REF [--confirm] [--dry-run] [--json]
+
+# API Keys [alias: key]
+integrations supabase keys list --ref=REF [--json]
+integrations supabase keys get --ref=REF --key-id=ID [--json]
+integrations supabase keys create --ref=REF --name=NAME [--type=anon|service_role] [--dry-run] [--json]
+integrations supabase keys update --ref=REF --key-id=ID [--name=NAME] [--dry-run] [--json]
+integrations supabase keys delete --ref=REF --key-id=ID [--confirm] [--dry-run] [--json]
+
+# Secrets (Edge Function Secrets) [alias: secret]
+integrations supabase secrets list --ref=REF [--json]
+integrations supabase secrets create --ref=REF --name=NAME --value=VALUE [--dry-run] [--json]
+integrations supabase secrets delete --ref=REF --name=NAME [--confirm] [--dry-run] [--json]
+
+# Auth Config
+integrations supabase auth get --ref=REF [--json]
+integrations supabase auth update --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+integrations supabase auth signing-keys list --ref=REF [--json]
+integrations supabase auth signing-keys get --ref=REF --key-id=ID [--json]
+integrations supabase auth signing-keys create --ref=REF [--dry-run] [--json]
+integrations supabase auth signing-keys update --ref=REF --key-id=ID [--dry-run] [--json]
+integrations supabase auth signing-keys delete --ref=REF --key-id=ID [--confirm] [--dry-run] [--json]
+integrations supabase auth third-party list --ref=REF [--json]
+integrations supabase auth third-party get --ref=REF --tpa-id=ID [--json]
+integrations supabase auth third-party create --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+integrations supabase auth third-party delete --ref=REF --tpa-id=ID [--confirm] [--dry-run] [--json]
+
+# Database [alias: db]
+integrations supabase db migrations --ref=REF [--json]
+integrations supabase db types --ref=REF [--lang=typescript] [--json]
+integrations supabase db ssl-enforcement get --ref=REF [--json]
+integrations supabase db ssl-enforcement update --ref=REF --enabled [--dry-run] [--json]
+integrations supabase db jit-access get --ref=REF [--json]
+integrations supabase db jit-access update --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+
+# Network [alias: net]
+integrations supabase network restrictions get --ref=REF [--json]
+integrations supabase network restrictions update --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+integrations supabase network restrictions apply --ref=REF [--dry-run] [--json]
+integrations supabase network bans list --ref=REF [--json]
+integrations supabase network bans remove --ref=REF [--ips=IP,...] [--confirm] [--dry-run] [--json]
+
+# Domains [alias: domain]
+integrations supabase domains custom get --ref=REF [--json]
+integrations supabase domains custom delete --ref=REF [--confirm] [--dry-run] [--json]
+integrations supabase domains custom initialize --ref=REF --hostname=HOST [--dry-run] [--json]
+integrations supabase domains custom verify --ref=REF [--dry-run] [--json]
+integrations supabase domains custom activate --ref=REF [--dry-run] [--json]
+integrations supabase domains vanity get --ref=REF [--json]
+integrations supabase domains vanity delete --ref=REF [--confirm] [--dry-run] [--json]
+integrations supabase domains vanity check --ref=REF --subdomain=NAME [--json]
+integrations supabase domains vanity activate --ref=REF --subdomain=NAME [--dry-run] [--json]
+
+# PostgREST [alias: rest]
+integrations supabase rest get --ref=REF [--json]
+integrations supabase rest update --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+
+# Analytics [alias: logs]
+integrations supabase analytics logs --ref=REF [--json]
+integrations supabase analytics api-counts --ref=REF [--json]
+integrations supabase analytics api-requests --ref=REF [--json]
+integrations supabase analytics functions --ref=REF [--json]
+
+# Advisors [alias: advisor]
+integrations supabase advisors performance --ref=REF [--json]
+integrations supabase advisors security --ref=REF [--json]
+
+# Billing [alias: bill]
+integrations supabase billing addons list --ref=REF [--json]
+integrations supabase billing addons apply --ref=REF --addon=VARIANT [--dry-run] [--json]
+integrations supabase billing addons remove --ref=REF --addon=VARIANT [--confirm] [--dry-run] [--json]
+
+# Snippets [alias: snippet]
+integrations supabase snippets list [--json]
+integrations supabase snippets get --snippet-id=ID [--json]
+
+# Actions (CI/CD) [alias: action]
+integrations supabase actions list --ref=REF [--json]
+integrations supabase actions get --ref=REF --run-id=ID [--json]
+integrations supabase actions logs --ref=REF --run-id=ID [--json]
+integrations supabase actions update-status --ref=REF --run-id=ID --status=STATUS [--dry-run] [--json]
+
+# Encryption (pgsodium) [alias: encrypt]
+integrations supabase encryption get --ref=REF [--json]
+integrations supabase encryption update --ref=REF [--config=JSON | --config-file=PATH] [--dry-run] [--json]
+```
+
+`supabase` has alias `sb`. `projects` has alias `proj`. `branches` has alias `branch`. `keys` has alias `key`. `secrets` has alias `secret`. `signing-keys` has alias `sk`. `third-party` has alias `tpa`. `domains` has alias `domain`. `network` has alias `net`. `analytics` has alias `logs`. `advisors` has alias `advisor`. `billing` has alias `bill`. `snippets` has alias `snippet`. `actions` has alias `action`. `encryption` has alias `encrypt`.
+
+## Architecture — Supabase Package Layout
+```
+internal/providers/supabase/
+  supabase.go           # Provider struct, RegisterCommands (16 resource subcommand groups)
+  helpers.go            # Shared types (ProjectSummary, BranchSummary, etc.), doSupabase HTTP helper
+  projects.go           # 9 project commands (list, get, create, update, delete, pause, restore, health, regions)
+  orgs.go               # 2 org commands (list, create)
+  branches.go           # 10 branch commands (list, get, create, update, delete, push, merge, reset, diff, disable)
+  keys.go               # 5 API key commands (list, get, create, update, delete)
+  secrets.go            # 3 secret commands (list, create, delete)
+  auth.go               # 11 auth commands (get, update, signing-keys CRUD, third-party CRUD)
+  database.go           # 6 database commands (migrations, types, ssl-enforcement, jit-access)
+  network.go            # 5 network commands (restrictions get/update/apply, bans list/remove)
+  domains.go            # 9 domain commands (custom get/delete/init/verify/activate, vanity get/delete/check/activate)
+  rest.go               # 2 PostgREST config commands (get, update)
+  analytics.go          # 4 analytics commands (logs, api-counts, api-requests, functions)
+  advisors.go           # 2 advisor commands (performance, security)
+  billing.go            # 3 billing commands (addons list/apply/remove)
+  snippets.go           # 2 snippet commands (list, get)
+  actions.go            # 4 CI/CD action commands (list, get, logs, update-status)
+  encryption.go         # 2 encryption commands (get, update)
+  *_test.go             # Tests for each command file + helpers + provider
+  mock_server_test.go   # httptest mock server helpers for all endpoints
+```
+
 ## Web Portal (Next.js 15 + Supabase)
 
 ### Architecture
@@ -780,6 +921,7 @@ portal/
         google/connect|callback|disconnect/route.ts
         github/connect|callback|disconnect/route.ts
         instagram/save|disconnect/route.ts
+        supabase/connect|callback/route.ts
     lib/
       supabase/server.ts|client.ts|middleware.ts
       crypto.ts                    # AES-256-GCM (Go-compatible wire format)
@@ -884,6 +1026,11 @@ FRAMER_PROJECT_URL        # Project URL like https://framer.com/projects/... (re
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 GITHUB_ACCESS_TOKEN, GITHUB_REFRESH_TOKEN
 GITHUB_API_BASE_URL (optional, defaults to https://api.github.com)
+
+# Supabase (OAuth 2.1 with PKCE)
+SUPABASE_INTEGRATION_CLIENT_ID, SUPABASE_INTEGRATION_CLIENT_SECRET
+SUPABASE_ACCESS_TOKEN, SUPABASE_REFRESH_TOKEN
+SUPABASE_API_BASE_URL (optional, defaults to https://api.supabase.com)
 
 # Orchestrator
 SUPABASE_DB_URL, ENCRYPTION_MASTER_KEY, SUPABASE_JWT_SECRET

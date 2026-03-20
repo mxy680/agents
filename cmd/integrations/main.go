@@ -12,6 +12,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/instagram"
 	"github.com/emdash-projects/agents/internal/providers/linkedin"
 	"github.com/emdash-projects/agents/internal/providers/sheets"
+	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
 )
 
 func main() {
@@ -39,6 +40,9 @@ func main() {
 
 	framerProvider := framer.New()
 	framerProvider.RegisterCommands(cli.RootCmd())
+
+	supabaseProvider := supabaseprovider.New()
+	supabaseProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

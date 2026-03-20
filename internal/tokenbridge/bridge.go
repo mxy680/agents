@@ -87,6 +87,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"api_key":     "FRAMER_API_KEY",
 			"project_url": "FRAMER_PROJECT_URL",
 		})
+	case "supabase":
+		mapCredentials(creds, env, map[string]string{
+			"access_token":  "SUPABASE_ACCESS_TOKEN",
+			"refresh_token": "SUPABASE_REFRESH_TOKEN",
+		})
 	}
 	return nil
 }

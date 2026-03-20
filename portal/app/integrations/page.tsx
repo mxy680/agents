@@ -27,6 +27,7 @@ import {
   IconBrandInstagram,
   IconBrandLinkedin,
   IconLayout,
+  IconBrandSupabase,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -60,6 +61,12 @@ const providers = [
     name: "Framer",
     description: "Pages, Collections, Styles, Deployments",
     icon: IconLayout,
+  },
+  {
+    id: "supabase",
+    name: "Supabase",
+    description: "Projects, Branches, Auth, Database",
+    icon: IconBrandSupabase,
   },
 ]
 

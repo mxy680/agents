@@ -1,0 +1,8 @@
+name: supabase-assistant
+display_name: Supabase Assistant
+description: An AI agent that helps manage your Supabase projects — databases, branches, auth, secrets, domains, and infrastructure.
+git_path: agents/supabase-assistant
+docker_image: ghcr.io/emdash-projects/agent-base:dev
+required_integrations:
+  - supabase
+status: active
