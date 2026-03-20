@@ -2,7 +2,7 @@
 
 Create a complete integration provider for: $ARGUMENTS
 
-## Pre-Implementation Checklist
+## Pre-Implementation Research
 
 Before writing any code, research the target API:
 1. Find the official API documentation and Go SDK (if one exists)
@@ -11,21 +11,70 @@ Before writing any code, research the target API:
 4. For each resource group, list ALL CRUD operations available
 5. Present the full command tree and WAIT for user confirmation before coding
 
-## Implementation Order (7 Steps)
-
-Execute these steps sequentially. Commit after each step.
-
 ---
 
-### Step 1: Auth Module — `internal/auth/<provider>.go`
+## Phase 1: Connect Authentication
 
-Create the authentication factory following the existing pattern.
+Goal: Get credentials flowing from the portal to the CLI binary.
+
+### 1a. Portal OAuth Routes
+
+**For OAuth2 providers**, create three route files under `portal/app/api/integrations/<provider>/`:
+
+#### `connect/route.ts` — Initiate OAuth flow
+```typescript
+export async function GET(request: NextRequest) {
+    // 1. Verify user is authenticated via Supabase
+    // 2. Read label from query params (default: "<Provider> Account")
+    // 3. Create HMAC-signed state token via createOAuthState(userId, label)
+    // 4. Build OAuth authorize URL with scopes
+    // 5. Redirect to provider's OAuth endpoint
+}
+```
+
+#### `callback/route.ts` — Handle OAuth callback
+```typescript
+export async function GET(request: NextRequest) {
+    // 1. Extract code, state, error from query params
+    // 2. Verify state token via verifyOAuthState(state)
+    // 3. Verify authenticated user matches state userId
+    // 4. Exchange code for tokens (POST to provider's token endpoint)
+    // 5. Encrypt token JSON via encrypt() from lib/crypto.ts
+    // 6. Upsert into user_integrations table (provider, label, credentials as \\x hex)
+    // 7. Redirect to /integrations
+}
+```
+
+#### `disconnect/route.ts` — Remove integration
+```typescript
+export async function POST(request: NextRequest) {
+    // 1. Verify user is authenticated
+    // 2. Delete from user_integrations where provider=<name> and user_id=userId
+    // 3. Return success JSON
+}
+```
+
+**For non-OAuth providers** (like Instagram's cookie-based auth):
+Create `save/route.ts` instead of connect/callback — accepts credentials via POST form.
+
+### 1b. Portal Credential Mapping
+
+#### `portal/lib/credentials.ts`
+Add a case to `credentialsToEnv()`:
+```typescript
+case "<provider>":
+    if (credJson.access_token) env.<PROVIDER>_ACCESS_TOKEN = credJson.access_token
+    if (credJson.refresh_token) env.<PROVIDER>_REFRESH_TOKEN = credJson.refresh_token
+    // Include client_id/secret from process.env if needed for token refresh
+    break
+```
+
+### 1c. Go Auth Module — `internal/auth/<provider>.go`
 
 **For OAuth2 providers** (like Google, GitHub):
 ```go
 package auth
 
-// <Provider>EnvConfig holds env var names for OAuth credentials.
 var <Provider>EnvConfig = struct {
     ClientID     string
     ClientSecret string
@@ -43,41 +92,58 @@ var <Provider>EnvConfig = struct {
 // For non-Google OAuth2, follow the GitHub pattern (custom endpoint + header transport).
 func New<Provider>Client(ctx context.Context) (*http.Client, error) { ... }
 
-// OR for Google APIs that have a generated Go SDK:
+// OR for Google APIs with a generated Go SDK:
 func New<Provider>Service(ctx context.Context) (*<api>.Service, error) { ... }
 ```
-
-**For cookie/session-based providers** (like Instagram):
-- Create `internal/auth/<provider>.go` that reads session cookies from env vars
-- Build an HTTP client with cookie injection via a custom `http.RoundTripper`
 
 **Key rules:**
 - Use `readEnv()` for required vars, `os.Getenv()` for optional ones
 - Wrap with `tokenNotifySource` if the provider supports token refresh
-- Write `internal/auth/<provider>_test.go` with tests for missing env vars and client creation
+- Write `internal/auth/<provider>_test.go` with tests for missing env vars
+
+### 1d. Token Bridge — `internal/tokenbridge/bridge.go`
+
+Add a case to `processIntegration()`:
+```go
+case "<provider>":
+    mapCredentials(creds, env, map[string]string{
+        "access_token":  "<PROVIDER>_ACCESS_TOKEN",
+        "refresh_token": "<PROVIDER>_REFRESH_TOKEN",
+    })
+```
+
+### 1e. Verify Auth End-to-End
+
+1. Run portal locally: `make portal-dev` (uses `doppler run`)
+2. Navigate to http://localhost:3000/integrations
+3. Click connect for the new provider, complete OAuth
+4. Verify credentials appear in `user_integrations` table
+5. Build CLI: `make build`
+6. Test that `doppler run -- bin/integrations <provider> --help` shows the command tree
+
+**Commit after Phase 1 is verified.**
 
 ---
 
-### Step 2: Provider Scaffold — `internal/providers/<name>/`
+## Phase 2: Build CLI Tools (Incremental + E2E)
 
-Create the provider package with these files:
+Goal: Implement each resource group one at a time, verifying against the real API with markshteyn1@gmail.com's connected credentials.
 
-#### `<name>.go` — Provider struct + RegisterCommands
+### 2a. Provider Scaffold
+
+#### `internal/providers/<name>/<name>.go`
 ```go
 package <name>
 
 type ServiceFactory func(ctx context.Context) (*api.Service, error)
-// OR for raw HTTP APIs:
-type ClientFactory func(ctx context.Context) (*http.Client, error)
+// OR: type ClientFactory func(ctx context.Context) (*http.Client, error)
 
 type Provider struct {
-    ServiceFactory ServiceFactory  // or ClientFactory
+    ServiceFactory ServiceFactory
 }
 
 func New() *Provider {
-    return &Provider{
-        ServiceFactory: auth.New<Provider>Service,
-    }
+    return &Provider{ServiceFactory: auth.New<Provider>Service}
 }
 
 func (p *Provider) Name() string { return "<name>" }
@@ -86,49 +152,55 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
     rootCmd := &cobra.Command{
         Use:   "<name>",
         Short: "Interact with <Provider>",
-        Long:  "<description>",
     }
-
-    // Add resource subcommands here (Step 3)
-
+    // Resource subcommands added incrementally below
     parent.AddCommand(rootCmd)
 }
 ```
 
-#### `helpers.go` — Shared types and utilities
+#### `internal/providers/<name>/helpers.go`
 Define JSON-serializable summary/detail types for each resource:
 ```go
 type <Resource>Summary struct {
     ID   string `json:"id"`
     Name string `json:"name"`
-    // ... fields visible in list output
-}
-
-type <Resource>Detail struct {
-    // ... full fields for get output
 }
 ```
 
-Plus shared utility functions:
-- `truncate(s string, max int) string`
-- `confirmDestructive(cmd *cobra.Command) error` — checks `--confirm` flag
-- `dryRunResult(cmd *cobra.Command, desc string, data any) error` — handles `--dry-run`
-- Resource-specific formatters and parsers
+Plus shared utilities: `truncate`, `confirmDestructive`, `dryRunResult`, formatters.
 
-#### `helpers_test.go` — Unit tests for all helper functions
-
-#### `<name>_test.go` — Provider-level tests
+#### `internal/providers/<name>/mock_server_test.go`
 ```go
-func TestProviderNew(t *testing.T) { ... }
-func TestProviderName(t *testing.T) { ... }
-func TestProviderRegisterCommands(t *testing.T) { ... }
+func newFullMockServer(t *testing.T) *httptest.Server { ... }
+func newTestServiceFactory(server *httptest.Server) ServiceFactory { ... }
+func captureStdout(t *testing.T, f func()) string { ... }
+func newTestRootCmd() *cobra.Command { ... }
 ```
 
----
+#### `cmd/integrations/main.go`
+Register the provider:
+```go
+<name>Provider := <name>.New()
+<name>Provider.RegisterCommands(cli.RootCmd())
+```
 
-### Step 3: Resource Commands
+**Commit the scaffold.**
 
-Create one file per resource group. Each file contains all commands for that resource.
+### 2b. Implement Resource Groups One-by-One
+
+For EACH resource group, repeat this cycle:
+
+1. **Create command file** — `<resource>.go` with all CRUD operations
+2. **Create mock handlers** — add `with<Resource>Mock(mux)` to `mock_server_test.go`
+3. **Create unit tests** — `<resource>_test.go` covering text, JSON, dry-run, error cases
+4. **Run unit tests** — `make test` (must pass with 80%+ coverage)
+5. **Run e2e test** — Build and test against real API:
+   ```bash
+   make build
+   doppler run -- bin/integrations <provider> <resource> list --json
+   doppler run -- bin/integrations <provider> <resource> get --id=<real-id> --json
+   ```
+6. **Commit** after each resource group passes both unit and e2e
 
 **Command function pattern:**
 ```go
@@ -136,11 +208,10 @@ func new<Resource>ListCmd(factory ServiceFactory) *cobra.Command {
     cmd := &cobra.Command{
         Use:   "list",
         Short: "List <resources>",
-        RunE: makeRun<Resource>List(factory),
+        RunE:  makeRun<Resource>List(factory),
     }
     cmd.Flags().Int("limit", 25, "Maximum results")
     cmd.Flags().String("page-token", "", "Pagination token")
-    cmd.Flags().Bool("json", false, "JSON output")  // only if not inherited
     return cmd
 }
 
@@ -151,200 +222,126 @@ func makeRun<Resource>List(factory ServiceFactory) func(*cobra.Command, []string
         if err != nil {
             return fmt.Errorf("create service: %w", err)
         }
-
-        // API call
-        // Format output (JSON via cli.WriteJSON or text table)
+        // API call → format output (JSON via cli.WriteJSON or text table)
         return nil
     }
 }
 ```
 
 **Flag conventions (MUST follow):**
-- `--json` — JSON output mode (inherited from root if using `PersistentFlags`)
-- `--dry-run` — preview destructive/write operations without executing
-- `--confirm` — skip interactive confirmation for destructive operations
+- `--json` — JSON output (inherited from root PersistentFlags)
+- `--dry-run` — preview write operations without executing
+- `--confirm` — skip confirmation for destructive operations
 - `--limit` — max results (default 25)
 - `--page-token` — pagination cursor
-- `--query` or `--q` — search/filter string
-- Use `--<resource>-id` for resource identifiers (e.g., `--file-id`, `--repo`)
+- `--query` — search/filter string
+- `--<resource>-id` for identifiers (e.g., `--file-id`, `--repo`)
 
 **Alias conventions:**
 - Resource groups get singular aliases: `messages` → `msg`, `files` → `file`, `f`
 - Provider root can get short alias: `instagram` → `ig`
 
 **Output rules:**
-- Text mode: human-readable table/list (use `fmt.Fprintf` to stdout)
-- JSON mode: use `cli.WriteJSON(cmd, data)` for consistent envelope
-- Destructive ops: require `--confirm` flag OR `--dry-run`, print what would happen
+- Text mode: human-readable table/list via `fmt.Fprintf` to stdout
+- JSON mode: `cli.WriteJSON(cmd, data)` for consistent envelope
+- Destructive ops: require `--confirm` or `--dry-run`
+
+**Coverage target: 80%+ per resource file.**
 
 ---
 
-### Step 4: Mock Server + Tests
+## Phase 3: Specialized Agent + Marketplace
 
-#### `mock_server_test.go`
-```go
-package <name>
+Goal: Create a Claude Agent SDK agent that uses only this integration, test it, and add it to the marketplace.
 
-func with<Resource>Mock(mux *http.ServeMux) {
-    // Register handlers for each API endpoint
-    // Return realistic JSON responses matching the real API
-}
+### 3a. Agent Template
 
-func newFullMockServer(t *testing.T) *httptest.Server {
-    t.Helper()
-    mux := http.NewServeMux()
-    with<Resource1>Mock(mux)
-    with<Resource2>Mock(mux)
-    // ... all resources
-    return httptest.NewServer(mux)
-}
+Create `agents/<agent-name>/`:
 
-func newTestServiceFactory(server *httptest.Server) ServiceFactory {
-    // Return factory that creates service pointing at test server
-}
-
-func captureStdout(t *testing.T, f func()) string {
-    // Capture stdout for assertion (copy from existing provider)
-}
-
-func newTestRootCmd() *cobra.Command {
-    root := &cobra.Command{Use: "integrations"}
-    root.PersistentFlags().Bool("json", false, "")
-    root.PersistentFlags().Bool("dry-run", false, "")
-    return root
-}
+#### `template.yaml`
+```yaml
+name: <agent-name>
+description: <what the agent does>
+required_integrations:
+  - <provider>
+docker_image: agent-base:latest
 ```
 
-#### `<resource>_test.go` — One test file per resource command file
-Test every command (list, get, create, update, delete, etc.):
-- Text output mode
-- JSON output mode (`--json`)
-- Dry-run mode (`--dry-run`)
-- Error cases (missing required flags)
-- Edge cases (empty results, pagination)
+#### `role.md`
+Agent persona — who it is, how it should behave, what it's good at.
 
-**Coverage target: 80%+**
+#### `CLAUDE.md`
+Claude-specific instructions for tool usage, output format, safety constraints.
 
----
+#### `entrypoint.py`
+```python
+import anthropic
+from claude_agent_sdk import Agent
 
-### Step 5: Register Provider
-
-#### `cmd/integrations/main.go`
-Add import and registration:
-```go
-import "<provider>provider" "github.com/emdash-projects/agents/internal/providers/<name>"
-
-// In main():
-<name>Provider := <name>provider.New()  // or <name>.New() if no conflict
-<name>Provider.RegisterCommands(cli.RootCmd())
+# Initialize with only this integration's tools
+agent = Agent(
+    model="claude-sonnet-4-6-20250514",
+    tools=[...],  # CLI commands available via integrations binary
+)
 ```
 
-Run `make build && make test` to verify everything compiles and passes.
-
----
-
-### Step 6: Token Bridge + Portal Credentials
-
-#### `internal/tokenbridge/bridge.go`
-Add a case to `processIntegration()`:
-```go
-case "<provider>":
-    mapCredentials(creds, env, map[string]string{
-        "access_token":  "<PROVIDER>_ACCESS_TOKEN",
-        "refresh_token": "<PROVIDER>_REFRESH_TOKEN",
-        // ... map all credential fields to env vars
-    })
+#### `requirements.txt`
+```
+anthropic
+claude-agent-sdk
 ```
 
-#### `portal/lib/credentials.ts`
-Add a case to `credentialsToEnv()`:
-```typescript
-case "<provider>":
-    if (credJson.access_token) env.<PROVIDER>_ACCESS_TOKEN = credJson.access_token
-    if (credJson.refresh_token) env.<PROVIDER>_REFRESH_TOKEN = credJson.refresh_token
-    // ... match the Go-side mapping
-    break
+### 3b. Sync Template to Supabase
+
+```bash
+make sync-templates
 ```
 
----
+### 3c. Test Agent Locally
 
-### Step 7: Portal OAuth Routes (if OAuth-based)
+1. Deploy locally via orchestrator:
+   ```bash
+   make orchestrator-dev
+   # POST /api/v1/agents/deploy with template_id
+   ```
+2. Test prompts against the agent — verify it uses the integration correctly
+3. Check logs: `GET /api/v1/agents/{id}/logs`
 
-Create three route files under `portal/app/api/integrations/<provider>/`:
+### 3d. Add to Marketplace
 
-#### `connect/route.ts` — Initiate OAuth flow
-```typescript
-export async function GET(request: NextRequest) {
-    // 1. Verify user is authenticated via Supabase
-    // 2. Read label from query params
-    // 3. Create HMAC-signed state token via createOAuthState(userId, label)
-    // 4. Build OAuth authorize URL with scopes
-    // 5. Redirect to provider's OAuth endpoint
-}
-```
+1. Verify template is visible in portal: `GET /api/v1/templates`
+2. Test deploy from portal UI
+3. Verify agent runs with user's connected credentials
 
-#### `callback/route.ts` — Handle OAuth callback
-```typescript
-export async function GET(request: NextRequest) {
-    // 1. Extract code, state, error from query params
-    // 2. Verify state token via verifyOAuthState(state)
-    // 3. Verify authenticated user matches state userId
-    // 4. Exchange code for tokens (POST to provider's token endpoint)
-    // 5. Encrypt token JSON via encrypt()
-    // 6. Upsert into user_integrations table
-    // 7. Redirect to /integrations
-}
-```
-
-#### `disconnect/route.ts` — Remove integration
-```typescript
-export async function POST(request: NextRequest) {
-    // 1. Verify user is authenticated
-    // 2. Delete from user_integrations where provider=<name> and user_id=userId
-    // 3. Return success JSON
-}
-```
-
-**For non-OAuth providers** (like Instagram's cookie-based auth):
-Create `save/route.ts` instead of connect/callback — accepts credentials via POST form.
+**Commit after Phase 3 is verified.**
 
 ---
 
 ## Post-Implementation Checklist
 
-After all steps are complete:
 - [ ] `make build` succeeds
 - [ ] `make test` passes with 80%+ coverage for the new provider
 - [ ] `make lint` passes (go vet)
-- [ ] All commands work in text and JSON modes
-- [ ] Destructive commands require `--confirm` or `--dry-run`
-- [ ] Token bridge maps credentials correctly (Go + TypeScript match)
+- [ ] All commands verified against real API (markshteyn1@gmail.com)
+- [ ] Token bridge maps credentials correctly (Go + TypeScript sides match)
+- [ ] Agent template synced and deployable
+- [ ] Agent tested with real prompts
 - [ ] Update `CLAUDE.md` with:
   - Full command reference for the new provider
   - Package layout section
   - Environment variables section
   - Updated coverage numbers in Testing section
 
-## Environment Variables to Document
-
-```
-# <Provider>
-<PROVIDER>_CLIENT_ID, <PROVIDER>_CLIENT_SECRET   (if OAuth)
-<PROVIDER>_ACCESS_TOKEN, <PROVIDER>_REFRESH_TOKEN (if OAuth)
-<PROVIDER>_API_KEY                                 (if API key)
-<PROVIDER>_<CREDENTIAL>                            (if cookie/session)
-```
-
 ## Key Files to Touch
 
-| File | Change |
-|------|--------|
-| `internal/auth/<provider>.go` | Auth factory |
-| `internal/auth/<provider>_test.go` | Auth tests |
-| `internal/providers/<name>/*.go` | Provider + commands |
-| `internal/providers/<name>/*_test.go` | Tests |
-| `cmd/integrations/main.go` | Register provider |
-| `internal/tokenbridge/bridge.go` | Credential mapping |
-| `portal/lib/credentials.ts` | TS credential mapping |
-| `portal/app/api/integrations/<name>/` | OAuth routes |
-| `CLAUDE.md` | Documentation |
+| File | Phase | Change |
+|------|-------|--------|
+| `portal/app/api/integrations/<name>/` | 1 | OAuth routes |
+| `portal/lib/credentials.ts` | 1 | TS credential mapping |
+| `internal/auth/<provider>.go` | 1 | Auth factory |
+| `internal/tokenbridge/bridge.go` | 1 | Credential mapping |
+| `internal/providers/<name>/*.go` | 2 | Provider + commands |
+| `internal/providers/<name>/*_test.go` | 2 | Unit tests |
+| `cmd/integrations/main.go` | 2 | Register provider |
+| `agents/<agent-name>/` | 3 | Agent template |
+| `CLAUDE.md` | all | Documentation |
