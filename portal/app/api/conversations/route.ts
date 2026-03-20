@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { checkOrigin } from "@/lib/csrf"
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -31,6 +32,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -47,6 +51,10 @@ export async function POST(request: NextRequest) {
 
   if (!agent_name || typeof agent_name !== "string") {
     return NextResponse.json({ error: "agent_name is required" }, { status: 400 })
+  }
+
+  if (!/^[a-z0-9-_]+$/i.test(agent_name)) {
+    return NextResponse.json({ error: "Invalid agent_name format" }, { status: 400 })
   }
 
   const { data, error } = await supabase

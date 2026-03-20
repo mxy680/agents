@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkOrigin } from "@/lib/csrf"
 
 export async function GET(
   _request: NextRequest,
@@ -42,6 +43,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -69,7 +73,7 @@ export async function PATCH(
   }
 
   const updates: Record<string, unknown> = {}
-  if (typeof body.title === "string") updates.title = body.title
+  if (typeof body.title === "string") updates.title = body.title.slice(0, 200)
   if (typeof body.starred === "boolean") updates.starred = body.starred
 
   if (Object.keys(updates).length === 0) {
@@ -93,9 +97,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   const { id } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
