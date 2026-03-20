@@ -1,0 +1,38 @@
+services:
+  server:
+    build: .
+    container_name: reef-server
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    stop_grace_period: 30s
+    expose:
+      - "8000"
+    networks:
+      - reef
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: reef-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - reef
+    depends_on:
+      - server
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  reef:

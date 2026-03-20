@@ -1,0 +1,7 @@
+[Unit]
+Description=Agents Job Cron Trigger
+
+[Service]
+Type=oneshot
+User=deploy
+ExecStart=/usr/bin/doppler run -p agents -c prd -- /bin/bash -c 'curl -sf -H "x-cron-secret: $CRON_SECRET" http://localhost:3000/api/jobs/cron'
