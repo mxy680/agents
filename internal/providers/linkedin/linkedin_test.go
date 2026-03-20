@@ -37,7 +37,9 @@ func TestProviderRegisterCommands(t *testing.T) {
 	}
 
 	subcommands := map[string]bool{
-		"profile": false,
+		"profile":     false,
+		"connections": false,
+		"invitations": false,
 	}
 	for _, sub := range liCmd.Commands() {
 		subcommands[sub.Name()] = true

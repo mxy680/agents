@@ -117,10 +117,317 @@ func withProfileMock(mux *http.ServeMux) {
 	})
 }
 
+// withConnectionsMock registers connections-related mock handlers on mux.
+func withConnectionsMock(mux *http.ServeMux) {
+	// GET /voyager/api/relationships/dash/connections
+	mux.HandleFunc("/voyager/api/relationships/dash/connections", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			// Remove connection action
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"connectedMember": "urn:li:fs_miniProfile:ACoAAConn1",
+					"connectedMemberResolved": {
+						"entityUrn": "urn:li:fs_miniProfile:ACoAAConn1",
+						"firstName": "Alice",
+						"lastName": "Smith",
+						"occupation": "Product Manager at Acme",
+						"publicIdentifier": "alice-smith"
+					},
+					"createdAt": 1704067200000
+				},
+				{
+					"connectedMember": "urn:li:fs_miniProfile:ACoAAConn2",
+					"connectedMemberResolved": {
+						"entityUrn": "urn:li:fs_miniProfile:ACoAAConn2",
+						"firstName": "Bob",
+						"lastName": "Jones",
+						"occupation": "Engineer at Widgets Inc",
+						"publicIdentifier": "bob-jones"
+					},
+					"createdAt": 1703980800000
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 2}
+		}`))
+	})
+}
+
+// withInvitationsMock registers invitation-related mock handlers on mux.
+func withInvitationsMock(mux *http.ServeMux) {
+	// GET /voyager/api/relationships/invitationViews (received)
+	mux.HandleFunc("/voyager/api/relationships/invitationViews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"invitation": {
+						"invitationId": "123456",
+						"sharedSecret": "secret1",
+						"sentTime": 1704067200000,
+						"message": "Hi, let's connect",
+						"inviterResolved": {
+							"entityUrn": "urn:li:fs_miniProfile:ACoAAInviter1",
+							"firstName": "Carol",
+							"lastName": "White"
+						}
+					}
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// GET /voyager/api/relationships/sentInvitationViewsV2 (sent)
+	// DELETE /voyager/api/relationships/sentInvitationViewsV2/{id} (withdraw)
+	mux.HandleFunc("/voyager/api/relationships/sentInvitationViewsV2/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "DELETE" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+			return
+		}
+		http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+	})
+
+	mux.HandleFunc("/voyager/api/relationships/sentInvitationViewsV2", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"invitation": {
+						"invitationId": "789012",
+						"sharedSecret": "secret2",
+						"sentTime": 1703980800000,
+						"message": "Looking to connect",
+						"inviterResolved": {
+							"entityUrn": "urn:li:fs_miniProfile:ACoAAMe",
+							"firstName": "Mark",
+							"lastName": "Test"
+						}
+					}
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// POST /voyager/api/relationships/invitation (send)
+	mux.HandleFunc("/voyager/api/relationships/invitation", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{}`))
+	})
+
+	// PUT /voyager/api/relationships/invitations/{id} (accept/reject)
+	mux.HandleFunc("/voyager/api/relationships/invitations/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "PUT" {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{}`))
+	})
+}
+
+// withPostsMock registers posts-related mock handlers on mux.
+func withPostsMock(mux *http.ServeMux) {
+	// GET /voyager/api/identity/profileUpdatesV2 (list posts)
+	mux.HandleFunc("/voyager/api/identity/profileUpdatesV2", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"updateMetadata": {"urn": "urn:li:activity:1001"},
+					"actor": {
+						"name": {"text": "Test User"},
+						"urn": "urn:li:fs_miniProfile:ACoAABtest123"
+					},
+					"commentary": {"text": {"text": "Hello LinkedIn world!"}},
+					"socialDetail": {
+						"totalSocialActivityCounts": {
+							"numLikes": 42,
+							"numComments": 5,
+							"numShares": 2
+						}
+					},
+					"createdAt": 1704067200000
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// GET/DELETE /voyager/api/feed/updates/{urn}
+	mux.HandleFunc("/voyager/api/feed/updates/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "DELETE" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"entityUrn": "urn:li:activity:1001",
+			"actor": {
+				"name": {"text": "Test User"},
+				"urn": "urn:li:fs_miniProfile:ACoAABtest123"
+			},
+			"commentary": {"text": {"text": "Hello LinkedIn world!"}},
+			"socialDetail": {
+				"totalSocialActivityCounts": {
+					"numLikes": 42,
+					"numComments": 5,
+					"numShares": 2
+				}
+			},
+			"createdAt": 1704067200000
+		}`))
+	})
+
+	// POST /voyager/api/contentCreation/normalizedContent (create post)
+	mux.HandleFunc("/voyager/api/contentCreation/normalizedContent", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"value": {"entityUrn": "urn:li:activity:9999"}}`))
+	})
+
+	// GET /voyager/api/socialActions/{postUrn}/reactions
+	// POST /voyager/api/socialActions/{postUrn}/reactions
+	mux.HandleFunc("/voyager/api/socialActions/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		switch {
+		case strings.HasSuffix(path, "/reactions") && r.Method == "GET":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"reactionType": "LIKE",
+						"actor": {
+							"name": {"text": "Alice Smith"},
+							"urn": "urn:li:fs_miniProfile:ACoAAConn1"
+						}
+					}
+				],
+				"paging": {"start": 0, "count": 10, "total": 1}
+			}`))
+
+		case strings.HasSuffix(path, "/reactions") && r.Method == "POST":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{}`))
+
+		case strings.HasSuffix(path, "/comments") && r.Method == "GET":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"urn": "urn:li:comment:(activity:1001,5001)",
+						"commenter": {
+							"com.linkedin.voyager.feed.MemberActor": {
+								"miniProfile": {
+									"firstName": "Jane",
+									"lastName": "Doe",
+									"entityUrn": "urn:li:fs_miniProfile:ACoAAJane"
+								}
+							}
+						},
+						"comment": {"values": [{"value": "Great post!"}]},
+						"socialDetail": {
+							"totalSocialActivityCounts": {"numLikes": 3}
+						},
+						"createdAt": 1704070800000
+					}
+				],
+				"paging": {"start": 0, "count": 10, "total": 1}
+			}`))
+
+		case strings.HasSuffix(path, "/comments") && r.Method == "POST":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"value": {"urn": "urn:li:comment:(activity:1001,6001)"}}`))
+
+		case strings.HasSuffix(path, "/likes") && r.Method == "POST":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{}`))
+
+		case strings.HasSuffix(path, "/likes") && r.Method == "DELETE":
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			// DELETE on a comment URN itself
+			if r.Method == "DELETE" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			http.Error(w, `{"message":"not found"}`, http.StatusNotFound)
+		}
+	})
+}
+
+// withCommentsMock registers comments-related mock handlers on mux.
+// Comments share the /voyager/api/socialActions/ prefix with posts reactions.
+// All handlers are registered via withPostsMock; this function is a no-op
+// kept for symmetry so callers can call withCommentsMock explicitly.
+func withCommentsMock(_ *http.ServeMux) {
+	// Intentionally empty: comment endpoints share the /voyager/api/socialActions/
+	// handler registered in withPostsMock.
+}
+
+// withFeedMock registers feed-related mock handlers on mux.
+func withFeedMock(mux *http.ServeMux) {
+	// GET /voyager/api/feed/dash/feedUpdates
+	mux.HandleFunc("/voyager/api/feed/dash/feedUpdates", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"updateMetadata": {"urn": "urn:li:activity:2001"},
+					"actor": {
+						"name": {"text": "Feed Author"},
+						"urn": "urn:li:fs_miniProfile:ACoAAFeed1"
+					},
+					"commentary": {"text": {"text": "Interesting feed post"}},
+					"socialDetail": {
+						"totalSocialActivityCounts": {
+							"numLikes": 15,
+							"numComments": 3,
+							"numShares": 1
+						}
+					},
+					"createdAt": 1704153600000
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+}
+
 // newFullMockServer creates a test server with all LinkedIn mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	withProfileMock(mux)
+	withConnectionsMock(mux)
+	withInvitationsMock(mux)
+	withPostsMock(mux)
+	withCommentsMock(mux)
+	withFeedMock(mux)
 	return httptest.NewServer(mux)
 }

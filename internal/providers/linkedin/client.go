@@ -184,6 +184,50 @@ func (c *Client) PostJSON(ctx context.Context, path string, body any) (*http.Res
 	return resp, nil
 }
 
+// PutJSON performs a PUT request with a JSON-encoded body.
+func (c *Client) PutJSON(ctx context.Context, path string, body any) (*http.Response, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal PUT body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("build PUT JSON request: %w", err)
+	}
+	c.applyHeaders(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("PUT JSON %s: %w", path, err)
+	}
+	c.captureResponseHeaders(resp)
+	return resp, nil
+}
+
+// Patch performs a PATCH request with a JSON-encoded body.
+func (c *Client) Patch(ctx context.Context, path string, body any) (*http.Response, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal PATCH body: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, c.baseURL+path, bytes.NewReader(data))
+	if err != nil {
+		return nil, fmt.Errorf("build PATCH request: %w", err)
+	}
+	c.applyHeaders(req)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("PATCH %s: %w", path, err)
+	}
+	c.captureResponseHeaders(resp)
+	return resp, nil
+}
+
 // Delete performs a DELETE request.
 func (c *Client) Delete(ctx context.Context, path string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+path, nil)
