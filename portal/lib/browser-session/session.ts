@@ -59,7 +59,7 @@ export class BrowserSession {
     })
 
     this.context = await this.browser.newContext({
-      viewport: { width: 460, height: 820 },
+      viewport: { width: 1280, height: 720 },
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       locale: "en-US",
@@ -70,6 +70,27 @@ export class BrowserSession {
 
     await this.page.goto("https://www.instagram.com/accounts/login/", {
       waitUntil: "domcontentloaded",
+    })
+
+    // Inject visible cursor so users can see where clicks land
+    await this.page.evaluate(() => {
+      const cursor = document.createElement("div")
+      cursor.id = "__remote_cursor__"
+      Object.assign(cursor.style, {
+        position: "fixed",
+        top: "0px",
+        left: "0px",
+        width: "20px",
+        height: "20px",
+        borderRadius: "50%",
+        border: "2px solid rgba(255, 80, 80, 0.9)",
+        backgroundColor: "rgba(255, 80, 80, 0.3)",
+        pointerEvents: "none",
+        zIndex: "2147483647",
+        transform: "translate(-50%, -50%)",
+        transition: "left 0.05s linear, top 0.05s linear",
+      })
+      document.body.appendChild(cursor)
     })
 
     this.onStatus?.("ready")
@@ -105,8 +126,18 @@ export class BrowserSession {
     this.resetTimeout()
 
     // Clamp coordinates to viewport bounds
-    const clampX = (x: number) => Math.max(0, Math.min(x, 460))
-    const clampY = (y: number) => Math.max(0, Math.min(y, 820))
+    const clampX = (x: number) => Math.max(0, Math.min(x, 1280))
+    const clampY = (y: number) => Math.max(0, Math.min(y, 720))
+
+    // Move visible cursor for any mouse event
+    if ("x" in msg && "y" in msg) {
+      const cx = clampX(msg.x)
+      const cy = clampY(msg.y)
+      this.page.evaluate(({ x, y }) => {
+        const el = document.getElementById("__remote_cursor__")
+        if (el) { el.style.left = x + "px"; el.style.top = y + "px" }
+      }, { x: cx, y: cy }).catch(() => {})
+    }
 
     switch (msg.type) {
       case "click":
