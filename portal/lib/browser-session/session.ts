@@ -59,7 +59,7 @@ export class BrowserSession {
     })
 
     this.context = await this.browser.newContext({
-      viewport: { width: 1280, height: 720 },
+      viewport: { width: 460, height: 820 },
       userAgent:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       locale: "en-US",
@@ -105,8 +105,8 @@ export class BrowserSession {
     this.resetTimeout()
 
     // Clamp coordinates to viewport bounds
-    const clampX = (x: number) => Math.max(0, Math.min(x, 1280))
-    const clampY = (y: number) => Math.max(0, Math.min(y, 720))
+    const clampX = (x: number) => Math.max(0, Math.min(x, 460))
+    const clampY = (y: number) => Math.max(0, Math.min(y, 820))
 
     switch (msg.type) {
       case "click":
