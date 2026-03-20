@@ -172,6 +172,170 @@ func withOrgsMock(mux *http.ServeMux) {
 	})
 }
 
+// withBranchesMock registers branch-related mock handlers on mux.
+func withBranchesMock(mux *http.ServeMux) {
+	branchData := map[string]any{
+		"id":         "branch-001",
+		"name":       "feat-login",
+		"git_branch": "feat/login",
+		"is_default": false,
+		"status":     "ACTIVE_HEALTHY",
+		"created_at": "2026-01-15T10:30:00Z",
+	}
+
+	// GET /v1/projects/test-ref/branches — list branches
+	// POST /v1/projects/test-ref/branches — create branch
+	// DELETE /v1/projects/test-ref/branches — disable branching
+	mux.HandleFunc("/v1/projects/test-ref/branches", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode([]map[string]any{branchData})
+		case http.MethodPost:
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			resp := map[string]any{
+				"id":         "branch-001",
+				"name":       "feat-login",
+				"git_branch": body["git_branch"],
+				"is_default": false,
+				"status":     "ACTIVE_HEALTHY",
+				"created_at": "2026-01-15T10:30:00Z",
+			}
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(resp)
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/branches/branch-001 — get branch
+	// PATCH /v1/branches/branch-001 — update branch
+	// DELETE /v1/branches/branch-001 — delete branch
+	mux.HandleFunc("/v1/branches/branch-001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(branchData)
+		case http.MethodPatch:
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			resp := map[string]any{
+				"id":         "branch-001",
+				"name":       "feat-login",
+				"git_branch": "feat/login",
+				"is_default": false,
+				"status":     "ACTIVE_HEALTHY",
+				"created_at": "2026-01-15T10:30:00Z",
+			}
+			if gb, ok := body["git_branch"].(string); ok && gb != "" {
+				resp["git_branch"] = gb
+			}
+			json.NewEncoder(w).Encode(resp)
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// POST /v1/branches/branch-001/push — push
+	mux.HandleFunc("/v1/branches/branch-001/push", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "pushed"})
+	})
+
+	// POST /v1/branches/branch-001/merge — merge
+	mux.HandleFunc("/v1/branches/branch-001/merge", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "merged"})
+	})
+
+	// POST /v1/branches/branch-001/reset — reset
+	mux.HandleFunc("/v1/branches/branch-001/reset", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "reset"})
+	})
+
+	// GET /v1/branches/branch-001/diff — diff
+	mux.HandleFunc("/v1/branches/branch-001/diff", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"diff": "--- main\n+++ feat-login\n@@ -1,0 +1,5 @@\n+CREATE TABLE users (id uuid);"})
+	})
+}
+
+// withKeysMock registers API key-related mock handlers on mux.
+func withKeysMock(mux *http.ServeMux) {
+	keyData := map[string]any{
+		"id":      "key-001",
+		"name":    "anon",
+		"api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-anon-key",
+		"type":    "anon",
+	}
+
+	// GET /v1/projects/test-ref/api-keys — list keys
+	// POST /v1/projects/test-ref/api-keys — create key
+	mux.HandleFunc("/v1/projects/test-ref/api-keys", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode([]map[string]any{keyData})
+		case http.MethodPost:
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			name, _ := body["name"].(string)
+			keyType, _ := body["type"].(string)
+			resp := map[string]any{
+				"id":      "key-001",
+				"name":    name,
+				"api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-anon-key",
+				"type":    keyType,
+			}
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(resp)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// GET /v1/projects/test-ref/api-keys/key-001 — get key
+	// PATCH /v1/projects/test-ref/api-keys/key-001 — update key
+	// DELETE /v1/projects/test-ref/api-keys/key-001 — delete key
+	mux.HandleFunc("/v1/projects/test-ref/api-keys/key-001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			json.NewEncoder(w).Encode(keyData)
+		case http.MethodPatch:
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			resp := map[string]any{
+				"id":      "key-001",
+				"name":    "anon",
+				"api_key": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-anon-key",
+				"type":    "anon",
+			}
+			if name, ok := body["name"].(string); ok && name != "" {
+				resp["name"] = name
+			}
+			json.NewEncoder(w).Encode(resp)
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all Supabase Management API routes mocked.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -179,6 +343,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 
 	withProjectsMock(mux)
 	withOrgsMock(mux)
+	withBranchesMock(mux)
+	withKeysMock(mux)
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)

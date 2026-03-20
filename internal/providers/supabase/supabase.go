@@ -41,6 +41,8 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 
 	rootCmd.AddCommand(newProjectsCmd(p.ClientFactory))
 	rootCmd.AddCommand(newOrgsCmd(p.ClientFactory))
+	rootCmd.AddCommand(newBranchesCmd(p.ClientFactory))
+	rootCmd.AddCommand(newKeysCmd(p.ClientFactory))
 
 	parent.AddCommand(rootCmd)
 }
