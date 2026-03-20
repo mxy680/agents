@@ -32,6 +32,10 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.lidc) env.LINKEDIN_LIDC = credJson.lidc
       if (credJson.li_mc) env.LINKEDIN_LI_MC = credJson.li_mc
       break
+    case "framer":
+      if (credJson.api_key) env.FRAMER_API_KEY = credJson.api_key
+      if (credJson.project_url) env.FRAMER_PROJECT_URL = credJson.project_url
+      break
     case "supabase":
       if (credJson.access_token) env.SUPABASE_ACCESS_TOKEN = credJson.access_token
       if (credJson.refresh_token) env.SUPABASE_REFRESH_TOKEN = credJson.refresh_token

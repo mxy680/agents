@@ -197,6 +197,27 @@ func TestProcessIntegrationLinkedIn(t *testing.T) {
 	}
 }
 
+func TestProcessIntegrationFramer(t *testing.T) {
+	creds := encryptCredentialsForTest(map[string]string{
+		"api_key":     "framer-key-abc123",
+		"project_url": "https://framer.com/projects/Website--aabbccddeeff",
+	})
+	ui := &UserIntegration{Provider: "framer", Credentials: creds}
+	env := make(map[string]string)
+	if err := processIntegration(ui, testKey, env); err != nil {
+		t.Fatalf("error = %v", err)
+	}
+	expected := map[string]string{
+		"FRAMER_API_KEY":     "framer-key-abc123",
+		"FRAMER_PROJECT_URL": "https://framer.com/projects/Website--aabbccddeeff",
+	}
+	for k, want := range expected {
+		if env[k] != want {
+			t.Errorf("%s = %q, want %q", k, env[k], want)
+		}
+	}
+}
+
 func TestProcessIntegrationUnknown(t *testing.T) {
 	creds := encryptCredentialsForTest(map[string]string{"key": "val"})
 	ui := &UserIntegration{Provider: "slack", Credentials: creds}
