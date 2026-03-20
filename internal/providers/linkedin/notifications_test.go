@@ -57,40 +57,20 @@ func TestNotificationsMarkRead_DryRun(t *testing.T) {
 	}
 }
 
-func TestNotificationsMarkRead_Success(t *testing.T) {
+func TestNotificationsMarkRead_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notifications", "mark-read"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "marked as read") {
-		t.Errorf("expected 'marked as read' in output, got: %s", out)
+	root.SetArgs([]string{"notifications", "mark-read"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected deprecated error, got nil")
 	}
-}
-
-func TestNotificationsMarkRead_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notifications", "mark-read", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, `"status"`) {
-		t.Errorf("expected JSON 'status' field in output, got: %s", out)
-	}
-	if !containsStr(out, "marked_read") {
-		t.Errorf("expected 'marked_read' in JSON output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error, got: %s", err.Error())
 	}
 }
 

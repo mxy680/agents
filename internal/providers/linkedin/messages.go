@@ -157,13 +157,13 @@ func makeRunMessagesConversations(factory ClientFactory) func(*cobra.Command, []
 		}
 
 		// Step 2: call the messaging GraphQL endpoint with the profile URN.
-		variables := fmt.Sprintf("(mailboxUrn:%s)", profileURN)
-		messagingPath := "/voyager/api/voyagerMessagingGraphQL/graphql"
-		params := url.Values{}
-		params.Set("queryId", messengerConversationsQueryID)
-		params.Set("variables", variables)
+		// The URN colons must be percent-encoded inside the variables, but parentheses stay literal.
+		encodedURN := url.QueryEscape(profileURN)
+		variables := fmt.Sprintf("(mailboxUrn:%s)", encodedURN)
+		messagingPath := fmt.Sprintf("/voyager/api/voyagerMessagingGraphQL/graphql?queryId=%s&variables=%s",
+			messengerConversationsQueryID, variables)
 
-		resp, err := client.Get(ctx, messagingPath, params)
+		resp, err := client.Get(ctx, messagingPath, nil)
 		if err != nil {
 			return fmt.Errorf("listing conversations: %w", err)
 		}

@@ -229,14 +229,15 @@ func (c *Client) Patch(ctx context.Context, path string, body any) (*http.Respon
 }
 
 // GetGraphQL performs a GET request to the GraphQL endpoint with the given queryId and variables.
-// Variables use LinkedIn's Rest-li tuple format, e.g. "(keywords:golang,count:10)"
+// Variables use LinkedIn's Rest-li tuple format, e.g. "(keywords:golang,count:10)".
+// The query string is built manually because Go's url.Values.Encode() percent-encodes
+// parentheses, colons, and commas, but LinkedIn's API requires them literal.
 func (c *Client) GetGraphQL(ctx context.Context, queryId string, variables string) (*http.Response, error) {
-	params := url.Values{}
-	params.Set("queryId", queryId)
+	qs := "queryId=" + url.QueryEscape(queryId)
 	if variables != "" {
-		params.Set("variables", variables)
+		qs += "&variables=" + variables
 	}
-	return c.Get(ctx, "/voyager/api/graphql", params)
+	return c.Get(ctx, "/voyager/api/graphql?"+qs, nil)
 }
 
 // Delete performs a DELETE request.
