@@ -2,9 +2,9 @@ import { chromium, Browser, BrowserContext, Page } from "playwright-core"
 import { applyStealthScripts } from "./stealth"
 import type { SessionStatus, ClientMessage } from "./types"
 
-const SCREENSHOT_INTERVAL_MS = 125 // 8 FPS
+const SCREENSHOT_INTERVAL_MS = 80 // ~12 FPS for smoother experience
 const COOKIE_CHECK_INTERVAL_MS = 2000
-const SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
 const INSTAGRAM_COOKIES = [
   "sessionid",
@@ -84,7 +84,12 @@ export class BrowserSession {
       this.checkCookies().catch(() => {})
     }, COOKIE_CHECK_INTERVAL_MS)
 
-    // Session timeout
+    // Session timeout — reset on each input
+    this.resetTimeout()
+  }
+
+  private resetTimeout(): void {
+    if (this.timeoutTimer) clearTimeout(this.timeoutTimer)
     this.timeoutTimer = setTimeout(() => {
       if (!this.destroyed) {
         this.onStatus?.("timeout")
@@ -96,23 +101,33 @@ export class BrowserSession {
   async handleInput(msg: ClientMessage): Promise<void> {
     if (this.destroyed || !this.page) return
 
+    // Reset timeout on any user interaction
+    this.resetTimeout()
+
+    // Clamp coordinates to viewport bounds
+    const clampX = (x: number) => Math.max(0, Math.min(x, 1280))
+    const clampY = (y: number) => Math.max(0, Math.min(y, 720))
+
     switch (msg.type) {
       case "click":
-        await this.page.mouse.click(msg.x, msg.y)
+        await this.page.mouse.click(clampX(msg.x), clampY(msg.y))
         break
       case "mousemove":
-        await this.page.mouse.move(msg.x, msg.y)
+        await this.page.mouse.move(clampX(msg.x), clampY(msg.y))
         break
       case "mousedown":
-        await this.page.mouse.move(msg.x, msg.y)
+        await this.page.mouse.move(clampX(msg.x), clampY(msg.y))
         await this.page.mouse.down()
         break
       case "mouseup":
-        await this.page.mouse.move(msg.x, msg.y)
+        await this.page.mouse.move(clampX(msg.x), clampY(msg.y))
         await this.page.mouse.up()
         break
       case "keydown":
         await this.page.keyboard.down(msg.key)
+        break
+      case "keyup":
+        await this.page.keyboard.up(msg.key)
         break
       case "keypress":
         await this.page.keyboard.type(msg.text)
@@ -145,7 +160,7 @@ export class BrowserSession {
   private async captureFrame(): Promise<void> {
     if (this.destroyed || !this.page) return
     try {
-      const screenshot = await this.page.screenshot({ type: "jpeg", quality: 50 })
+      const screenshot = await this.page.screenshot({ type: "jpeg", quality: 70 })
       const base64 = screenshot.toString("base64")
       this.onFrame?.(base64)
     } catch {

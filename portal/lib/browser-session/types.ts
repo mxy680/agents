@@ -21,6 +21,7 @@ export type ClientMessage =
   | { type: "mousedown"; x: number; y: number }
   | { type: "mouseup"; x: number; y: number }
   | { type: "keydown"; key: string }
+  | { type: "keyup"; key: string }
   | { type: "keypress"; text: string }
   | { type: "scroll"; deltaX: number; deltaY: number }
   | { type: "ping" }

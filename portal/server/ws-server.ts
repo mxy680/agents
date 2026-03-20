@@ -45,6 +45,7 @@ function isValidClientMessage(msg: unknown): msg is ClientMessage {
         isFinite(m.y)
       )
     case "keydown":
+    case "keyup":
       return typeof m.key === "string" && m.key.length <= 20
     case "keypress":
       return typeof m.text === "string" && m.text.length <= 1

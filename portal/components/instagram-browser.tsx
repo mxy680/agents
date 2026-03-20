@@ -103,16 +103,46 @@ export function InstagramBrowser({ wsUrl, token, onComplete, onCancel }: Instagr
     }
   }, [wsUrl, token])
 
+  /**
+   * Translate canvas click coordinates to browser viewport coordinates.
+   * Uses object-contain scaling — the canvas may be letterboxed inside its container.
+   */
   function getScaledCoords(
     e: React.MouseEvent<HTMLCanvasElement>
   ): { x: number; y: number } {
     const canvas = canvasRef.current!
     const rect = canvas.getBoundingClientRect()
-    const scaleX = viewport.width / rect.width
-    const scaleY = viewport.height / rect.height
+
+    // object-contain scales the image to fit while preserving aspect ratio.
+    // We need to find the actual rendered image area within the canvas element.
+    const containerAspect = rect.width / rect.height
+    const viewportAspect = viewport.width / viewport.height
+
+    let renderWidth: number
+    let renderHeight: number
+    let offsetX: number
+    let offsetY: number
+
+    if (containerAspect > viewportAspect) {
+      // Container is wider — letterboxed horizontally
+      renderHeight = rect.height
+      renderWidth = rect.height * viewportAspect
+      offsetX = (rect.width - renderWidth) / 2
+      offsetY = 0
+    } else {
+      // Container is taller — letterboxed vertically
+      renderWidth = rect.width
+      renderHeight = rect.width / viewportAspect
+      offsetX = 0
+      offsetY = (rect.height - renderHeight) / 2
+    }
+
+    const relX = e.clientX - rect.left - offsetX
+    const relY = e.clientY - rect.top - offsetY
+
     return {
-      x: Math.round((e.clientX - rect.left) * scaleX),
-      y: Math.round((e.clientY - rect.top) * scaleY),
+      x: Math.round((relX / renderWidth) * viewport.width),
+      y: Math.round((relY / renderHeight) * viewport.height),
     }
   }
 
@@ -123,7 +153,7 @@ export function InstagramBrowser({ wsUrl, token, onComplete, onCancel }: Instagr
 
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
     const now = Date.now()
-    if (now - lastMoveRef.current < 50) return
+    if (now - lastMoveRef.current < 30) return // 30ms throttle (~33 FPS)
     lastMoveRef.current = now
     const { x, y } = getScaledCoords(e)
     sendMsg({ type: "mousemove", x, y })
@@ -152,6 +182,14 @@ export function InstagramBrowser({ wsUrl, token, onComplete, onCancel }: Instagr
     } else {
       // Special keys (Enter, Backspace, Tab, arrows, etc.)
       sendMsg({ type: "keydown", key: e.key })
+    }
+  }
+
+  function handleKeyUp(e: React.KeyboardEvent<HTMLCanvasElement>) {
+    e.preventDefault()
+    // Release modifier and special keys
+    if (e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey) {
+      sendMsg({ type: "keyup", key: e.key })
     }
   }
 
@@ -190,6 +228,7 @@ export function InstagramBrowser({ wsUrl, token, onComplete, onCancel }: Instagr
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
         />
         {status === "loading" && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
