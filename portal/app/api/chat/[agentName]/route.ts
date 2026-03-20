@@ -261,22 +261,10 @@ export async function POST(
 
           admin.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", conversationId).then(() => {})
 
-          // Auto-title on first exchange (fire-and-forget)
+          // Auto-title on first exchange
           if (isFirstExchange) {
-            const assistantText = assistantBlocks
-              .filter((b): b is Extract<ContentBlock, { type: "text" }> => b.type === "text")
-              .map((b) => b.content)
-              .join("")
-
-            generateTitle(message, assistantText)
-              .then((title) => {
-                if (title && title !== "Untitled") {
-                  return admin.from("conversations").update({ title }).eq("id", conversationId)
-                }
-              })
-              .catch((err) => {
-                console.error("[chat] Auto-title failed:", err)
-              })
+            const title = generateTitle(message)
+            admin.from("conversations").update({ title }).eq("id", conversationId).then(() => {})
           }
         }
 
