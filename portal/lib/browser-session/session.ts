@@ -68,36 +68,13 @@ export class BrowserSession {
     this.page = await this.context.newPage()
     await applyStealthScripts(this.page)
 
-    // Inject visible cursor on every page load/navigation
-    await this.context.addInitScript(() => {
-      function injectCursor() {
-        if (document.getElementById("__remote_cursor__")) return
-        const cursor = document.createElement("div")
-        cursor.id = "__remote_cursor__"
-        Object.assign(cursor.style, {
-          position: "fixed",
-          top: "0px",
-          left: "0px",
-          width: "20px",
-          height: "20px",
-          borderRadius: "50%",
-          border: "2px solid rgba(255, 80, 80, 0.9)",
-          backgroundColor: "rgba(255, 80, 80, 0.3)",
-          pointerEvents: "none",
-          zIndex: "2147483647",
-          transform: "translate(-50%, -50%)",
-          transition: "left 0.05s linear, top 0.05s linear",
-        })
-        document.body.appendChild(cursor)
-      }
-      // Inject immediately if body exists, otherwise wait for DOMContentLoaded
-      if (document.body) injectCursor()
-      else document.addEventListener("DOMContentLoaded", injectCursor)
-    })
-
     await this.page.goto("https://www.instagram.com/accounts/login/", {
       waitUntil: "domcontentloaded",
     })
+
+    // Inject cursor after initial load and re-inject on every navigation
+    await this.injectCursor()
+    this.page.on("load", () => { this.injectCursor().catch(() => {}) })
 
     this.onStatus?.("ready")
 
@@ -192,6 +169,34 @@ export class BrowserSession {
     this.browser = null
     this.context = null
     this.page = null
+  }
+
+  private async injectCursor(): Promise<void> {
+    if (this.destroyed || !this.page) return
+    try {
+      await this.page.evaluate(() => {
+        if (document.getElementById("__remote_cursor__")) return
+        const cursor = document.createElement("div")
+        cursor.id = "__remote_cursor__"
+        Object.assign(cursor.style, {
+          position: "fixed",
+          top: "0px",
+          left: "0px",
+          width: "20px",
+          height: "20px",
+          borderRadius: "50%",
+          border: "2px solid rgba(255, 80, 80, 0.9)",
+          backgroundColor: "rgba(255, 80, 80, 0.3)",
+          pointerEvents: "none",
+          zIndex: "2147483647",
+          transform: "translate(-50%, -50%)",
+          transition: "left 0.05s linear, top 0.05s linear",
+        })
+        document.body.appendChild(cursor)
+      })
+    } catch {
+      // Page may not be ready
+    }
   }
 
   private async captureFrame(): Promise<void> {
