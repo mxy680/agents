@@ -1,0 +1,7 @@
+jobs:
+  - slug: morning-digest
+    display_name: Morning Digest
+    description: Summarizes unread emails from the last 12 hours, prioritized by importance
+    schedule: "0 8 * * *"
+    prompt_file: morning-digest.md
+    timeout_minutes: 10

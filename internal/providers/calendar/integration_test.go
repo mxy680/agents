@@ -17,8 +17,8 @@ import (
 func requireEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		"GOOGLE_DESKTOP_CLIENT_ID",
-		"GOOGLE_DESKTOP_CLIENT_SECRET",
+		"GOOGLE_CLIENT_ID",
+		"GOOGLE_CLIENT_SECRET",
 		"GMAIL_ACCESS_TOKEN",
 		"GMAIL_REFRESH_TOKEN",
 	} {

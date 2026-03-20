@@ -24,10 +24,10 @@ import (
 )
 
 func main() {
-	clientID := os.Getenv("GOOGLE_DESKTOP_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_DESKTOP_CLIENT_SECRET")
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 	if clientID == "" || clientSecret == "" {
-		fmt.Fprintln(os.Stderr, "GOOGLE_DESKTOP_CLIENT_ID and GOOGLE_DESKTOP_CLIENT_SECRET must be set")
+		fmt.Fprintln(os.Stderr, "GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
 		fmt.Fprintln(os.Stderr, "Run: doppler run -- go run ./cmd/oauth-setup")
 		os.Exit(1)
 	}

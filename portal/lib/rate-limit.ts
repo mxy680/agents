@@ -1,0 +1,18 @@
+const windows = new Map<string, { count: number; resetAt: number }>()
+
+/**
+ * Returns true if the request is within the allowed rate limit, false if it exceeds it.
+ * @param key    Unique key per user/action (e.g. "browser-session:user-id")
+ * @param max    Maximum requests allowed within the window
+ * @param windowMs Window duration in milliseconds
+ */
+export function checkRateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now()
+  const entry = windows.get(key)
+  if (!entry || now > entry.resetAt) {
+    windows.set(key, { count: 1, resetAt: now + windowMs })
+    return true // allowed
+  }
+  entry.count++
+  return entry.count <= max
+}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -23,8 +24,8 @@ var EnvConfig = struct {
 	AccessToken  string
 	RefreshToken string
 }{
-	ClientID:     "GOOGLE_DESKTOP_CLIENT_ID",
-	ClientSecret: "GOOGLE_DESKTOP_CLIENT_SECRET",
+	ClientID:     "GOOGLE_CLIENT_ID",
+	ClientSecret: "GOOGLE_CLIENT_SECRET",
 	AccessToken:  "GOOGLE_ACCESS_TOKEN",
 	RefreshToken: "GOOGLE_REFRESH_TOKEN",
 }
@@ -95,8 +96,9 @@ func NewToken() (*oauth2.Token, error) {
 	return &oauth2.Token{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		// Leave Expiry zero so the token source will attempt refresh immediately
-		// if the access token is expired. The oauth2 library handles this.
+		// Set Expiry to the past so the oauth2 library always refreshes on first use.
+		// A zero Expiry means "never expires" which prevents refresh.
+		Expiry: time.Now().Add(-time.Minute),
 	}, nil
 }
 

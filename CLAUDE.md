@@ -1,13 +1,29 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, and Instagram.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, and Instagram. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
 make build          # → bin/integrations
 make test           # run tests with coverage
 make lint           # go vet
+
+# Orchestrator
+make orchestrator       # → bin/orchestrator
+make orchestrator-dev   # run with doppler (localhost:8080)
+make kind-setup         # create local k8s cluster
+make sync-templates     # sync agents/*/template.yaml → Supabase
+
+# Docker images
+make docker-agent-base    # build agent base image
+make docker-export-creds  # build export-creds image
+
+# Portal
+make portal-install # npm install
+make portal-dev     # npm run dev (localhost:3000)
+make portal-build   # npm run build
+make portal-lint    # npm run lint
 ```
 
 ## Commands — Gmail
@@ -450,12 +466,113 @@ internal/providers/github/
 ## Testing
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
+- Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
 - Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%)
+
+## Web Portal (Next.js 15 + Supabase)
+
+### Architecture
+- `portal/` — Next.js 15 App Router, TypeScript, Tailwind CSS
+- Auth: Supabase Auth with Google OAuth (narrow scopes for login)
+- Database: Supabase PostgreSQL with RLS policies
+- Integration tokens: AES-256-GCM encrypted, stored in `integrations` table
+- Two Google OAuth flows: (1) login via Supabase Auth, (2) full-scope connect via custom API route
+
+### Portal Directory Layout
+```
+portal/
+  supabase/migrations/00001_create_tables.sql  # integrations table + RLS
+  src/
+    app/
+      page.tsx                     # Landing page
+      login/page.tsx               # Google sign-in via Supabase Auth
+      integrations/page.tsx        # Dashboard with provider cards
+      auth/callback/route.ts       # Supabase Auth code exchange
+      api/integrations/
+        route.ts                   # GET: list user integrations
+        google/connect|callback|disconnect/route.ts
+        github/connect|callback|disconnect/route.ts
+        instagram/save|disconnect/route.ts
+    lib/
+      supabase/server.ts|client.ts|middleware.ts
+      crypto.ts                    # AES-256-GCM (Go-compatible wire format)
+      providers.ts                 # Provider metadata and scopes
+    components/
+      navbar.tsx, provider-card.tsx, instagram-form.tsx, sign-out-button.tsx
+    middleware.ts                   # Protects /integrations route
+```
+
+### Token Bridge (Go)
+```
+internal/tokenbridge/
+  crypto.go       # AES-256-GCM decrypt (Go side)
+  bridge.go       # ExportEnvForUser() → reads integrations table, decrypts to env map
+  bridge_test.go  # 94% coverage via sqlmock
+```
+
+### Cross-Language Encryption Wire Format
+`base64(nonce [12 bytes] || ciphertext || auth_tag [16 bytes])`
+Shared key: `ENCRYPTION_MASTER_KEY` (64 hex chars = 32 bytes)
+
+## Architecture — Orchestrator
+
+```
+Portal (Next.js)  ──HTTP──►  Orchestrator (Go :8080)  ──K8s API──►  Agent Pods
+                                    │                                    │
+                                    ├── Supabase (templates, instances)  │
+                                    └── tokenbridge (decrypt creds)──────┘
+                                                                   (init container)
+```
+
+### Orchestrator REST API
+All endpoints under `/api/v1/`, auth via Supabase JWT.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/templates` | List active templates |
+| GET | `/templates/{id}` | Template details |
+| POST | `/agents/deploy` | Deploy agent (`{template_id, config_overrides?}`) |
+| GET | `/agents` | List user's instances |
+| GET | `/agents/{id}` | Instance status |
+| GET | `/agents/{id}/logs` | Stream logs (SSE) |
+| POST | `/agents/{id}/stop` | Stop running agent |
+| DELETE | `/agents/{id}` | Delete stopped instance |
+
+### Orchestrator Package Layout
+```
+cmd/orchestrator/main.go           # HTTP server entrypoint
+cmd/sync-templates/main.go         # Template sync CLI
+
+internal/orchestrator/
+  config.go                        # Config struct
+  models.go                        # AgentTemplate, AgentInstance structs
+  store.go + store_test.go         # DB CRUD (sqlmock tests)
+  k8s.go + k8s_test.go            # K8s client wrapper (fake clientset tests)
+  pod_spec.go + pod_spec_test.go   # Pod spec builder (pure function)
+  credentials.go + credentials_test.go  # Credential resolution (reuses tokenbridge)
+  server.go                        # chi router + JWT middleware
+  handlers.go                      # REST handlers
+  reconciler.go                    # Background pod status sync
+```
+
+### Agent Templates (git)
+```
+agents/email-assistant/
+  template.yaml      # name, description, required_integrations, docker_image
+  role.md            # Agent persona
+  CLAUDE.md          # Claude instructions
+  entrypoint.py      # SDK entry point
+  requirements.txt   # Python deps
+```
+
+### Docker Images
+- `docker/agent-base/Dockerfile` — Python 3.12 + Anthropic Agent SDK
+- `docker/export-creds/Dockerfile` — Debian slim + export-creds binary
 
 ## Environment Variables
 ```
 # Google (Gmail, Sheets, Calendar, Drive)
-GOOGLE_DESKTOP_CLIENT_ID, GOOGLE_DESKTOP_CLIENT_SECRET
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 GOOGLE_ACCESS_TOKEN (fallback: GMAIL_ACCESS_TOKEN)
 GOOGLE_REFRESH_TOKEN (fallback: GMAIL_REFRESH_TOKEN)
 
@@ -471,6 +588,13 @@ INSTAGRAM_USER_AGENT       # User-Agent override (optional)
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 GITHUB_ACCESS_TOKEN, GITHUB_REFRESH_TOKEN
 GITHUB_API_BASE_URL (optional, defaults to https://api.github.com)
+
+# Orchestrator
+SUPABASE_DB_URL, ENCRYPTION_MASTER_KEY, SUPABASE_JWT_SECRET
+PORT (default: 8080)
+KUBE_NAMESPACE (default: agents)
+AGENT_BASE_IMAGE, EXPORT_CREDS_IMAGE
+ANTHROPIC_API_KEY_SECRET (K8s secret name, default: anthropic-api-key)
 ```
 
 # currentDate
