@@ -436,25 +436,3 @@ func printCompanySummary(cmd *cobra.Command, c CompanySummary, description strin
 	cli.PrintText(lines)
 	return nil
 }
-
-// printSearchResults outputs search results as JSON or text.
-func printSearchResults(cmd *cobra.Command, results []SearchResult) error {
-	if cli.IsJSONOutput(cmd) {
-		return cli.PrintJSON(results)
-	}
-	if len(results) == 0 {
-		fmt.Println("No results found.")
-		return nil
-	}
-	lines := make([]string, 0, len(results)+1)
-	lines = append(lines, fmt.Sprintf("%-50s  %-40s  %-30s", "URN", "TITLE", "SUBTITLE"))
-	for _, r := range results {
-		lines = append(lines, fmt.Sprintf("%-50s  %-40s  %-30s",
-			truncate(r.URN, 50),
-			truncate(r.Title, 40),
-			truncate(r.Subtitle, 30),
-		))
-	}
-	cli.PrintText(lines)
-	return nil
-}

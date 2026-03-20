@@ -36,6 +36,11 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	liCmd.AddCommand(newPostsCmd(p.ClientFactory))
 	liCmd.AddCommand(newCommentsCmd(p.ClientFactory))
 	liCmd.AddCommand(newFeedCmd(p.ClientFactory))
+	liCmd.AddCommand(newSearchCmd(p.ClientFactory))
+	liCmd.AddCommand(newNetworkCmd(p.ClientFactory))
+	liCmd.AddCommand(newNotificationsCmd(p.ClientFactory))
+	liCmd.AddCommand(newAnalyticsCmd(p.ClientFactory))
+	liCmd.AddCommand(newSettingsCmd(p.ClientFactory))
 
 	parent.AddCommand(liCmd)
 }

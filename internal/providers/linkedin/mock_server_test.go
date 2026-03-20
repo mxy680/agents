@@ -68,11 +68,53 @@ func containsStr(s, sub string) bool {
 
 // withProfileMock registers profile-related mock handlers on mux.
 func withProfileMock(mux *http.ServeMux) {
-	// GET /voyager/api/identity/profiles/{publicId}
+	// GET /voyager/api/identity/profiles/{publicId}[/skills|/skillEndorsements/...]
 	mux.HandleFunc("/voyager/api/identity/profiles/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/voyager/api/identity/profiles/")
-		publicID := strings.TrimSuffix(path, "/")
 
+		// Route sub-paths for skills endpoints.
+		if strings.Contains(path, "/skillEndorsements/") {
+			// GET /voyager/api/identity/profiles/{publicId}/skillEndorsements/{skillId}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"entityUrn": "urn:li:endorsement:555",
+						"endorser": {
+							"miniProfile": {
+								"firstName": "Alice",
+								"lastName": "Smith",
+								"publicIdentifier": "alice-smith"
+							}
+						}
+					}
+				],
+				"paging": {"start": 0, "count": 10, "total": 1}
+			}`))
+			return
+		}
+		if strings.HasSuffix(path, "/skills") {
+			// GET /voyager/api/identity/profiles/{publicId}/skills
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"entityUrn": "urn:li:fs_skill:123",
+						"name": "Go",
+						"endorsementCount": 42
+					},
+					{
+						"entityUrn": "urn:li:fs_skill:456",
+						"name": "Kubernetes",
+						"endorsementCount": 18
+					}
+				],
+				"paging": {"start": 0, "count": 50, "total": 2}
+			}`))
+			return
+		}
+
+		publicID := strings.TrimSuffix(path, "/")
 		if publicID == "" {
 			http.Error(w, `{"message":"missing publicId"}`, http.StatusBadRequest)
 			return
@@ -370,6 +412,10 @@ func withPostsMock(mux *http.ServeMux) {
 		case strings.HasSuffix(path, "/likes") && r.Method == "DELETE":
 			w.WriteHeader(http.StatusNoContent)
 
+		case strings.HasSuffix(path, "/impressions") && r.Method == "GET":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"impressionCount": 500, "uniqueImpressionsCount": 300}`))
+
 		default:
 			// DELETE on a comment URN itself
 			if r.Method == "DELETE" {
@@ -638,6 +684,149 @@ func withJobsMock(mux *http.ServeMux) {
 	})
 }
 
+// withAnalyticsMock registers analytics-related mock handlers on mux.
+// Post impressions are handled by /voyager/api/socialActions/ in withPostsMock.
+func withAnalyticsMock(mux *http.ServeMux) {
+	// GET /voyager/api/identity/wvmpCards (profile views)
+	mux.HandleFunc("/voyager/api/identity/wvmpCards", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"viewsCount": 42, "timePeriod": "7 days"}`))
+	})
+
+	// GET /voyager/api/identity/searchAppearances
+	mux.HandleFunc("/voyager/api/identity/searchAppearances", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"searchAppearanceCount": 15, "timePeriod": "7 days"}`))
+	})
+}
+
+// withSettingsMock registers settings-related mock handlers on mux.
+func withSettingsMock(mux *http.ServeMux) {
+	// GET/POST /voyager/api/identity/profileSettings
+	mux.HandleFunc("/voyager/api/identity/profileSettings", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"profileVisibility": "PUBLIC",
+			"messagingPreference": "CONNECTIONS",
+			"activeStatus": true
+		}`))
+	})
+
+	// GET /voyager/api/identity/privacySettings
+	mux.HandleFunc("/voyager/api/identity/privacySettings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"profileVisibility": "PUBLIC",
+			"connectionsVisibility": "ALL",
+			"lastNameVisibility": "ALL",
+			"profilePhotoVisibility": "PUBLIC"
+		}`))
+	})
+}
+
+// withSearchMock registers search-related mock handlers on mux.
+// NOTE: /voyager/api/search/dash/clusters is already registered by withCompaniesMock.
+// This function is a no-op kept for symmetry so callers can call withSearchMock explicitly.
+func withSearchMock(_ *http.ServeMux) {
+	// Intentionally empty: the /voyager/api/search/dash/clusters handler is
+	// registered by withCompaniesMock which is called earlier in newFullMockServer.
+}
+
+// withNetworkMock registers network (followers/following/suggestions) mock handlers on mux.
+func withNetworkMock(mux *http.ServeMux) {
+	// GET /voyager/api/relationships/dash/followers
+	mux.HandleFunc("/voyager/api/relationships/dash/followers", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_miniProfile:ACoAAFollower1",
+					"firstName": "Follower",
+					"lastName": "One",
+					"occupation": "Engineer at Acme",
+					"publicIdentifier": "follower-one"
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// GET /voyager/api/relationships/dash/following
+	mux.HandleFunc("/voyager/api/relationships/dash/following", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_miniProfile:ACoAAFollowing1",
+					"firstName": "Following",
+					"lastName": "One",
+					"occupation": "Designer at Corp",
+					"publicIdentifier": "following-one"
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// GET /voyager/api/relationships/dash/connectionsYouMayKnow
+	mux.HandleFunc("/voyager/api/relationships/dash/connectionsYouMayKnow", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_miniProfile:ACoAASuggested1",
+					"firstName": "Suggested",
+					"lastName": "Person",
+					"occupation": "Manager at BigCo",
+					"publicIdentifier": "suggested-person"
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+}
+
+// withNotificationsMock registers notification-related mock handlers on mux.
+func withNotificationsMock(mux *http.ServeMux) {
+	// GET /voyager/api/identity/notifications
+	mux.HandleFunc("/voyager/api/identity/notifications", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:notification:111",
+					"headline": {"text": "Alice Smith viewed your profile"},
+					"publishedAt": 1704067200000,
+					"read": false
+				},
+				{
+					"entityUrn": "urn:li:notification:222",
+					"headline": {"text": "Bob Jones liked your post"},
+					"publishedAt": 1703980800000,
+					"read": true
+				}
+			],
+			"paging": {"start": 0, "count": 20, "total": 2}
+		}`))
+	})
+
+	// POST /voyager/api/identity/notifications/markAllAsRead
+	mux.HandleFunc("/voyager/api/identity/notifications/markAllAsRead", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{}`))
+	})
+}
+
 // newFullMockServer creates a test server with all LinkedIn mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -651,5 +840,10 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withMessagesMock(mux)
 	withCompaniesMock(mux)
 	withJobsMock(mux)
+	withAnalyticsMock(mux)
+	withSettingsMock(mux)
+	withSearchMock(mux)
+	withNetworkMock(mux)
+	withNotificationsMock(mux)
 	return httptest.NewServer(mux)
 }
