@@ -39,7 +39,9 @@ func (s *Server) reconcile(ctx context.Context) {
 		pod, err := s.k8s.GetPod(ctx, inst.K8sPodName)
 		if err != nil {
 			// Pod might have been deleted
-			s.store.UpdateInstanceStatus(ctx, inst.ID, StatusFailed, "", "pod not found")
+			if uerr := s.store.UpdateInstanceStatus(ctx, inst.ID, StatusFailed, "", "pod not found"); uerr != nil {
+				log.Printf("reconcile: update instance %s status: %v", inst.ID, uerr)
+			}
 			continue
 		}
 
@@ -55,7 +57,9 @@ func (s *Server) reconcile(ctx context.Context) {
 					}
 				}
 			}
-			s.store.UpdateInstanceStatus(ctx, inst.ID, newStatus, "", errMsg)
+			if uerr := s.store.UpdateInstanceStatus(ctx, inst.ID, newStatus, "", errMsg); uerr != nil {
+				log.Printf("reconcile: update instance %s status: %v", inst.ID, uerr)
+			}
 			log.Printf("reconcile: instance %s status %s → %s", inst.ID, inst.Status, newStatus)
 		}
 	}

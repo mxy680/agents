@@ -42,6 +42,7 @@ func main() {
 	if v := os.Getenv("CLAUDE_SESSION_SECRET"); v != "" {
 		cfg.ClaudeSessionSecretRef = v
 	}
+	cfg.AllowedOrigin = os.Getenv("CORS_ALLOWED_ORIGIN")
 
 	// Database
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
@@ -73,14 +74,15 @@ func main() {
 	defer cancel()
 	srv.StartReconciler(ctx, 10*time.Second)
 
-	// Graceful shutdown
+	// Graceful shutdown — cancel context so reconciler stops, then let
+	// defers (db.Close, cancel) run naturally.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
 		log.Println("shutting down...")
 		cancel()
-		os.Exit(0)
 	}()
 
 	if err := srv.Start(); err != nil {

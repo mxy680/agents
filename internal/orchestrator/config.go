@@ -21,6 +21,9 @@ type Config struct {
 
 	// Supabase JWT
 	SupabaseJWTSecret string
+
+	// CORS
+	AllowedOrigin string // If empty, defaults to "*" (development only)
 }
 
 // DefaultConfig returns a Config with sensible defaults.
