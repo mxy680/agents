@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, and LinkedIn. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, LinkedIn, and Framer. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -467,7 +467,156 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%)
+
+## Commands — Framer
+```
+# Project
+integrations framer project info [--json]
+integrations framer project user [--json]
+integrations framer project changed-paths [--json]
+integrations framer project contributors [--from-version=V] [--to-version=V] [--json]
+
+# Publishing & Deployment
+integrations framer publish create [--dry-run] [--json]
+integrations framer publish deploy --deployment-id=ID [--domains=D1,D2] [--dry-run] [--json]
+integrations framer publish list [--json]
+integrations framer publish info [--json]
+
+# CMS Collections
+integrations framer collections list [--json]
+integrations framer collections get --id=ID [--json]
+integrations framer collections create --name=NAME [--dry-run] [--json]
+integrations framer collections fields --id=ID [--json]
+integrations framer collections add-fields --id=ID --fields=JSON [--dry-run] [--json]
+integrations framer collections remove-fields --id=ID --field-ids=ID,ID [--confirm] [--json]
+integrations framer collections set-field-order --id=ID --field-ids=ID,ID [--json]
+integrations framer collections items --id=ID [--json]
+integrations framer collections add-items --id=ID [--items=JSON | --items-file=PATH] [--dry-run] [--json]
+integrations framer collections remove-items --id=ID --item-ids=ID,ID [--confirm] [--json]
+integrations framer collections set-item-order --id=ID --item-ids=ID,ID [--json]
+
+# Managed Collections
+integrations framer managed-collections list [--json]
+integrations framer managed-collections create --name=NAME [--dry-run] [--json]
+integrations framer managed-collections fields --id=ID [--json]
+integrations framer managed-collections set-fields --id=ID [--fields=JSON | --fields-file=PATH] [--dry-run] [--json]
+integrations framer managed-collections items --id=ID [--json]
+integrations framer managed-collections add-items --id=ID [--items=JSON | --items-file=PATH] [--dry-run] [--json]
+integrations framer managed-collections remove-items --id=ID --item-ids=ID,ID [--confirm] [--json]
+integrations framer managed-collections set-item-order --id=ID --item-ids=ID,ID [--json]
+
+# Canvas Nodes
+integrations framer nodes get --node-id=ID [--json]
+integrations framer nodes children --node-id=ID [--json]
+integrations framer nodes parent --node-id=ID [--json]
+integrations framer nodes list-by-type --type=FrameNode|TextNode|SVGNode|ComponentInstanceNode|WebPageNode|DesignPageNode|ComponentNode [--json]
+integrations framer nodes create-frame --attributes=JSON [--parent-id=ID] [--dry-run] [--json]
+integrations framer nodes create-text --attributes=JSON [--parent-id=ID] [--dry-run] [--json]
+integrations framer nodes create-component --name=NAME [--dry-run] [--json]
+integrations framer nodes create-web-page --path=PATH [--dry-run] [--json]
+integrations framer nodes create-design-page --name=NAME [--dry-run] [--json]
+integrations framer nodes clone --node-id=ID [--dry-run] [--json]
+integrations framer nodes remove --node-ids=ID,ID [--confirm] [--dry-run] [--json]
+integrations framer nodes set-attributes --node-id=ID --attributes=JSON [--dry-run] [--json]
+integrations framer nodes set-parent --node-id=ID --parent-id=ID [--index=N] [--dry-run] [--json]
+integrations framer nodes rect --node-id=ID [--json]
+
+# AI Agent
+integrations framer agent system-prompt [--json]
+integrations framer agent context [--json]
+integrations framer agent read --queries=JSON [--json]
+integrations framer agent apply [--dsl=TEXT | --dsl-file=PATH] [--dry-run] [--json]
+
+# Color Styles
+integrations framer styles colors list [--json]
+integrations framer styles colors get --id=ID [--json]
+integrations framer styles colors create --attributes=JSON [--dry-run] [--json]
+
+# Text Styles
+integrations framer styles text list [--json]
+integrations framer styles text get --id=ID [--json]
+integrations framer styles text create --attributes=JSON [--dry-run] [--json]
+
+# Fonts
+integrations framer fonts list [--json]
+integrations framer fonts get --family=NAME [--json]
+
+# Localization
+integrations framer locales list [--json]
+integrations framer locales default [--json]
+integrations framer locales create --language=CODE [--region=CODE] [--dry-run] [--json]
+integrations framer locales languages [--json]
+integrations framer locales regions --language=CODE [--json]
+integrations framer locales groups [--json]
+integrations framer locales set-data [--data=JSON | --data-file=PATH] [--dry-run] [--json]
+
+# Redirects
+integrations framer redirects list [--json]
+integrations framer redirects add [--redirects=JSON | --redirects-file=PATH] [--dry-run] [--json]
+integrations framer redirects remove --ids=ID,ID [--confirm] [--json]
+integrations framer redirects set-order --ids=ID,ID [--json]
+
+# Code Files
+integrations framer code list [--json]
+integrations framer code get --id=ID [--json]
+integrations framer code create --name=NAME [--code=TEXT | --code-file=PATH] [--dry-run] [--json]
+integrations framer code typecheck --name=NAME [--content=TEXT | --content-file=PATH] [--json]
+integrations framer code custom-get [--json]
+integrations framer code custom-set --html=TEXT --location=headStart|headEnd|bodyStart|bodyEnd [--dry-run] [--json]
+
+# Images
+integrations framer images upload --path=PATH [--json]
+integrations framer images upload-batch --paths=P1,P2 [--json]
+
+# Files
+integrations framer files upload --path=PATH [--json]
+integrations framer files upload-batch --paths=P1,P2 [--json]
+
+# SVG
+integrations framer svg add [--svg=TEXT | --svg-file=PATH] [--dry-run] [--json]
+integrations framer svg vector-sets [--json]
+
+# Screenshots
+integrations framer screenshot take --node-id=ID [--format=png|jpeg] [--scale=N] [--output=PATH] [--json]
+integrations framer screenshot export-svg --node-id=ID [--output=PATH] [--json]
+
+# Plugin Data
+integrations framer plugin-data get --key=KEY [--json]
+integrations framer plugin-data set --key=KEY --value=TEXT [--dry-run] [--json]
+integrations framer plugin-data keys [--json]
+```
+
+`framer` has alias `fr`. `collections` has alias `col`. `managed-collections` has alias `mcol`. `nodes` has alias `node`. `styles` has alias `style`. `fonts` has alias `font`. `locales` has alias `locale`. `redirects` has alias `redirect`. `screenshot` has alias `ss`. `plugin-data` has alias `pd`. `publish` has alias `pub`. `project` has alias `proj`. `images` has alias `img`. `files` has alias `file`.
+
+## Architecture — Framer Package Layout
+```
+internal/providers/framer/
+  framer.go              # Provider struct, RegisterCommands (15 resource subcommand groups)
+  bridge_client.go       # BridgeClient: spawns Node.js subprocess, JSON-RPC over stdin/stdout
+  helpers.go             # Shared types (ProjectInfo, CollectionSummary, NodeSummary, etc.) and helpers
+  bridge/
+    bridge.js            # Node.js sidecar: connects to Framer WebSocket API, handles JSON-RPC commands
+    package.json         # framer-api ^0.1.3 dependency
+  project.go             # project info, user, changed-paths, contributors
+  publish.go             # publish create, deploy, list, info
+  collections.go         # 11 collection commands (list, get, create, fields CRUD, items CRUD)
+  managed_collections.go # 8 managed collection commands
+  nodes.go               # 14 node commands (get, create, clone, remove, set-attributes, etc.)
+  agent.go               # agent system-prompt, context, read, apply
+  styles.go              # 6 style commands (colors list/get/create, text list/get/create)
+  fonts.go               # fonts list, get
+  locales.go             # 7 locale commands (list, default, create, languages, regions, groups, set-data)
+  redirects.go           # redirects list, add, remove, set-order
+  code.go                # 6 code commands (list, get, create, typecheck, custom-get, custom-set)
+  images.go              # images upload, upload-batch
+  files.go               # files upload, upload-batch
+  svg.go                 # svg add, vector-sets
+  screenshot.go          # screenshot take, export-svg
+  plugin_data.go         # plugin-data get, set, keys
+  *_test.go              # Tests for each command file + helpers + provider
+  mock_bridge_test.go    # In-process mock bridge for testing without Node.js
+```
 
 ## Commands — LinkedIn
 ```
@@ -726,6 +875,10 @@ INSTAGRAM_USER_AGENT       # User-Agent override (optional)
 LINKEDIN_LI_AT            # li_at cookie (required)
 LINKEDIN_JSESSIONID       # JSESSIONID cookie (required, also used as CSRF token)
 LINKEDIN_USER_AGENT       # User-Agent override (optional)
+
+# Framer (API key auth, project-scoped)
+FRAMER_API_KEY            # Server API key (required)
+FRAMER_PROJECT_URL        # Project URL like https://framer.com/projects/... (required)
 
 # GitHub
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
