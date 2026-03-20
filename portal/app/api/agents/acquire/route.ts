@@ -57,8 +57,10 @@ export async function POST(request: NextRequest) {
 
   // Atomically increment acquisition_count on the template (non-fatal if it fails).
   // Uses admin client to bypass RLS on agent_templates (read-only for users).
-  const admin = createAdminClient()
-  await admin.rpc("increment_acquisition_count", { p_template_id: templateId }).catch(() => {})
+  try {
+    const admin = createAdminClient()
+    await admin.rpc("increment_acquisition_count", { p_template_id: templateId })
+  } catch { /* non-fatal */ }
 
   return Response.json({ acquired: true, status: "pending" })
 }
