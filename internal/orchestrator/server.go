@@ -36,7 +36,7 @@ func NewServer(cfg Config, store *Store, k8s *K8sClient, creds *CredentialResolv
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(cfg.AllowedOrigin))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(s.authMiddleware)
@@ -122,22 +122,28 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 }
 
 func getUserID(r *http.Request) string {
-	return r.Context().Value(userIDKey).(string)
+	id, _ := r.Context().Value(userIDKey).(string)
+	return id
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+func corsMiddleware(allowedOrigin string) func(http.Handler) http.Handler {
+	if allowedOrigin == "" {
+		allowedOrigin = "*"
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

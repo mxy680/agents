@@ -66,9 +66,14 @@ func BuildPodSpec(p PodSpecParams) *corev1.Pod {
 
 	// Build the shell script that writes env vars to /tmp/creds/env.sh.
 	// Keys are pre-validated against validCredKeyRe so no injection is possible.
-	writeCredsScript := "#!/bin/sh\n"
+	// Each value is read from its K8s env var using printenv (no shell expansion),
+	// then single-quoted with embedded quotes escaped as '\'' for safe sourcing.
+	writeCredsScript := "#!/bin/sh\nset -e\n"
 	for _, k := range credKeys {
-		writeCredsScript += "echo 'export " + k + "='\\\"$" + k + "\\\"'' >> /tmp/creds/env.sh\n"
+		writeCredsScript += fmt.Sprintf(
+			"ESCAPED=$(printenv %s | sed \"s/'/'\\\\''/g\") && printf 'export %s='\\''%%s'\\''\\n' \"$ESCAPED\" >> /tmp/creds/env.sh\n",
+			k, k,
+		)
 	}
 
 	labels := map[string]string{

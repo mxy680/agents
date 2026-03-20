@@ -62,12 +62,10 @@ export async function resolveUserCredentials(userId: string): Promise<Record<str
       const credJson = JSON.parse(decrypted) as Record<string, string>
       const envVars = credentialsToEnv(integration.provider, credJson)
       Object.assign(credEnv, envVars)
-      console.error(`[credentials] ${integration.provider}: decrypted OK, env keys: ${Object.keys(envVars).join(", ")}`)
-    } catch (e) {
-      console.error(`[credentials] Failed to decrypt credentials for ${integration.provider}:`, e)
+    } catch {
+      console.error(`[credentials] Failed to decrypt credentials for ${integration.provider}`)
     }
   }
 
-  console.error(`[credentials] Total env vars: ${Object.keys(credEnv).length} — keys: ${Object.keys(credEnv).join(", ")}`)
   return credEnv
 }

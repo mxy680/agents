@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkOrigin } from "@/lib/csrf"
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin")
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-  if (!origin || origin !== siteUrl) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

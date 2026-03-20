@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { resolveUserCredentials } from "@/lib/credentials"
 import { runContainer } from "@/lib/container-runner"
 import { generateTitle } from "@/lib/auto-title"
+import { checkOrigin } from "@/lib/csrf"
 import path from "path"
 import os from "os"
 
@@ -11,6 +12,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ agentName: string }> }
 ) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   const { agentName } = await params
 
   // Validate agentName: only allow alphanumeric, hyphens, underscores
@@ -80,6 +84,11 @@ export async function POST(
     return new Response(JSON.stringify({ error: "message is required" }), { status: 400 })
   }
 
+  const MAX_MESSAGE_LENGTH = 32_000
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return new Response(JSON.stringify({ error: "Message too long" }), { status: 400 })
+  }
+
   // If conversationId provided, look up existing session_id
   const admin = createAdminClient()
   if (conversationId && !sessionId) {
@@ -144,7 +153,12 @@ export async function POST(
     const { mkdirSync, copyFileSync, existsSync } = await import("fs")
     mkdirSync(instancePath, { recursive: true })
 
-    const agentsDir = path.join(process.cwd(), "..", "agents", agentName)
+    const agentsBase = path.resolve(process.cwd(), "..", "agents")
+    const agentsDir = path.resolve(agentsBase, agentName)
+    // Guard against path traversal even though agentName is regex-validated above
+    if (!agentsDir.startsWith(agentsBase + path.sep)) {
+      return new Response(JSON.stringify({ error: "Invalid agent name" }), { status: 400 })
+    }
     for (const file of ["role.md", "CLAUDE.md"]) {
       const src = path.join(agentsDir, file)
       if (existsSync(src)) {

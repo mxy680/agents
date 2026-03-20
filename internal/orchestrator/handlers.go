@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -44,6 +45,20 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate config_overrides: must be a JSON object and within size limit.
+	if len(req.ConfigOverrides) > 0 {
+		const maxConfigSize = 8192 // 8 KiB
+		if len(req.ConfigOverrides) > maxConfigSize {
+			writeError(w, http.StatusBadRequest, "config_overrides too large")
+			return
+		}
+		var obj map[string]any
+		if err := json.Unmarshal(req.ConfigOverrides, &obj); err != nil {
+			writeError(w, http.StatusBadRequest, "config_overrides must be a JSON object")
+			return
+		}
+	}
+
 	// Get template
 	tmpl, err := s.store.GetTemplate(r.Context(), req.TemplateID)
 	if err != nil {
@@ -84,7 +99,9 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	// Resolve credentials
 	creds, err := s.creds.ResolveForUser(r.Context(), userID)
 	if err != nil {
-		s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "credential resolution failed: "+err.Error())
+		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "credential resolution failed: "+err.Error()); uerr != nil {
+			log.Printf("update instance status: %v", uerr)
+		}
 		writeError(w, http.StatusInternalServerError, "failed to resolve credentials")
 		log.Printf("resolve credentials: %v", err)
 		return
@@ -103,17 +120,23 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	// Create pod
 	created, err := s.k8s.CreatePod(r.Context(), pod)
 	if err != nil {
-		s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "pod creation failed: "+err.Error())
+		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "pod creation failed: "+err.Error()); uerr != nil {
+			log.Printf("update instance status: %v", uerr)
+		}
 		writeError(w, http.StatusInternalServerError, "failed to create pod")
 		log.Printf("create pod: %v", err)
 		return
 	}
 
 	// Update instance with pod name and status
-	s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusCreating, created.Name, "")
+	if err := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusCreating, created.Name, ""); err != nil {
+		log.Printf("update instance status: %v", err)
+	}
 
 	// Re-fetch to get updated fields
-	inst, _ = s.store.GetInstance(r.Context(), inst.ID)
+	if updated, err := s.store.GetInstance(r.Context(), inst.ID); err == nil {
+		inst = updated
+	}
 	writeJSON(w, http.StatusCreated, inst)
 }
 
@@ -186,7 +209,7 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "data: %s\n\n", buf[:n])
 			flusher.Flush()
 		}
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -208,7 +231,9 @@ func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.store.UpdateInstanceStatus(r.Context(), id, StatusStopping, "", "")
+	if err := s.store.UpdateInstanceStatus(r.Context(), id, StatusStopping, "", ""); err != nil {
+		log.Printf("update instance status: %v", err)
+	}
 
 	if inst.K8sPodName != "" {
 		if err := s.k8s.DeletePod(r.Context(), inst.K8sPodName); err != nil {
@@ -216,9 +241,13 @@ func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	s.store.UpdateInstanceStatus(r.Context(), id, StatusStopped, "", "")
+	if err := s.store.UpdateInstanceStatus(r.Context(), id, StatusStopped, "", ""); err != nil {
+		log.Printf("update instance status: %v", err)
+	}
 
-	inst, _ = s.store.GetInstance(r.Context(), id)
+	if updated, err := s.store.GetInstance(r.Context(), id); err == nil {
+		inst = updated
+	}
 	writeJSON(w, http.StatusOK, inst)
 }
 
@@ -231,7 +260,8 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.store.DeleteInstance(r.Context(), id); err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		log.Printf("delete instance %s: %v", id, err)
+		writeError(w, http.StatusConflict, "cannot delete instance in current state")
 		return
 	}
 

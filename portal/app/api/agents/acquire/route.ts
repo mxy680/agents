@@ -1,8 +1,12 @@
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkOrigin } from "@/lib/csrf"
 
 export async function POST(request: NextRequest) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   // Authenticate user
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -51,21 +55,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Failed to acquire agent" }, { status: 500 })
   }
 
-  // Increment acquisition_count on the template (non-fatal if it fails)
-  // Use admin client to bypass RLS on agent_templates (read-only for users)
+  // Atomically increment acquisition_count on the template (non-fatal if it fails).
+  // Uses admin client to bypass RLS on agent_templates (read-only for users).
   const admin = createAdminClient()
-  const { data: current } = await admin
-    .from("agent_templates")
-    .select("acquisition_count")
-    .eq("id", templateId)
-    .single()
-
-  if (current) {
-    await admin
-      .from("agent_templates")
-      .update({ acquisition_count: (current.acquisition_count ?? 0) + 1 })
-      .eq("id", templateId)
-  }
+  await admin.rpc("increment_acquisition_count", { p_template_id: templateId }).catch(() => {})
 
   return Response.json({ acquired: true, status: "pending" })
 }

@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { runJob } from "@/lib/job-runner"
+import { checkOrigin } from "@/lib/csrf"
 
 export async function POST(request: NextRequest) {
+  const csrfError = checkOrigin(request)
+  if (csrfError) return csrfError
+
   // Authenticate user
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

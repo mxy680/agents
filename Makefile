@@ -27,7 +27,7 @@ lint:
 	go vet ./...
 
 clean:
-	rm -rf bin/ coverage.out
+	rm -rf bin/ coverage.out docker/agent-base/bin/ docker/export-creds/bin/
 
 # Orchestrator dev targets
 kind-setup:
@@ -42,7 +42,7 @@ docker-agent-base:
 	docker build -t ghcr.io/emdash-projects/agent-base:dev -f docker/agent-base/Dockerfile .
 
 docker-export-creds:
-	go build -o docker/export-creds/bin/export-creds ./cmd/export-creds
+	GOOS=linux GOARCH=arm64 go build -o docker/export-creds/bin/export-creds ./cmd/export-creds
 	docker build -t ghcr.io/emdash-projects/export-creds:latest -f docker/export-creds/Dockerfile .
 
 # Portal targets
