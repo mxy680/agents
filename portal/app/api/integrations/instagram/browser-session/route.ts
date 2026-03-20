@@ -26,13 +26,14 @@ export async function POST(request: NextRequest) {
   // The WS server verifies this token sent as the first message (not in URL).
   const token = createOAuthState(user.id, label)
 
-  const wsPort = process.env.BROWSER_WS_PORT ?? "3001"
   const wsHost = process.env.BROWSER_WS_HOST ?? "localhost"
-
-  // Use wss:// for non-local hosts
   const isLocal = wsHost === "localhost" || wsHost === "127.0.0.1"
-  const wsScheme = isLocal ? "ws" : "wss"
-  const wsUrl = `${wsScheme}://${wsHost}:${wsPort}/browser-session`
+
+  // Local: direct connection to WS server port
+  // Production: go through Caddy reverse proxy at /ws/*
+  const wsUrl = isLocal
+    ? `ws://${wsHost}:${process.env.BROWSER_WS_PORT ?? "3001"}/browser-session`
+    : `wss://${wsHost}/ws/browser-session`
 
   return NextResponse.json({ wsUrl, token })
 }

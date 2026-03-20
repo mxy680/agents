@@ -70,7 +70,8 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   const url = new URL(rawUrl, `http://localhost`)
 
   // Path: /browser-session
-  if (!url.pathname.startsWith("/browser-session")) {
+  // Accept /browser-session (direct) or /ws/browser-session (via Caddy proxy)
+  if (!url.pathname.startsWith("/browser-session") && !url.pathname.startsWith("/ws/browser-session")) {
     ws.close(4000, "Invalid path")
     return
   }
