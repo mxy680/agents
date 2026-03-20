@@ -12,3 +12,4 @@ docker/export-creds/bin/
 .windsurf/
 skills/
 skills-lock.json
+integrations
