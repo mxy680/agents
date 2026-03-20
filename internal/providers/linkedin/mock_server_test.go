@@ -827,6 +827,167 @@ func withNotificationsMock(mux *http.ServeMux) {
 	})
 }
 
+// withGroupsMock registers groups-related mock handlers on mux.
+func withGroupsMock(mux *http.ServeMux) {
+	// GET /voyager/api/groups/groups — list member groups
+	mux.HandleFunc("/voyager/api/groups/groups", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_group:12345",
+					"name": "Go Developers",
+					"memberCount": 50000,
+					"description": "A community for Go developers"
+				},
+				{
+					"entityUrn": "urn:li:fs_group:67890",
+					"name": "Cloud Engineers",
+					"memberCount": 25000,
+					"description": "Cloud engineering community"
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 2}
+		}`))
+	})
+
+	// GET /voyager/api/groups/groups/{id}[/members|/posts]
+	// POST /voyager/api/groups/groups/{id}/members
+	// DELETE /voyager/api/groups/groups/{id}/members/me
+	mux.HandleFunc("/voyager/api/groups/groups/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/voyager/api/groups/groups/")
+
+		switch {
+		case strings.HasSuffix(path, "/members/me") && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+
+		case strings.HasSuffix(path, "/members") && r.Method == http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{}`))
+
+		case strings.HasSuffix(path, "/members"):
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"entityUrn": "urn:li:fs_groupMember:AAA",
+						"miniProfile": {
+							"firstName": "Jane",
+							"lastName": "Doe",
+							"publicIdentifier": "jane-doe",
+							"occupation": "Software Engineer"
+						}
+					}
+				],
+				"paging": {"start": 0, "count": 10, "total": 1}
+			}`))
+
+		case strings.HasSuffix(path, "/posts"):
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"updateMetadata": {"urn": "urn:li:activity:3001"},
+						"actor": {
+							"name": {"text": "Jane Doe"},
+							"urn": "urn:li:fs_miniProfile:ACoAAJane"
+						},
+						"commentary": {"text": {"text": "Great Go meetup!"}},
+						"socialDetail": {
+							"totalSocialActivityCounts": {
+								"numLikes": 10,
+								"numComments": 2,
+								"numShares": 1
+							}
+						},
+						"createdAt": 1704067200000
+					}
+				],
+				"paging": {"start": 0, "count": 10, "total": 1}
+			}`))
+
+		default:
+			// Single group GET
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"entityUrn": "urn:li:fs_group:12345",
+				"name": "Go Developers",
+				"memberCount": 50000,
+				"description": "A community for Go developers"
+			}`))
+		}
+	})
+}
+
+// withEventsMock registers events-related mock handlers on mux.
+func withEventsMock(mux *http.ServeMux) {
+	// GET /voyager/api/events/events — list member events
+	mux.HandleFunc("/voyager/api/events/events", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_event:67890",
+					"title": "Go Meetup 2024",
+					"startAt": 1704067200000,
+					"location": "San Francisco, CA"
+				},
+				{
+					"entityUrn": "urn:li:fs_event:11111",
+					"title": "Cloud Summit",
+					"startAt": 1706745600000,
+					"location": "New York, NY"
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 2}
+		}`))
+	})
+
+	// GET /voyager/api/events/events/{id}
+	// POST /voyager/api/events/events/{id}/attendees
+	// DELETE /voyager/api/events/events/{id}/attendees/me
+	mux.HandleFunc("/voyager/api/events/events/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/voyager/api/events/events/")
+
+		switch {
+		case strings.HasSuffix(path, "/attendees/me") && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+
+		case strings.HasSuffix(path, "/attendees") && r.Method == http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{}`))
+
+		default:
+			// Single event GET
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"entityUrn": "urn:li:fs_event:67890",
+				"title": "Go Meetup 2024",
+				"startAt": 1704067200000,
+				"location": "San Francisco, CA"
+			}`))
+		}
+	})
+}
+
+// withSkillsMock registers skills-related mock handlers on mux.
+// Note: skills list and endorsements endpoints are handled by withProfileMock
+// since they share the /voyager/api/identity/profiles/ prefix.
+func withSkillsMock(mux *http.ServeMux) {
+	// POST /voyager/api/identity/normEntities/{skillUrn}/endorse
+	mux.HandleFunc("/voyager/api/identity/normEntities/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{}`))
+	})
+}
+
 // newFullMockServer creates a test server with all LinkedIn mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -845,5 +1006,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withSearchMock(mux)
 	withNetworkMock(mux)
 	withNotificationsMock(mux)
+	withGroupsMock(mux)
+	withEventsMock(mux)
+	withSkillsMock(mux)
 	return httptest.NewServer(mux)
 }
