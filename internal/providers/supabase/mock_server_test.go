@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -457,6 +458,357 @@ func withAuthMock(mux *http.ServeMux) {
 	})
 }
 
+// withDatabaseMock registers database-related mock handlers on mux.
+func withDatabaseMock(mux *http.ServeMux) {
+	// GET /v1/projects/test-ref/database/migrations — list migrations
+	mux.HandleFunc("/v1/projects/test-ref/database/migrations", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := []map[string]any{
+			{
+				"version":    "20260101000000",
+				"name":       "create_users_table",
+				"statements": []string{"CREATE TABLE users (id uuid PRIMARY KEY)"},
+			},
+			{
+				"version":    "20260102000000",
+				"name":       "add_email_column",
+				"statements": []string{"ALTER TABLE users ADD COLUMN email text"},
+			},
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// GET /v1/projects/test-ref/types/typescript — get type definitions
+	mux.HandleFunc("/v1/projects/test-ref/types/typescript", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, "export type Database = { public: { Tables: { users: { Row: { id: string } } } } }")
+	})
+
+	// GET /v1/projects/test-ref/ssl-enforcement — get SSL enforcement
+	// PUT /v1/projects/test-ref/ssl-enforcement — update SSL enforcement
+	mux.HandleFunc("/v1/projects/test-ref/ssl-enforcement", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			enforced, _ := body["enforced"].(bool)
+			json.NewEncoder(w).Encode(map[string]any{"enforced": enforced})
+			return
+		}
+		// GET
+		json.NewEncoder(w).Encode(map[string]any{"enforced": true})
+	})
+
+	// GET /v1/projects/test-ref/jit-access — get JIT access
+	// PUT /v1/projects/test-ref/jit-access — update JIT access
+	mux.HandleFunc("/v1/projects/test-ref/jit-access", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			json.NewEncoder(w).Encode(map[string]any{"enabled": true, "config": body})
+			return
+		}
+		// GET
+		json.NewEncoder(w).Encode(map[string]any{"enabled": false, "allowed_roles": []string{"authenticated"}})
+	})
+}
+
+// withNetworkMock registers network-related mock handlers on mux.
+func withNetworkMock(mux *http.ServeMux) {
+	// GET /v1/projects/test-ref/network-restrictions — get restrictions
+	// PATCH /v1/projects/test-ref/network-restrictions — update restrictions
+	mux.HandleFunc("/v1/projects/test-ref/network-restrictions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			json.NewEncoder(w).Encode(body)
+			return
+		}
+		// GET
+		json.NewEncoder(w).Encode(map[string]any{
+			"allowed_cidrs":        []string{"0.0.0.0/0"},
+			"allowed_cidrs_config": []string{},
+		})
+	})
+
+	// POST /v1/projects/test-ref/network-restrictions/apply — apply restrictions
+	mux.HandleFunc("/v1/projects/test-ref/network-restrictions/apply", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "applied"})
+	})
+
+	// GET /v1/projects/test-ref/network-bans/retrieve — list bans
+	mux.HandleFunc("/v1/projects/test-ref/network-bans/retrieve", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"banned_ipv4_addresses": []string{"1.2.3.4", "5.6.7.8"},
+		})
+	})
+
+	// DELETE /v1/projects/test-ref/network-bans — remove bans
+	mux.HandleFunc("/v1/projects/test-ref/network-bans", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+// withDomainsMock registers domain-related mock handlers on mux.
+func withDomainsMock(mux *http.ServeMux) {
+	// GET /v1/projects/test-ref/custom-hostname — get custom hostname
+	// DELETE /v1/projects/test-ref/custom-hostname — delete custom hostname
+	mux.HandleFunc("/v1/projects/test-ref/custom-hostname", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		// GET
+		json.NewEncoder(w).Encode(map[string]any{
+			"custom_hostname": "app.example.com",
+			"status":          "Active",
+		})
+	})
+
+	// POST /v1/projects/test-ref/custom-hostname/initialize — initialize custom hostname
+	mux.HandleFunc("/v1/projects/test-ref/custom-hostname/initialize", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body map[string]any
+		data, _ := io.ReadAll(r.Body)
+		json.Unmarshal(data, &body)
+		hostname, _ := body["custom_hostname"].(string)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{
+			"custom_hostname": hostname,
+			"status":          "Pending",
+		})
+	})
+
+	// POST /v1/projects/test-ref/custom-hostname/reverify — reverify custom hostname
+	mux.HandleFunc("/v1/projects/test-ref/custom-hostname/reverify", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "Pending"})
+	})
+
+	// POST /v1/projects/test-ref/custom-hostname/activate — activate custom hostname
+	mux.HandleFunc("/v1/projects/test-ref/custom-hostname/activate", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"status": "Active"})
+	})
+
+	// GET /v1/projects/test-ref/vanity-subdomain — get vanity subdomain
+	// DELETE /v1/projects/test-ref/vanity-subdomain — delete vanity subdomain
+	mux.HandleFunc("/v1/projects/test-ref/vanity-subdomain", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		// GET
+		json.NewEncoder(w).Encode(map[string]any{
+			"vanity_subdomain": "my-app",
+		})
+	})
+
+	// POST /v1/projects/test-ref/vanity-subdomain/check-availability — check availability
+	mux.HandleFunc("/v1/projects/test-ref/vanity-subdomain/check-availability", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body map[string]any
+		data, _ := io.ReadAll(r.Body)
+		json.Unmarshal(data, &body)
+		subdomain, _ := body["vanity_subdomain"].(string)
+		available := subdomain != "taken-subdomain"
+		json.NewEncoder(w).Encode(map[string]any{"available": available})
+	})
+
+	// POST /v1/projects/test-ref/vanity-subdomain/activate — activate vanity subdomain
+	mux.HandleFunc("/v1/projects/test-ref/vanity-subdomain/activate", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body map[string]any
+		data, _ := io.ReadAll(r.Body)
+		json.Unmarshal(data, &body)
+		subdomain, _ := body["vanity_subdomain"].(string)
+		json.NewEncoder(w).Encode(map[string]any{"vanity_subdomain": subdomain, "status": "active"})
+	})
+}
+
+// withRestMock registers PostgREST config mock handlers on mux.
+func withRestMock(mux *http.ServeMux) {
+	mux.HandleFunc("/v1/projects/test-ref/postgrest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		config := map[string]any{
+			"db_schema":            "public",
+			"db_extra_search_path": "public, extensions",
+			"max_rows":             1000,
+			"db_pool":              10,
+		}
+		if r.Method == http.MethodPatch {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			for k, v := range body {
+				config[k] = v
+			}
+		}
+		json.NewEncoder(w).Encode(config)
+	})
+}
+
+// withAnalyticsMock registers analytics endpoint mock handlers on mux.
+func withAnalyticsMock(mux *http.ServeMux) {
+	analyticsResponse := map[string]any{
+		"result": []map[string]any{
+			{"timestamp": "2026-03-16T00:00:00Z", "count": 42},
+		},
+	}
+
+	for _, endpoint := range []string{
+		"logs.all",
+		"usage.api-counts",
+		"usage.api-requests-count",
+		"functions.combined-stats",
+	} {
+		ep := endpoint // capture loop variable
+		mux.HandleFunc("/v1/projects/test-ref/analytics/endpoints/"+ep, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(analyticsResponse)
+		})
+	}
+}
+
+// withAdvisorsMock registers advisor mock handlers on mux.
+func withAdvisorsMock(mux *http.ServeMux) {
+	advisorData := []map[string]any{
+		{
+			"title":       "Missing index on foreign key",
+			"description": "Table 'orders' has a foreign key without an index",
+			"severity":    "WARN",
+		},
+	}
+
+	for _, advisorType := range []string{"performance", "security"} {
+		at := advisorType
+		mux.HandleFunc("/v1/projects/test-ref/advisors/"+at, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(advisorData)
+		})
+	}
+}
+
+// withBillingMock registers billing addon mock handlers on mux.
+func withBillingMock(mux *http.ServeMux) {
+	addonsData := []map[string]any{
+		{"variant": "compute_2x", "name": "2x Compute", "status": "active"},
+	}
+
+	// GET /v1/projects/test-ref/billing/addons — list addons
+	// PATCH /v1/projects/test-ref/billing/addons — apply addon
+	mux.HandleFunc("/v1/projects/test-ref/billing/addons", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			json.NewEncoder(w).Encode(map[string]string{"status": "applied"})
+			return
+		}
+		json.NewEncoder(w).Encode(addonsData)
+	})
+
+	// DELETE /v1/projects/test-ref/billing/addons/compute_2x — remove addon
+	mux.HandleFunc("/v1/projects/test-ref/billing/addons/compute_2x", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+	})
+}
+
+// withSnippetsMock registers SQL snippet mock handlers on mux.
+func withSnippetsMock(mux *http.ServeMux) {
+	snippetData := map[string]any{
+		"id":          "snippet-001",
+		"name":        "Get recent users",
+		"description": "Returns users created in the last 30 days",
+		"content":     "SELECT * FROM users WHERE created_at > NOW() - INTERVAL '30 days'",
+	}
+
+	// GET /v1/snippets — list snippets
+	mux.HandleFunc("/v1/snippets", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{snippetData})
+	})
+
+	// GET /v1/snippets/snippet-001 — get snippet
+	mux.HandleFunc("/v1/snippets/snippet-001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(snippetData)
+	})
+}
+
+// withActionsMock registers CI/CD action run mock handlers on mux.
+func withActionsMock(mux *http.ServeMux) {
+	actionData := map[string]any{
+		"id":     "run-abc123",
+		"status": "completed",
+		"type":   "deploy",
+	}
+
+	// GET /v1/projects/test-ref/actions — list actions
+	mux.HandleFunc("/v1/projects/test-ref/actions", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{actionData})
+	})
+
+	// GET /v1/projects/test-ref/actions/run-abc123 — get action
+	mux.HandleFunc("/v1/projects/test-ref/actions/run-abc123", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(actionData)
+	})
+
+	// GET /v1/projects/test-ref/actions/run-abc123/logs — action logs
+	mux.HandleFunc("/v1/projects/test-ref/actions/run-abc123/logs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"timestamp": "2026-03-16T00:00:00Z", "message": "Deploy started"},
+			{"timestamp": "2026-03-16T00:01:00Z", "message": "Deploy completed"},
+		})
+	})
+
+	// PATCH /v1/projects/test-ref/actions/run-abc123/status — update status
+	mux.HandleFunc("/v1/projects/test-ref/actions/run-abc123/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var body map[string]any
+		data, _ := io.ReadAll(r.Body)
+		json.Unmarshal(data, &body)
+		status, _ := body["status"].(string)
+		json.NewEncoder(w).Encode(map[string]string{"id": "run-abc123", "status": status})
+	})
+}
+
+// withEncryptionMock registers pgsodium encryption mock handlers on mux.
+func withEncryptionMock(mux *http.ServeMux) {
+	encryptionData := map[string]any{
+		"root_key": "some-root-key-id",
+		"enabled":  true,
+	}
+
+	mux.HandleFunc("/v1/projects/test-ref/pgsodium", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			var body map[string]any
+			data, _ := io.ReadAll(r.Body)
+			json.Unmarshal(data, &body)
+			for k, v := range body {
+				encryptionData[k] = v
+			}
+		}
+		json.NewEncoder(w).Encode(encryptionData)
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all Supabase Management API routes mocked.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -468,6 +820,16 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withKeysMock(mux)
 	withSecretsMock(mux)
 	withAuthMock(mux)
+	withDatabaseMock(mux)
+	withNetworkMock(mux)
+	withDomainsMock(mux)
+	withRestMock(mux)
+	withAnalyticsMock(mux)
+	withAdvisorsMock(mux)
+	withBillingMock(mux)
+	withSnippetsMock(mux)
+	withActionsMock(mux)
+	withEncryptionMock(mux)
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
