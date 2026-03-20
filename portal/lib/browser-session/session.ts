@@ -6,18 +6,52 @@ const SCREENSHOT_INTERVAL_MS = 80 // ~12 FPS for smoother experience
 const COOKIE_CHECK_INTERVAL_MS = 2000
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
-const INSTAGRAM_COOKIES = [
-  "sessionid",
-  "csrftoken",
-  "ds_user_id",
-  "mid",
-  "ig_did",
-]
+export interface ProviderSessionConfig {
+  loginUrl: string
+  cookieDomain: string
+  /** Cookie name that signals a successful login */
+  loginCookieName: string
+  /** All cookies to extract on successful login */
+  cookieNames: string[]
+  /** Maps browser cookie names to credential keys for storage */
+  cookieToCredKey: Record<string, string>
+}
+
+export const PROVIDER_CONFIGS: Record<string, ProviderSessionConfig> = {
+  instagram: {
+    loginUrl: "https://www.instagram.com/accounts/login/",
+    cookieDomain: "https://www.instagram.com",
+    loginCookieName: "sessionid",
+    cookieNames: ["sessionid", "csrftoken", "ds_user_id", "mid", "ig_did"],
+    cookieToCredKey: {
+      sessionid: "session_id",
+      csrftoken: "csrf_token",
+      ds_user_id: "ds_user_id",
+      mid: "mid",
+      ig_did: "ig_did",
+    },
+  },
+  linkedin: {
+    loginUrl: "https://www.linkedin.com/login",
+    cookieDomain: "https://www.linkedin.com",
+    loginCookieName: "li_at",
+    cookieNames: ["li_at", "JSESSIONID", "bcookie", "lidc", "li_mc"],
+    cookieToCredKey: {
+      li_at: "li_at",
+      JSESSIONID: "jsessionid",
+      bcookie: "bcookie",
+      lidc: "lidc",
+      li_mc: "li_mc",
+    },
+  },
+}
 
 export class BrowserSession {
   id: string
   userId: string
   label: string
+  provider: string
+  private config: ProviderSessionConfig
 
   private browser: Browser | null = null
   private page: Page | null = null
@@ -30,10 +64,16 @@ export class BrowserSession {
   private onCookies: ((cookies: Record<string, string>) => void) | null = null
   destroyed = false
 
-  constructor(id: string, userId: string, label: string) {
+  constructor(id: string, userId: string, label: string, provider: string) {
     this.id = id
     this.userId = userId
     this.label = label
+    this.provider = provider
+    const config = PROVIDER_CONFIGS[provider]
+    if (!config) {
+      throw new Error(`Unknown provider: ${provider}`)
+    }
+    this.config = config
   }
 
   setHandlers(handlers: {
@@ -52,16 +92,22 @@ export class BrowserSession {
     this.browser = await chromium.launch({
       headless: true,
       args: [
+        // Use Chrome's new headless mode — same rendering engine as headed,
+        // making it indistinguishable from a real browser. The old headless
+        // mode has a separate codepath that sites like LinkedIn fingerprint.
+        "--headless=new",
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
         "--disable-dev-shm-usage",
+        "--disable-infobars",
+        "--window-size=1280,720",
       ],
     })
 
     this.context = await this.browser.newContext({
       viewport: { width: 1280, height: 720 },
       userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
       locale: "en-US",
     })
 
@@ -71,7 +117,7 @@ export class BrowserSession {
     // Re-inject cursor after every navigation
     this.page.on("load", () => { this.injectCursor().catch(() => {}) })
 
-    await this.page.goto("https://www.instagram.com/accounts/login/", {
+    await this.page.goto(this.config.loginUrl, {
       waitUntil: "load",
     })
 
@@ -212,11 +258,11 @@ export class BrowserSession {
   private async checkCookies(): Promise<void> {
     if (this.destroyed || !this.context) return
     try {
-      const cookies = await this.context.cookies("https://www.instagram.com")
-      const sessionCookie = cookies.find(
-        (c) => c.name === "sessionid" && c.value !== ""
+      const cookies = await this.context.cookies(this.config.cookieDomain)
+      const loginCookie = cookies.find(
+        (c) => c.name === this.config.loginCookieName && c.value !== ""
       )
-      if (!sessionCookie) return
+      if (!loginCookie) return
 
       // Login detected — extract all relevant cookies
       this.onStatus?.("login_detected")
@@ -224,18 +270,10 @@ export class BrowserSession {
       this.cookieCheckInterval = null
 
       this.onStatus?.("extracting")
-      // Map Instagram cookie names to the keys the token bridge expects
-      const COOKIE_TO_CRED: Record<string, string> = {
-        sessionid: "session_id",
-        csrftoken: "csrf_token",
-        ds_user_id: "ds_user_id",
-        mid: "mid",
-        ig_did: "ig_did",
-      }
       const cookieMap: Record<string, string> = {}
-      for (const name of INSTAGRAM_COOKIES) {
+      for (const name of this.config.cookieNames) {
         const found = cookies.find((c) => c.name === name)
-        if (found) cookieMap[COOKIE_TO_CRED[name] ?? name] = found.value
+        if (found) cookieMap[this.config.cookieToCredKey[name] ?? name] = found.value
       }
 
       this.onCookies?.(cookieMap)

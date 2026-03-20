@@ -25,6 +25,13 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.csrf_token) env.INSTAGRAM_CSRF_TOKEN = credJson.csrf_token
       if (credJson.ds_user_id) env.INSTAGRAM_DS_USER_ID = credJson.ds_user_id
       break
+    case "linkedin":
+      if (credJson.li_at) env.LINKEDIN_LI_AT = credJson.li_at
+      if (credJson.jsessionid) env.LINKEDIN_JSESSIONID = credJson.jsessionid
+      if (credJson.bcookie) env.LINKEDIN_BCOOKIE = credJson.bcookie
+      if (credJson.lidc) env.LINKEDIN_LIDC = credJson.lidc
+      if (credJson.li_mc) env.LINKEDIN_LI_MC = credJson.li_mc
+      break
   }
   return env
 }

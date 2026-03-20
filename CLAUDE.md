@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, and Instagram. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, and LinkedIn. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -467,7 +467,145 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%)
+
+## Commands — LinkedIn
+```
+# Profile
+integrations linkedin profile get --public-id=SLUG [--json]
+integrations linkedin profile me [--json]
+
+# Connections
+integrations linkedin connections list [--limit=N] [--cursor=TOKEN] [--sort=RECENTLY_ADDED|LAST_NAME|FIRST_NAME] [--json]
+integrations linkedin connections get --urn=URN [--json]
+integrations linkedin connections remove --urn=URN [--confirm] [--dry-run] [--json]
+
+# Invitations
+integrations linkedin invitations list [--direction=received|sent] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin invitations send --urn=URN [--message=TEXT] [--dry-run] [--json]
+integrations linkedin invitations accept --invitation-id=ID [--dry-run] [--json]
+integrations linkedin invitations reject --invitation-id=ID [--dry-run] [--json]
+integrations linkedin invitations withdraw --invitation-id=ID [--dry-run] [--json]
+
+# Posts
+integrations linkedin posts list [--username=USERNAME] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin posts get --post-urn=URN [--json]
+integrations linkedin posts create --text=TEXT [--visibility=public|connections] [--dry-run] [--json]
+integrations linkedin posts delete --post-urn=URN [--confirm] [--dry-run] [--json]
+integrations linkedin posts reactions --post-urn=URN [--limit=N] [--json]
+integrations linkedin posts react --post-urn=URN --type=LIKE|CELEBRATE|SUPPORT|LOVE|INSIGHTFUL|FUNNY [--dry-run] [--json]
+
+# Comments
+integrations linkedin comments list --post-urn=URN [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin comments create --post-urn=URN --text=TEXT [--reply-to=COMMENT_URN] [--dry-run] [--json]
+integrations linkedin comments delete --comment-urn=URN [--confirm] [--dry-run] [--json]
+integrations linkedin comments like --comment-urn=URN [--dry-run] [--json]
+integrations linkedin comments unlike --comment-urn=URN [--dry-run] [--json]
+
+# Messages
+integrations linkedin messages conversations [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin messages list --conversation-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin messages send --conversation-id=ID --text=TEXT [--dry-run] [--json]
+integrations linkedin messages new --recipients=URN,URN --text=TEXT [--subject=TEXT] [--dry-run] [--json]
+integrations linkedin messages delete --conversation-id=ID [--confirm] [--dry-run] [--json]
+integrations linkedin messages mark-read --conversation-id=ID [--dry-run] [--json]
+
+# Feed
+integrations linkedin feed list [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin feed hashtag --tag=TAG [--limit=N] [--cursor=TOKEN] [--json]
+
+# Companies
+integrations linkedin companies get --company-id=ID [--json]
+integrations linkedin companies search --query=Q [--limit=N] [--json]
+integrations linkedin companies employees --company-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin companies follow --company-id=ID [--dry-run] [--json]
+integrations linkedin companies unfollow --company-id=ID [--dry-run] [--json]
+integrations linkedin companies jobs --company-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+
+# Jobs
+integrations linkedin jobs search --query=Q [--location=TEXT] [--experience=ENTRY|ASSOCIATE|MID_SENIOR|DIRECTOR|EXECUTIVE] [--type=FULL_TIME|PART_TIME|CONTRACT|TEMPORARY|INTERNSHIP] [--remote=ON_SITE|REMOTE|HYBRID] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin jobs get --job-id=ID [--json]
+integrations linkedin jobs save --job-id=ID [--dry-run] [--json]
+integrations linkedin jobs unsave --job-id=ID [--dry-run] [--json]
+integrations linkedin jobs saved [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin jobs recommended [--limit=N] [--cursor=TOKEN] [--json]
+
+# Search
+integrations linkedin search people --query=Q [--network=F|S|O] [--company=ID] [--location=TEXT] [--title=TEXT] [--industry=TEXT] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin search companies --query=Q [--industry=TEXT] [--size=RANGE] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin search jobs --query=Q [--location=TEXT] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin search posts --query=Q [--author=URN] [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin search groups --query=Q [--limit=N] [--cursor=TOKEN] [--json]
+
+# Groups
+integrations linkedin groups list [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin groups get --group-id=ID [--json]
+integrations linkedin groups members --group-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin groups posts --group-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin groups join --group-id=ID [--dry-run] [--json]
+integrations linkedin groups leave --group-id=ID [--confirm] [--dry-run] [--json]
+
+# Notifications
+integrations linkedin notifications list [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin notifications mark-read [--dry-run] [--json]
+
+# Network
+integrations linkedin network followers [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin network following [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin network follow --urn=URN [--dry-run] [--json]
+integrations linkedin network unfollow --urn=URN [--dry-run] [--json]
+integrations linkedin network suggestions [--limit=N] [--json]
+
+# Skills
+integrations linkedin skills list [--username=USERNAME] [--json]
+integrations linkedin skills endorse --urn=URN --skill-id=ID [--dry-run] [--json]
+integrations linkedin skills endorsements --skill-id=ID [--limit=N] [--json]
+
+# Analytics
+integrations linkedin analytics profile-views [--json]
+integrations linkedin analytics search-appearances [--json]
+integrations linkedin analytics post-impressions --post-urn=URN [--json]
+
+# Events
+integrations linkedin events list [--limit=N] [--cursor=TOKEN] [--json]
+integrations linkedin events get --event-id=ID [--json]
+integrations linkedin events attend --event-id=ID [--dry-run] [--json]
+integrations linkedin events unattend --event-id=ID [--dry-run] [--json]
+
+# Settings
+integrations linkedin settings get [--json]
+integrations linkedin settings privacy [--json]
+integrations linkedin settings visibility --field=FIELD --value=VALUE [--dry-run] [--json]
+```
+
+`linkedin` has alias `li`. `connections` has alias `conn`. `invitations` has alias `invite`. `posts` has alias `post`. `comments` has alias `comment`. `messages` has alias `msg`. `companies` has aliases `company`, `org`. `jobs` has alias `job`. `search` has alias `find`. `groups` has alias `group`. `notifications` has alias `notif`. `events` has alias `event`. `skills` has alias `skill`. `settings` has alias `setting`. `profile` has alias `prof`.
+
+## Architecture — LinkedIn Package Layout
+```
+internal/providers/linkedin/
+  linkedin.go           # Provider struct, RegisterCommands (17 resource subcommand groups)
+  client.go             # HTTP client: Voyager API (www.linkedin.com), CSRF rotation, rate limit detection
+  helpers.go            # Shared types (ProfileSummary, PostSummary, JobSummary, etc.) and helpers
+  profile.go            # profile get, me (Voyager API)
+  connections.go        # connections list, get, remove
+  invitations.go        # invitations list, send, accept, reject, withdraw
+  posts.go              # posts list, get, create, delete, reactions, react
+  comments.go           # comments list, create, delete, like, unlike
+  messages.go           # messages conversations, list, send, new, delete, mark-read
+  feed.go               # feed list, hashtag
+  companies.go          # companies get, search, employees, follow, unfollow, jobs
+  jobs.go               # jobs search, get, save, unsave, saved, recommended
+  search.go             # search people, companies, jobs, posts, groups
+  groups.go             # groups list, get, members, posts, join, leave
+  notifications.go      # notifications list, mark-read
+  network.go            # network followers, following, follow, unfollow, suggestions
+  skills.go             # skills list, endorse, endorsements
+  analytics.go          # analytics profile-views, search-appearances, post-impressions
+  events.go             # events list, get, attend, unattend
+  settings.go           # settings get, privacy, visibility
+  *_test.go             # Tests for each command file + helpers + provider
+  mock_server_test.go   # httptest mock server helpers for all endpoints
+```
 
 ## Web Portal (Next.js 15 + Supabase)
 
@@ -583,6 +721,11 @@ INSTAGRAM_DS_USER_ID       # ds_user_id cookie (required)
 INSTAGRAM_MID              # mid cookie (optional, reduces challenges)
 INSTAGRAM_IG_DID           # ig_did cookie (optional, reduces challenges)
 INSTAGRAM_USER_AGENT       # User-Agent override (optional)
+
+# LinkedIn (cookie-based session auth via Voyager API)
+LINKEDIN_LI_AT            # li_at cookie (required)
+LINKEDIN_JSESSIONID       # JSESSIONID cookie (required, also used as CSRF token)
+LINKEDIN_USER_AGENT       # User-Agent override (optional)
 
 # GitHub
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET

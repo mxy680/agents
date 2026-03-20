@@ -3,7 +3,7 @@ import { BrowserSession } from "./session"
 const sessions = new Map<string, BrowserSession>()
 const userSessions = new Map<string, string>() // userId -> sessionId
 
-export function createSession(userId: string, label: string): BrowserSession {
+export function createSession(userId: string, label: string, provider: string): BrowserSession {
   // Destroy any existing session for this user
   const existingId = userSessions.get(userId)
   if (existingId) {
@@ -16,7 +16,7 @@ export function createSession(userId: string, label: string): BrowserSession {
   }
 
   const id = crypto.randomUUID()
-  const session = new BrowserSession(id, userId, label)
+  const session = new BrowserSession(id, userId, label, provider)
   sessions.set(id, session)
   userSessions.set(userId, id)
   return session

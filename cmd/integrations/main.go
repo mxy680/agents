@@ -9,6 +9,7 @@ import (
 	githubprovider "github.com/emdash-projects/agents/internal/providers/github"
 	"github.com/emdash-projects/agents/internal/providers/gmail"
 	"github.com/emdash-projects/agents/internal/providers/instagram"
+	"github.com/emdash-projects/agents/internal/providers/linkedin"
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 )
 
@@ -31,6 +32,9 @@ func main() {
 
 	githubProvider := githubprovider.New()
 	githubProvider.RegisterCommands(cli.RootCmd())
+
+	linkedinProvider := linkedin.New()
+	linkedinProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

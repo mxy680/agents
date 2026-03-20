@@ -74,6 +74,14 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"mid":        "INSTAGRAM_MID",
 			"ig_did":     "INSTAGRAM_IG_DID",
 		})
+	case "linkedin":
+		mapCredentials(creds, env, map[string]string{
+			"li_at":      "LINKEDIN_LI_AT",
+			"jsessionid": "LINKEDIN_JSESSIONID",
+			"bcookie":    "LINKEDIN_BCOOKIE",
+			"lidc":       "LINKEDIN_LIDC",
+			"li_mc":      "LINKEDIN_LI_MC",
+		})
 	}
 	return nil
 }
