@@ -68,13 +68,12 @@ export class BrowserSession {
     this.page = await this.context.newPage()
     await applyStealthScripts(this.page)
 
-    await this.page.goto("https://www.instagram.com/accounts/login/", {
-      waitUntil: "domcontentloaded",
-    })
-
-    // Inject cursor after initial load and re-inject on every navigation
-    await this.injectCursor()
+    // Re-inject cursor after every navigation
     this.page.on("load", () => { this.injectCursor().catch(() => {}) })
+
+    await this.page.goto("https://www.instagram.com/accounts/login/", {
+      waitUntil: "load",
+    })
 
     this.onStatus?.("ready")
 
