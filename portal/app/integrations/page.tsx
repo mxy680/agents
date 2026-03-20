@@ -19,12 +19,14 @@ import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
 import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
 import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
+import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
   IconBrandGithub,
   IconBrandInstagram,
   IconBrandLinkedin,
+  IconLayout,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -52,6 +54,12 @@ const providers = [
     name: "LinkedIn",
     description: "Posts, Connections, Messages, Jobs",
     icon: IconBrandLinkedin,
+  },
+  {
+    id: "framer",
+    name: "Framer",
+    description: "Pages, Collections, Styles, Deployments",
+    icon: IconLayout,
   },
 ]
 
@@ -159,6 +167,15 @@ export default async function IntegrationsPage() {
                             : "Connect"}
                         </Button>
                       </LinkedinConnectDialog>
+                    ) : provider.id === "framer" ? (
+                      <FramerConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </FramerConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

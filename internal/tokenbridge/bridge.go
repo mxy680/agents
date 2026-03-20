@@ -82,6 +82,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"lidc":       "LINKEDIN_LIDC",
 			"li_mc":      "LINKEDIN_LI_MC",
 		})
+	case "framer":
+		mapCredentials(creds, env, map[string]string{
+			"api_key":     "FRAMER_API_KEY",
+			"project_url": "FRAMER_PROJECT_URL",
+		})
 	}
 	return nil
 }
