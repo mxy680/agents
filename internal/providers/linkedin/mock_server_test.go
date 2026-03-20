@@ -69,6 +69,7 @@ func containsStr(s, sub string) bool {
 // withProfileMock registers profile-related mock handlers on mux.
 func withProfileMock(mux *http.ServeMux) {
 	// GET /voyager/api/identity/profiles/{publicId}[/skills|/skillEndorsements/...]
+	// These sub-paths are still used by skills commands and are kept as-is.
 	mux.HandleFunc("/voyager/api/identity/profiles/", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/voyager/api/identity/profiles/")
 
@@ -114,54 +115,61 @@ func withProfileMock(mux *http.ServeMux) {
 			return
 		}
 
-		publicID := strings.TrimSuffix(path, "/")
-		if publicID == "" {
-			http.Error(w, `{"message":"missing publicId"}`, http.StatusBadRequest)
-			return
-		}
+		// Unknown sub-path — 404
+		http.Error(w, `{"message":"not found"}`, http.StatusNotFound)
+	})
 
+	// GET /voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity={slug}
+	// This is the current (non-deprecated) profile lookup endpoint.
+	mux.HandleFunc("/voyager/api/identity/dash/profiles", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
-			"profile": {
-				"entityUrn": "urn:li:fs_profile:ACoAABtest123",
-				"firstName": "Test",
-				"lastName": "User",
-				"headline": "Software Engineer at TestCorp",
-				"summary": "A test user profile.",
-				"locationName": "San Francisco, CA",
-				"industryName": "Computer Software",
-				"profilePicture": {
-					"displayImageReference": {
-						"vectorImage": {
-							"rootUrl": "https://example.com/pic/",
-							"artifacts": [{"fileIdentifyingUrlPathSegment": "200x200.jpg"}]
-						}
-					}
-				}
+			"data": {
+				"entityUrn": "urn:li:fsd_profileList:ACoAABtest123",
+				"$type": "com.linkedin.restli.common.CollectionResponse"
 			},
-			"connectionCount": 500,
-			"followerCount": 1200
+			"included": [
+				{
+					"$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+					"entityUrn": "urn:li:fsd_profile:ACoAABtest123",
+					"firstName": "Test",
+					"lastName": "User",
+					"headline": "Software Engineer at TestCorp",
+					"summary": "A test user profile.",
+					"geoLocationName": "San Francisco, CA",
+					"publicIdentifier": "testuser"
+				}
+			]
 		}`))
 	})
 
-	// GET /voyager/api/me (current user profile)
+	// GET /voyager/api/me (current user profile) — returns normalized response.
 	mux.HandleFunc("/voyager/api/me", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
-			"miniProfile": {
-				"entityUrn": "urn:li:fs_miniProfile:ACoAABtest123",
-				"firstName": "Mark",
-				"lastName": "Test",
-				"occupation": "Software Engineer",
-				"publicIdentifier": "marktest"
-			}
+			"data": {
+				"plainId": 123,
+				"*miniProfile": "urn:li:fs_miniProfile:ACoAABtest123",
+				"$type": "com.linkedin.voyager.common.Me"
+			},
+			"included": [
+				{
+					"$type": "com.linkedin.voyager.identity.shared.MiniProfile",
+					"entityUrn": "urn:li:fs_miniProfile:ACoAABtest123",
+					"firstName": "Mark",
+					"lastName": "Test",
+					"occupation": "Software Engineer",
+					"publicIdentifier": "marktest"
+				}
+			]
 		}`))
 	})
 }
 
 // withConnectionsMock registers connections-related mock handlers on mux.
 func withConnectionsMock(mux *http.ServeMux) {
-	// GET /voyager/api/relationships/dash/connections
+	// GET /voyager/api/relationships/dash/connections — returns normalized response.
+	// POST /voyager/api/relationships/dash/connections — remove connection action.
 	mux.HandleFunc("/voyager/api/relationships/dash/connections", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			// Remove connection action
@@ -172,31 +180,25 @@ func withConnectionsMock(mux *http.ServeMux) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
-			"elements": [
+			"data": {
+				"entityUrn": "urn:li:fsd_connectionList:ACoAABtest123",
+				"paging": {"count": 2, "start": 0},
+				"$type": "com.linkedin.restli.common.CollectionResponse"
+			},
+			"included": [
 				{
-					"connectedMember": "urn:li:fs_miniProfile:ACoAAConn1",
-					"connectedMemberResolved": {
-						"entityUrn": "urn:li:fs_miniProfile:ACoAAConn1",
-						"firstName": "Alice",
-						"lastName": "Smith",
-						"occupation": "Product Manager at Acme",
-						"publicIdentifier": "alice-smith"
-					},
+					"$type": "com.linkedin.voyager.dash.relationships.Connection",
+					"entityUrn": "urn:li:fsd_connection:ACoAAConn1",
+					"connectedMember": "urn:li:fsd_profile:ACoAAConn1",
 					"createdAt": 1704067200000
 				},
 				{
-					"connectedMember": "urn:li:fs_miniProfile:ACoAAConn2",
-					"connectedMemberResolved": {
-						"entityUrn": "urn:li:fs_miniProfile:ACoAAConn2",
-						"firstName": "Bob",
-						"lastName": "Jones",
-						"occupation": "Engineer at Widgets Inc",
-						"publicIdentifier": "bob-jones"
-					},
+					"$type": "com.linkedin.voyager.dash.relationships.Connection",
+					"entityUrn": "urn:li:fsd_connection:ACoAAConn2",
+					"connectedMember": "urn:li:fsd_profile:ACoAAConn2",
 					"createdAt": 1703980800000
 				}
-			],
-			"paging": {"start": 0, "count": 10, "total": 2}
+			]
 		}`))
 	})
 }

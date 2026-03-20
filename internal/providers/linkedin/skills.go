@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -112,21 +113,26 @@ func makeRunSkillsList(factory ClientFactory) func(*cobra.Command, []string) err
 			return err
 		}
 
-		// If no username provided, fetch the current user's public identifier.
+		// If no username provided, fetch the current user's public identifier
+		// from the normalized /voyager/api/me response.
 		if username == "" {
 			meResp, err := client.Get(ctx, "/voyager/api/me", nil)
 			if err != nil {
 				return fmt.Errorf("getting current user: %w", err)
 			}
-			var me struct {
-				MiniProfile struct {
-					PublicIdentifier string `json:"publicIdentifier"`
-				} `json:"miniProfile"`
-			}
-			if err := client.DecodeJSON(meResp, &me); err != nil {
+			var normalized NormalizedResponse
+			if err := client.DecodeJSON(meResp, &normalized); err != nil {
 				return fmt.Errorf("decoding current user: %w", err)
 			}
-			username = me.MiniProfile.PublicIdentifier
+			raw := FindIncluded(normalized.Included, "MiniProfile")
+			if raw == nil {
+				return fmt.Errorf("miniProfile not found in /me response")
+			}
+			var mp miniProfileEntity
+			if err := json.Unmarshal(raw, &mp); err != nil {
+				return fmt.Errorf("parsing miniProfile: %w", err)
+			}
+			username = mp.PublicIdentifier
 		}
 
 		path := "/voyager/api/identity/profiles/" + url.PathEscape(username) + "/skills"
@@ -195,21 +201,26 @@ func makeRunSkillsEndorsements(factory ClientFactory) func(*cobra.Command, []str
 			return err
 		}
 
-		// If no username provided, fetch the current user's public identifier.
+		// If no username provided, fetch the current user's public identifier
+		// from the normalized /voyager/api/me response.
 		if username == "" {
 			meResp, err := client.Get(ctx, "/voyager/api/me", nil)
 			if err != nil {
 				return fmt.Errorf("getting current user: %w", err)
 			}
-			var me struct {
-				MiniProfile struct {
-					PublicIdentifier string `json:"publicIdentifier"`
-				} `json:"miniProfile"`
-			}
-			if err := client.DecodeJSON(meResp, &me); err != nil {
+			var normalized NormalizedResponse
+			if err := client.DecodeJSON(meResp, &normalized); err != nil {
 				return fmt.Errorf("decoding current user: %w", err)
 			}
-			username = me.MiniProfile.PublicIdentifier
+			raw := FindIncluded(normalized.Included, "MiniProfile")
+			if raw == nil {
+				return fmt.Errorf("miniProfile not found in /me response")
+			}
+			var mp miniProfileEntity
+			if err := json.Unmarshal(raw, &mp); err != nil {
+				return fmt.Errorf("parsing miniProfile: %w", err)
+			}
+			username = mp.PublicIdentifier
 		}
 
 		path := "/voyager/api/identity/profiles/" + url.PathEscape(username) + "/skillEndorsements/" + url.PathEscape(skillID)

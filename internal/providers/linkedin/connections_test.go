@@ -18,14 +18,13 @@ func TestConnectionsList_Text(t *testing.T) {
 		root.Execute() //nolint:errcheck
 	})
 
-	if !containsStr(out, "Alice") {
-		t.Errorf("expected 'Alice' in output, got: %s", out)
+	// The normalized connections response only includes URNs — profile names
+	// require a separate API call which connections list does not make.
+	if !containsStr(out, "urn:li:fsd_profile:ACoAAConn1") {
+		t.Errorf("expected connection URN in output, got: %s", out)
 	}
-	if !containsStr(out, "Smith") {
-		t.Errorf("expected 'Smith' in output, got: %s", out)
-	}
-	if !containsStr(out, "Bob") {
-		t.Errorf("expected 'Bob' in output, got: %s", out)
+	if !containsStr(out, "urn:li:fsd_profile:ACoAAConn2") {
+		t.Errorf("expected second connection URN in output, got: %s", out)
 	}
 }
 
@@ -41,14 +40,11 @@ func TestConnectionsList_JSON(t *testing.T) {
 		root.Execute() //nolint:errcheck
 	})
 
-	if !containsStr(out, `"first_name"`) {
-		t.Errorf("expected JSON field 'first_name' in output, got: %s", out)
+	if !containsStr(out, `"urn"`) {
+		t.Errorf("expected JSON field 'urn' in output, got: %s", out)
 	}
-	if !containsStr(out, "Alice") {
-		t.Errorf("expected 'Alice' in JSON output, got: %s", out)
-	}
-	if !containsStr(out, "alice-smith") {
-		t.Errorf("expected 'alice-smith' public_id in JSON output, got: %s", out)
+	if !containsStr(out, "ACoAAConn1") {
+		t.Errorf("expected connection URN in JSON output, got: %s", out)
 	}
 }
 
@@ -64,8 +60,8 @@ func TestConnectionsList_WithAlias(t *testing.T) {
 		root.Execute() //nolint:errcheck
 	})
 
-	if !containsStr(out, "Alice") {
-		t.Errorf("expected 'Alice' in output via alias, got: %s", out)
+	if !containsStr(out, "ACoAAConn1") {
+		t.Errorf("expected connection URN in output via alias, got: %s", out)
 	}
 }
 
@@ -202,11 +198,11 @@ func TestConnectionsRemove_JSON(t *testing.T) {
 	}
 }
 
-// newEmptyConnectionsServer creates a test server that returns an empty connections list.
+// newEmptyConnectionsServer creates a test server that returns an empty normalized connections response.
 func newEmptyConnectionsServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"elements":[],"paging":{"start":0,"count":10,"total":0}}`))
+		w.Write([]byte(`{"data":{"paging":{"count":0,"start":0},"$type":"com.linkedin.restli.common.CollectionResponse"},"included":[]}`))
 	}))
 }

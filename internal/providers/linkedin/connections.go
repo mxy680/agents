@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -8,24 +9,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// voyagerConnectionsResponse is the response envelope for GET /voyager/api/relationships/dash/connections.
-type voyagerConnectionsResponse struct {
-	Elements []struct {
-		ConnectedMember         string `json:"connectedMember"`
-		ConnectedMemberResolved struct {
-			EntityURN       string `json:"entityUrn"`
-			FirstName       string `json:"firstName"`
-			LastName        string `json:"lastName"`
-			Occupation      string `json:"occupation"`
-			PublicIdentifier string `json:"publicIdentifier"`
-		} `json:"connectedMemberResolved"`
-		CreatedAt int64 `json:"createdAt"`
-	} `json:"elements"`
-	Paging struct {
-		Start int `json:"start"`
-		Count int `json:"count"`
-		Total int `json:"total"`
-	} `json:"paging"`
+// connectionEntity represents a Connection entity found in the included array
+// of a normalized /voyager/api/relationships/dash/connections response.
+// LinkedIn does not include resolved profile data in this response — only the
+// connectedMember URN reference is present.
+type connectionEntity struct {
+	EntityURN       string `json:"entityUrn"`
+	ConnectedMember string `json:"connectedMember"`
+	CreatedAt       int64  `json:"createdAt"`
 }
 
 // newConnectionsCmd builds the "connections" subcommand group.
@@ -111,20 +102,21 @@ func makeRunConnectionsList(factory ClientFactory) func(*cobra.Command, []string
 			return fmt.Errorf("listing connections: %w", err)
 		}
 
-		var raw voyagerConnectionsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding connections: %w", err)
 		}
 
-		summaries := make([]ConnectionSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
+		entities := FindAllIncluded(normalized.Included, "Connection")
+		summaries := make([]ConnectionSummary, 0, len(entities))
+		for _, raw := range entities {
+			var conn connectionEntity
+			if err := json.Unmarshal(raw, &conn); err != nil {
+				continue
+			}
 			summaries = append(summaries, ConnectionSummary{
-				URN:       el.ConnectedMember,
-				PublicID:  el.ConnectedMemberResolved.PublicIdentifier,
-				FirstName: el.ConnectedMemberResolved.FirstName,
-				LastName:  el.ConnectedMemberResolved.LastName,
-				Headline:  el.ConnectedMemberResolved.Occupation,
-				CreatedAt: el.CreatedAt,
+				URN:       conn.ConnectedMember,
+				CreatedAt: conn.CreatedAt,
 			})
 		}
 
@@ -148,37 +140,42 @@ func makeRunConnectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		path := "/voyager/api/identity/profiles/" + url.PathEscape(urn)
-		resp, err := client.Get(ctx, path, nil)
+		params := url.Values{
+			"q":              {"memberIdentity"},
+			"memberIdentity": {urn},
+		}
+		resp, err := client.Get(ctx, "/voyager/api/identity/dash/profiles", params)
 		if err != nil {
 			return fmt.Errorf("getting connection profile %s: %w", urn, err)
 		}
 
-		var raw voyagerProfileResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding connection profile: %w", err)
 		}
 
-		picURL := ""
-		if raw.Profile.ProfilePicture != nil {
-			vi := raw.Profile.ProfilePicture.DisplayImageReference.VectorImage
-			if len(vi.Artifacts) > 0 {
-				picURL = vi.RootURL + vi.Artifacts[0].FileIdentifyingURLPathSegment
-			}
+		rawEntity := FindIncluded(normalized.Included, "Profile")
+		if rawEntity == nil {
+			return fmt.Errorf("profile not found for %s", urn)
 		}
 
+		var entity dashProfileEntity
+		if err := json.Unmarshal(rawEntity, &entity); err != nil {
+			return fmt.Errorf("parsing connection profile entity: %w", err)
+		}
+
+		publicID := entity.PublicIdentifier
+		if publicID == "" {
+			publicID = urn
+		}
 		detail := ProfileDetail{
-			URN:             raw.Profile.EntityURN,
-			PublicID:        urn,
-			FirstName:       raw.Profile.FirstName,
-			LastName:        raw.Profile.LastName,
-			Headline:        raw.Profile.Headline,
-			Summary:         raw.Profile.Summary,
-			Location:        raw.Profile.LocationName,
-			Industry:        raw.Profile.IndustryName,
-			ProfilePicURL:   picURL,
-			ConnectionCount: raw.ConnectionCount,
-			FollowerCount:   raw.FollowerCount,
+			URN:       entity.EntityURN,
+			PublicID:  publicID,
+			FirstName: entity.FirstName,
+			LastName:  entity.LastName,
+			Headline:  entity.Headline,
+			Summary:   entity.Summary,
+			Location:  entity.GeoLocationName,
 		}
 		return printProfileDetail(cmd, detail)
 	}
@@ -237,12 +234,10 @@ func printConnectionSummaries(cmd *cobra.Command, connections []ConnectionSummar
 		return nil
 	}
 	lines := make([]string, 0, len(connections)+1)
-	lines = append(lines, fmt.Sprintf("%-20s  %-20s  %-40s  %-16s", "FIRST NAME", "LAST NAME", "HEADLINE", "CONNECTED"))
+	lines = append(lines, fmt.Sprintf("%-60s  %-16s", "URN", "CONNECTED"))
 	for _, c := range connections {
-		lines = append(lines, fmt.Sprintf("%-20s  %-20s  %-40s  %-16s",
-			truncate(c.FirstName, 20),
-			truncate(c.LastName, 20),
-			truncate(c.Headline, 40),
+		lines = append(lines, fmt.Sprintf("%-60s  %-16s",
+			truncate(c.URN, 60),
 			formatTimestamp(c.CreatedAt),
 		))
 	}

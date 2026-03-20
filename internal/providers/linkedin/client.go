@@ -289,6 +289,47 @@ func (c *Client) handleError(resp *http.Response) error {
 	return fmt.Errorf("linkedin API error (http=%d): no details available", resp.StatusCode)
 }
 
+// NormalizedResponse is LinkedIn's standard Voyager API response envelope.
+// Data contains the primary result entity; Included contains resolved side entities.
+type NormalizedResponse struct {
+	Data     json.RawMessage   `json:"data"`
+	Included []json.RawMessage `json:"included"`
+}
+
+// FindIncluded searches the included array for the first entity whose $type
+// field contains typePrefix (by prefix or substring match).
+// Returns the raw JSON of the first match, or nil if not found.
+func FindIncluded(included []json.RawMessage, typePrefix string) json.RawMessage {
+	for _, raw := range included {
+		var meta struct {
+			Type string `json:"$type"`
+		}
+		if err := json.Unmarshal(raw, &meta); err == nil {
+			if strings.HasPrefix(meta.Type, typePrefix) || strings.Contains(meta.Type, typePrefix) {
+				return raw
+			}
+		}
+	}
+	return nil
+}
+
+// FindAllIncluded returns all entities in the included array whose $type field
+// contains typePrefix (by prefix or substring match).
+func FindAllIncluded(included []json.RawMessage, typePrefix string) []json.RawMessage {
+	var results []json.RawMessage
+	for _, raw := range included {
+		var meta struct {
+			Type string `json:"$type"`
+		}
+		if err := json.Unmarshal(raw, &meta); err == nil {
+			if strings.HasPrefix(meta.Type, typePrefix) || strings.Contains(meta.Type, typePrefix) {
+				results = append(results, raw)
+			}
+		}
+	}
+	return results
+}
+
 // parseRateLimitError builds a RateLimitError from a 429 response.
 func parseRateLimitError(resp *http.Response) *RateLimitError {
 	io.Copy(io.Discard, resp.Body) //nolint:errcheck
