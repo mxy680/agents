@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -152,8 +152,11 @@ function ConversationItem({
   )
 }
 
-export function ChatSidebar({ agentName, conversations: initialConversations, activeId }: Props) {
+export function ChatSidebar({ agentName, conversations: initialConversations, activeId: activeIdProp }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  // Derive activeId from URL if not passed as prop
+  const activeId = activeIdProp ?? pathname?.split("/").pop()
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
 
   // Rename state
