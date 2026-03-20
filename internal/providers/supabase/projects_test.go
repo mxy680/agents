@@ -308,7 +308,7 @@ func TestProjectsRegions(t *testing.T) {
 		p.RegisterCommands(root)
 
 		output := captureStdout(t, func() {
-			root.SetArgs([]string{"supabase", "projects", "regions"})
+			root.SetArgs([]string{"supabase", "projects", "regions", "--org-slug=test-org"})
 			_ = root.Execute()
 		})
 		mustContain(t, output, "us-east-1")
@@ -322,10 +322,9 @@ func TestProjectsRegions(t *testing.T) {
 		p.RegisterCommands(root)
 
 		output := captureStdout(t, func() {
-			root.SetArgs([]string{"supabase", "projects", "regions", "--json"})
+			root.SetArgs([]string{"supabase", "projects", "regions", "--org-slug=test-org", "--json"})
 			_ = root.Execute()
 		})
-		mustContain(t, output, `"regions"`)
 		mustContain(t, output, "us-east-1")
 	})
 }

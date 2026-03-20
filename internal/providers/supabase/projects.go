@@ -414,7 +414,7 @@ func makeRunProjectsHealth(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		raw, err := doSupabase(client, http.MethodGet, "/projects/"+ref+"/health", nil)
+		raw, err := doSupabase(client, http.MethodGet, "/projects/"+ref+"/health?services=auth,rest,realtime,storage,db", nil)
 		if err != nil {
 			return fmt.Errorf("getting health for project %q: %w", ref, err)
 		}
@@ -446,22 +446,27 @@ func makeRunProjectsHealth(factory ClientFactory) func(*cobra.Command, []string)
 }
 
 func newProjectsRegionsCmd(factory ClientFactory) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "regions",
 		Short: "List available regions",
 		RunE:  makeRunProjectsRegions(factory),
 	}
+	cmd.Flags().String("org-slug", "", "Organization slug (required)")
+	_ = cmd.MarkFlagRequired("org-slug")
+	return cmd
 }
 
 func makeRunProjectsRegions(factory ClientFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
+		orgSlug, _ := cmd.Flags().GetString("org-slug")
+
 		ctx := cmd.Context()
 		client, err := factory(ctx)
 		if err != nil {
 			return err
 		}
 
-		raw, err := doSupabase(client, http.MethodGet, "/projects/available-regions", nil)
+		raw, err := doSupabase(client, http.MethodGet, "/projects/available-regions?organization_slug="+orgSlug, nil)
 		if err != nil {
 			return fmt.Errorf("listing available regions: %w", err)
 		}
@@ -475,21 +480,23 @@ func makeRunProjectsRegions(factory ClientFactory) func(*cobra.Command, []string
 			return cli.PrintJSON(data)
 		}
 
-		regions, _ := data["regions"].([]any)
-		if len(regions) == 0 {
+		allGroup, _ := data["all"].(map[string]any)
+		specific, _ := allGroup["specific"].([]any)
+		if len(specific) == 0 {
 			fmt.Println("No regions available.")
 			return nil
 		}
-		lines := make([]string, 0, len(regions)+1)
-		lines = append(lines, fmt.Sprintf("%-20s  %s", "KEY", "DISPLAY NAME"))
-		for _, r := range regions {
+		lines := make([]string, 0, len(specific)+1)
+		lines = append(lines, fmt.Sprintf("%-20s  %-40s  %s", "CODE", "NAME", "PROVIDER"))
+		for _, r := range specific {
 			region, ok := r.(map[string]any)
 			if !ok {
 				continue
 			}
-			key, _ := region["key"].(string)
-			displayName, _ := region["displayName"].(string)
-			lines = append(lines, fmt.Sprintf("%-20s  %s", key, displayName))
+			code, _ := region["code"].(string)
+			name, _ := region["name"].(string)
+			provider, _ := region["provider"].(string)
+			lines = append(lines, fmt.Sprintf("%-20s  %-40s  %s", code, name, provider))
 		}
 		cli.PrintText(lines)
 		return nil

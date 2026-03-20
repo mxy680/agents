@@ -107,14 +107,16 @@ func withProjectsMock(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode(resp)
 	})
 
-	// GET /v1/projects/available-regions
+	// GET /v1/projects/available-regions?organization_slug=...
 	mux.HandleFunc("/v1/projects/available-regions", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		resp := map[string]any{
-			"regions": []map[string]any{
-				{"key": "us-east-1", "displayName": "US East (N. Virginia)"},
-				{"key": "us-west-2", "displayName": "US West (Oregon)"},
-				{"key": "eu-central-1", "displayName": "EU Central (Frankfurt)"},
+			"all": map[string]any{
+				"specific": []map[string]any{
+					{"code": "us-east-1", "name": "East US (North Virginia)", "type": "specific", "provider": "AWS"},
+					{"code": "us-west-2", "name": "West US (Oregon)", "type": "specific", "provider": "AWS"},
+					{"code": "eu-central-1", "name": "Central EU (Frankfurt)", "type": "specific", "provider": "AWS"},
+				},
 			},
 		}
 		json.NewEncoder(w).Encode(resp)
