@@ -1,8 +1,10 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -200,16 +202,44 @@ func makeRunPostsList(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
+		// Resolve the profile ID to a fsd_profile URN.
+		// The posts endpoint requires fsd_profile, not fs_miniProfile.
+		profileURN := ""
+		if username != "" {
+			// Use the provided username directly as the fsd_profile ID.
+			profileURN = "urn:li:fsd_profile:" + username
+		} else {
+			// Fetch the current user's miniProfile URN from /me, then
+			// convert to fsd_profile by extracting the profile ID.
+			meResp, err := client.Get(ctx, "/voyager/api/me", nil)
+			if err != nil {
+				return fmt.Errorf("getting current user: %w", err)
+			}
+			var normalized NormalizedResponse
+			if err := client.DecodeJSON(meResp, &normalized); err != nil {
+				return fmt.Errorf("decoding current user: %w", err)
+			}
+			rawMP := FindIncluded(normalized.Included, "MiniProfile")
+			if rawMP != nil {
+				var mp miniProfileEntity
+				if jsonErr := json.Unmarshal(rawMP, &mp); jsonErr == nil && mp.EntityURN != "" {
+					// Extract profile ID from urn:li:fs_miniProfile:<id>
+					parts := strings.Split(mp.EntityURN, ":")
+					if len(parts) > 0 {
+						profileID := parts[len(parts)-1]
+						profileURN = "urn:li:fsd_profile:" + profileID
+					}
+				}
+			}
+		}
+
 		params := url.Values{}
 		params.Set("q", "memberShareFeed")
 		params.Set("moduleKey", "member-shares:phone")
 		params.Set("count", fmt.Sprintf("%d", limit))
 		params.Set("start", cursor)
-
-		if username != "" {
-			// Resolve public ID to a miniProfile URN if username is provided.
-			// Use the profileUrn param with the publicId directly.
-			params.Set("profileUrn", "urn:li:fs_miniProfile:"+username)
+		if profileURN != "" {
+			params.Set("profileUrn", profileURN)
 		}
 
 		resp, err := client.Get(ctx, "/voyager/api/identity/profileUpdatesV2", params)

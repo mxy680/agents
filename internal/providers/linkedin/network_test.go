@@ -4,105 +4,54 @@ import (
 	"testing"
 )
 
-func TestNetworkFollowers_Text(t *testing.T) {
+func TestNetworkFollowers_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "followers"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "Follower") {
-		t.Errorf("expected 'Follower' in output, got: %s", out)
-	}
-	if !containsStr(out, "One") {
-		t.Errorf("expected 'One' in output, got: %s", out)
-	}
-}
-
-func TestNetworkFollowers_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "followers", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, `"public_id"`) {
-		t.Errorf("expected JSON field 'public_id' in output, got: %s", out)
-	}
-	if !containsStr(out, "follower-one") {
-		t.Errorf("expected 'follower-one' in JSON output, got: %s", out)
-	}
-}
-
-func TestNetworkFollowers_InvalidCursor(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	root.SetArgs([]string{"network", "followers", "--cursor", "bad"})
+	root.SetArgs([]string{"network", "followers"})
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid cursor")
+		t.Error("expected error for deprecated network followers endpoint")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
-func TestNetworkFollowing_Text(t *testing.T) {
+func TestNetworkFollowing_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "following"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "Following") {
-		t.Errorf("expected 'Following' in output, got: %s", out)
-	}
-}
-
-func TestNetworkFollowing_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "following", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "following-one") {
-		t.Errorf("expected 'following-one' in JSON output, got: %s", out)
-	}
-}
-
-func TestNetworkFollowing_InvalidCursor(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	root.SetArgs([]string{"network", "following", "--cursor", "bad"})
+	root.SetArgs([]string{"network", "following"})
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid cursor")
+		t.Error("expected error for deprecated network following endpoint")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
+	}
+}
+
+func TestNetworkSuggestions_Deprecated(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	root := newTestRootCmd()
+	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
+
+	root.SetArgs([]string{"network", "suggestions"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("expected error for deprecated network suggestions endpoint")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
@@ -242,40 +191,6 @@ func TestNetworkUnfollow_JSON(t *testing.T) {
 	}
 	if !containsStr(out, "unfollowed") {
 		t.Errorf("expected 'unfollowed' in JSON output, got: %s", out)
-	}
-}
-
-func TestNetworkSuggestions_Text(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "suggestions"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "Suggested") {
-		t.Errorf("expected 'Suggested' in output, got: %s", out)
-	}
-}
-
-func TestNetworkSuggestions_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNetworkCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"network", "suggestions", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "suggested-person") {
-		t.Errorf("expected 'suggested-person' in JSON output, got: %s", out)
 	}
 }
 

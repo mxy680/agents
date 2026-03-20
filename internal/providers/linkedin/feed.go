@@ -1,9 +1,6 @@
 package linkedin
 
 import (
-	"fmt"
-	"net/url"
-
 	"github.com/spf13/cobra"
 )
 
@@ -46,76 +43,14 @@ func newFeedHashtagCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunFeedList(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{}
-		params.Set("q", "feedUpdates")
-		params.Set("moduleKey", "HOMEPAGE_FEED")
-		params.Set("count", fmt.Sprintf("%d", limit))
-		params.Set("start", cursor)
-
-		resp, err := client.Get(ctx, "/voyager/api/feed/dash/feedUpdates", params)
-		if err != nil {
-			return fmt.Errorf("listing feed: %w", err)
-		}
-
-		var raw voyagerFeedUpdatesResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding feed: %w", err)
-		}
-
-		posts := make([]PostSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			posts = append(posts, feedElementToPostSummary(el))
-		}
-		return printPostSummaries(cmd, posts)
+func makeRunFeedList(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunFeedHashtag(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		tag, _ := cmd.Flags().GetString("tag")
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		hashtagURN := "urn:li:hashtag:" + tag
-
-		params := url.Values{}
-		params.Set("q", "feedUpdates")
-		params.Set("moduleKey", "HASHTAG_FEED")
-		params.Set("hashtagUrn", hashtagURN)
-		params.Set("count", fmt.Sprintf("%d", limit))
-		params.Set("start", cursor)
-
-		resp, err := client.Get(ctx, "/voyager/api/feed/dash/feedUpdates", params)
-		if err != nil {
-			return fmt.Errorf("listing hashtag feed for #%s: %w", tag, err)
-		}
-
-		var raw voyagerFeedUpdatesResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding hashtag feed: %w", err)
-		}
-
-		posts := make([]PostSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			posts = append(posts, feedElementToPostSummary(el))
-		}
-		return printPostSummaries(cmd, posts)
+func makeRunFeedHashtag(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }

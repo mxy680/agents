@@ -100,70 +100,15 @@ func newEventsUnattendCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunEventsList(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"q":     {"memberEvents"},
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/events/events", params)
-		if err != nil {
-			return fmt.Errorf("listing events: %w", err)
-		}
-
-		var raw voyagerEventsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding events: %w", err)
-		}
-
-		summaries := make([]EventSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toEventSummary(el))
-		}
-		return printEventSummaries(cmd, summaries)
+func makeRunEventsList(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunEventsGet(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		eventID, _ := cmd.Flags().GetString("event-id")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/events/events/" + url.PathEscape(eventID)
-		resp, err := client.Get(ctx, path, nil)
-		if err != nil {
-			return fmt.Errorf("getting event %s: %w", eventID, err)
-		}
-
-		var raw voyagerEventElement
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding event: %w", err)
-		}
-
-		summary := toEventSummary(raw)
-		return printEventDetail(cmd, summary)
+func makeRunEventsGet(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 

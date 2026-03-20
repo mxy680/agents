@@ -87,81 +87,15 @@ func newSettingsVisibilityCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunSettingsGet(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.Get(ctx, "/voyager/api/identity/profileSettings", nil)
-		if err != nil {
-			return fmt.Errorf("fetching profile settings: %w", err)
-		}
-
-		var raw voyagerProfileSettingsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding profile settings: %w", err)
-		}
-
-		settings := SettingsInfo{
-			ProfileVisibility:   raw.ProfileVisibility,
-			MessagingPreference: raw.MessagingPreference,
-			ActiveStatus:        raw.ActiveStatus,
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(settings)
-		}
-		activeStr := "false"
-		if settings.ActiveStatus {
-			activeStr = "true"
-		}
-		cli.PrintText([]string{
-			fmt.Sprintf("Profile Visibility:   %s", settings.ProfileVisibility),
-			fmt.Sprintf("Messaging Preference: %s", settings.MessagingPreference),
-			fmt.Sprintf("Active Status:        %s", activeStr),
-		})
-		return nil
+func makeRunSettingsGet(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunSettingsPrivacy(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.Get(ctx, "/voyager/api/identity/privacySettings", nil)
-		if err != nil {
-			return fmt.Errorf("fetching privacy settings: %w", err)
-		}
-
-		var raw voyagerPrivacySettingsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding privacy settings: %w", err)
-		}
-
-		privacy := PrivacySettings{
-			ProfileVisibility:      raw.ProfileVisibility,
-			ConnectionsVisibility:  raw.ConnectionsVisibility,
-			LastNameVisibility:     raw.LastNameVisibility,
-			ProfilePhotoVisibility: raw.ProfilePhotoVisibility,
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(privacy)
-		}
-		cli.PrintText([]string{
-			fmt.Sprintf("Profile Visibility:       %s", privacy.ProfileVisibility),
-			fmt.Sprintf("Connections Visibility:   %s", privacy.ConnectionsVisibility),
-			fmt.Sprintf("Last Name Visibility:     %s", privacy.LastNameVisibility),
-			fmt.Sprintf("Profile Photo Visibility: %s", privacy.ProfilePhotoVisibility),
-		})
-		return nil
+func makeRunSettingsPrivacy(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 

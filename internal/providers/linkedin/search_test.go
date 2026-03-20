@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -149,97 +150,67 @@ func TestSearchCompanies_Text(t *testing.T) {
 	}
 }
 
-func TestExtractSearchResults_EmptyClusters(t *testing.T) {
-	raw := voyagerSearchResponse{}
-	results := extractSearchResults(raw, "person")
+func TestExtractGraphQLSearchResults_Empty(t *testing.T) {
+	results := extractGraphQLSearchResults(nil, "person")
 	if len(results) != 0 {
-		t.Errorf("expected 0 results from empty response, got %d", len(results))
+		t.Errorf("expected 0 results from nil included, got %d", len(results))
 	}
 }
 
-func TestExtractSearchResults_Items(t *testing.T) {
-	raw := voyagerSearchResponse{
-		Elements: []struct {
-			Items []struct {
-				Item struct {
-					EntityResult struct {
-						EntityURN       string `json:"entityUrn"`
-						Title           struct{ Text string `json:"text"` } `json:"title"`
-						PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-					} `json:"entityResult"`
-					SearchEntityResult struct {
-						EntityURN       string `json:"entityUrn"`
-						Title           struct{ Text string `json:"text"` } `json:"title"`
-						PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-					} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-				} `json:"item"`
-			} `json:"items"`
-			Elements []struct {
-				Item struct {
-					EntityResult struct {
-						EntityURN       string `json:"entityUrn"`
-						Title           struct{ Text string `json:"text"` } `json:"title"`
-						PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-					} `json:"entityResult"`
-					SearchEntityResult struct {
-						EntityURN       string `json:"entityUrn"`
-						Title           struct{ Text string `json:"text"` } `json:"title"`
-						PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-					} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-				} `json:"item"`
-			} `json:"elements"`
-		}{
-			{
-				Items: []struct {
-					Item struct {
-						EntityResult struct {
-							EntityURN       string `json:"entityUrn"`
-							Title           struct{ Text string `json:"text"` } `json:"title"`
-							PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-						} `json:"entityResult"`
-						SearchEntityResult struct {
-							EntityURN       string `json:"entityUrn"`
-							Title           struct{ Text string `json:"text"` } `json:"title"`
-							PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-						} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-					} `json:"item"`
-				}{
-					{
-						Item: struct {
-							EntityResult struct {
-								EntityURN       string `json:"entityUrn"`
-								Title           struct{ Text string `json:"text"` } `json:"title"`
-								PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-							} `json:"entityResult"`
-							SearchEntityResult struct {
-								EntityURN       string `json:"entityUrn"`
-								Title           struct{ Text string `json:"text"` } `json:"title"`
-								PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-							} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-						}{
-							EntityResult: struct {
-								EntityURN       string `json:"entityUrn"`
-								Title           struct{ Text string `json:"text"` } `json:"title"`
-								PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-							}{
-								EntityURN: "urn:li:fs_miniProfile:TestPerson",
-								Title:     struct{ Text string `json:"text"` }{Text: "John Doe"},
-							},
-						},
-					},
-				},
-			},
-		},
+func TestExtractGraphQLSearchResults_EntityResultViewModel(t *testing.T) {
+	included := []json.RawMessage{
+		json.RawMessage(`{
+			"$type": "com.linkedin.voyager.search.dash.clusters.EntityResultViewModel",
+			"entityUrn": "urn:li:fs_miniProfile:TestPerson",
+			"trackingUrn": "urn:li:fs_miniProfile:TestPerson",
+			"title": {"text": "John Doe"},
+			"primarySubtitle": {"text": "Engineer"}
+		}`),
 	}
-	results := extractSearchResults(raw, "person")
+	results := extractGraphQLSearchResults(included, "person")
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
 	}
 	if results[0].URN != "urn:li:fs_miniProfile:TestPerson" {
 		t.Errorf("expected URN 'urn:li:fs_miniProfile:TestPerson', got %s", results[0].URN)
 	}
+	if results[0].Title != "John Doe" {
+		t.Errorf("expected title 'John Doe', got %s", results[0].Title)
+	}
 	if results[0].Type != "person" {
 		t.Errorf("expected type 'person', got %s", results[0].Type)
+	}
+}
+
+func TestExtractGraphQLSearchResults_FallbackToTrackingURN(t *testing.T) {
+	included := []json.RawMessage{
+		json.RawMessage(`{
+			"$type": "com.linkedin.voyager.search.dash.clusters.EntityResultViewModel",
+			"trackingUrn": "urn:li:fs_miniProfile:TrackOnly",
+			"title": {"text": "Track User"},
+			"primarySubtitle": {"text": "Designer"}
+		}`),
+	}
+	results := extractGraphQLSearchResults(included, "company")
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result via trackingUrn fallback, got %d", len(results))
+	}
+	if results[0].URN != "urn:li:fs_miniProfile:TrackOnly" {
+		t.Errorf("expected URN 'urn:li:fs_miniProfile:TrackOnly', got %s", results[0].URN)
+	}
+}
+
+func TestExtractGraphQLSearchResults_SkipsNoURN(t *testing.T) {
+	included := []json.RawMessage{
+		json.RawMessage(`{
+			"$type": "com.linkedin.voyager.search.dash.clusters.EntityResultViewModel",
+			"title": {"text": "No URN Entity"},
+			"primarySubtitle": {"text": "No URN"}
+		}`),
+	}
+	results := extractGraphQLSearchResults(included, "person")
+	if len(results) != 0 {
+		t.Errorf("expected 0 results when entityUrn and trackingUrn are empty, got %d", len(results))
 	}
 }
 

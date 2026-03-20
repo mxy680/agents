@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -10,6 +11,7 @@ import (
 )
 
 // voyagerCompanyResponse is the response envelope for a single company lookup.
+// Used by unit tests (TestToCompanySummary) for mapping convenience.
 type voyagerCompanyResponse struct {
 	EntityURN     string `json:"entityUrn"`
 	Name          string `json:"name"`
@@ -17,6 +19,18 @@ type voyagerCompanyResponse struct {
 	StaffCount    int    `json:"staffCount"`
 	FollowerCount int    `json:"followerCount"`
 	Description   string `json:"description"`
+}
+
+// companyEntity represents the normalized company shape from included[].
+type companyEntity struct {
+	EntityURN     string `json:"entityUrn"`
+	Name          string `json:"name"`
+	UniversalName string `json:"universalName"`
+	StaffCount    int    `json:"staffCount"`
+	// Industries is an array; we use the first entry's localizedName.
+	CompanyIndustries []struct {
+		LocalizedName string `json:"localizedName"`
+	} `json:"companyIndustries"`
 }
 
 // voyagerCompanySearchResponse is the response envelope for company search via dash/clusters.
@@ -145,13 +159,43 @@ func makeRunCompaniesGet(factory ClientFactory) func(*cobra.Command, []string) e
 			return fmt.Errorf("getting company %s: %w", companyID, err)
 		}
 
-		var raw voyagerCompanyResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding company: %w", err)
 		}
 
-		summary := toCompanySummary(raw)
-		return printCompanySummary(cmd, summary, raw.Description)
+		rawJSON := FindIncluded(normalized.Included, "Company")
+		if rawJSON == nil {
+			// Fallback: try to parse as legacy flat response.
+			// Re-decode data field as company entity.
+			var legacy voyagerCompanyResponse
+			if err := json.Unmarshal(normalized.Data, &legacy); err == nil && legacy.Name != "" {
+				summary := toCompanySummary(legacy)
+				return printCompanySummary(cmd, summary, legacy.Description)
+			}
+			return fmt.Errorf("company %q not found in response", companyID)
+		}
+
+		var entity companyEntity
+		if err := json.Unmarshal(rawJSON, &entity); err != nil {
+			return fmt.Errorf("parsing company entity: %w", err)
+		}
+
+		id := entity.EntityURN
+		if parts := strings.Split(entity.EntityURN, ":"); len(parts) > 0 {
+			id = parts[len(parts)-1]
+		}
+		industry := ""
+		if len(entity.CompanyIndustries) > 0 {
+			industry = entity.CompanyIndustries[0].LocalizedName
+		}
+		summary := CompanySummary{
+			ID:            id,
+			Name:          entity.Name,
+			Industry:      industry,
+			EmployeeCount: entity.StaffCount,
+		}
+		return printCompanySummary(cmd, summary, "")
 	}
 }
 

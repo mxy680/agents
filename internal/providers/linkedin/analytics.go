@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -97,14 +98,38 @@ func makeRunAnalyticsProfileViews(factory ClientFactory) func(*cobra.Command, []
 			return fmt.Errorf("fetching profile views: %w", err)
 		}
 
-		var raw voyagerProfileViewsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		// Try normalized response first (WvmpCard may be in included[]).
+		var normalized NormalizedResponse
+		var views AnalyticsProfileViews
+
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding profile views: %w", err)
 		}
 
-		views := AnalyticsProfileViews{
-			TotalViews: raw.ViewsCount,
-			TimePeriod: raw.TimePeriod,
+		// Try to find WvmpCard in included.
+		wvmpRaw := FindIncluded(normalized.Included, "WvmpCard")
+		if wvmpRaw != nil {
+			var card struct {
+				NumViewers int    `json:"numViewers"`
+				TimePeriod string `json:"timePeriod"`
+			}
+			if jsonErr := json.Unmarshal(wvmpRaw, &card); jsonErr == nil {
+				views = AnalyticsProfileViews{
+					TotalViews: card.NumViewers,
+					TimePeriod: card.TimePeriod,
+				}
+			}
+		}
+
+		// Fallback: try the flat fields from the data envelope.
+		if views.TotalViews == 0 && views.TimePeriod == "" {
+			var flat voyagerProfileViewsResponse
+			if jsonErr := json.Unmarshal(normalized.Data, &flat); jsonErr == nil {
+				views = AnalyticsProfileViews{
+					TotalViews: flat.ViewsCount,
+					TimePeriod: flat.TimePeriod,
+				}
+			}
 		}
 
 		if cli.IsJSONOutput(cmd) {

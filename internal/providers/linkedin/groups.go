@@ -174,192 +174,27 @@ func newGroupsLeaveCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunGroupsList(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"q":     {"memberGroups"},
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/groups/groups", params)
-		if err != nil {
-			return fmt.Errorf("listing groups: %w", err)
-		}
-
-		var raw voyagerGroupsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding groups: %w", err)
-		}
-
-		summaries := make([]GroupSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toGroupSummary(el))
-		}
-		return printGroupSummaries(cmd, summaries)
+func makeRunGroupsList(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunGroupsGet(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		groupID, _ := cmd.Flags().GetString("group-id")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/groups/groups/" + url.PathEscape(groupID)
-		resp, err := client.Get(ctx, path, nil)
-		if err != nil {
-			return fmt.Errorf("getting group %s: %w", groupID, err)
-		}
-
-		var raw voyagerGroupElement
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding group: %w", err)
-		}
-
-		summary := toGroupSummary(raw)
-		return printGroupDetail(cmd, summary)
+func makeRunGroupsGet(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunGroupsMembers(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		groupID, _ := cmd.Flags().GetString("group-id")
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/groups/groups/" + url.PathEscape(groupID) + "/members"
-		params := url.Values{
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, path, params)
-		if err != nil {
-			return fmt.Errorf("listing group members: %w", err)
-		}
-
-		var raw voyagerGroupMembersResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding group members: %w", err)
-		}
-
-		type memberEntry struct {
-			URN      string `json:"urn"`
-			PublicID string `json:"public_id"`
-			Name     string `json:"name"`
-			Headline string `json:"headline,omitempty"`
-		}
-		members := make([]memberEntry, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			members = append(members, memberEntry{
-				URN:      el.EntityURN,
-				PublicID: el.MiniProfile.PublicIdentifier,
-				Name:     el.MiniProfile.FirstName + " " + el.MiniProfile.LastName,
-				Headline: el.MiniProfile.Occupation,
-			})
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(members)
-		}
-		if len(members) == 0 {
-			fmt.Println("No members found.")
-			return nil
-		}
-		lines := make([]string, 0, len(members)+1)
-		lines = append(lines, fmt.Sprintf("%-25s  %-40s  %-40s", "PUBLIC ID", "NAME", "HEADLINE"))
-		for _, m := range members {
-			lines = append(lines, fmt.Sprintf("%-25s  %-40s  %-40s",
-				truncate(m.PublicID, 25),
-				truncate(m.Name, 40),
-				truncate(m.Headline, 40),
-			))
-		}
-		cli.PrintText(lines)
-		return nil
+func makeRunGroupsMembers(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunGroupsPosts(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		groupID, _ := cmd.Flags().GetString("group-id")
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/groups/groups/" + url.PathEscape(groupID) + "/posts"
-		params := url.Values{
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, path, params)
-		if err != nil {
-			return fmt.Errorf("listing group posts: %w", err)
-		}
-
-		var raw voyagerGroupPostsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding group posts: %w", err)
-		}
-
-		posts := make([]PostSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			posts = append(posts, PostSummary{
-				URN:          el.UpdateMetadata.URN,
-				AuthorURN:    el.Actor.URN,
-				AuthorName:   el.Actor.Name.Text,
-				Text:         el.Commentary.Text.Text,
-				Timestamp:    el.CreatedAt,
-				LikeCount:    el.SocialDetail.TotalSocialActivityCounts.NumLikes,
-				CommentCount: el.SocialDetail.TotalSocialActivityCounts.NumComments,
-				ShareCount:   el.SocialDetail.TotalSocialActivityCounts.NumShares,
-			})
-		}
-		return printPostSummaries(cmd, posts)
+func makeRunGroupsPosts(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 

@@ -4,98 +4,54 @@ import (
 	"testing"
 )
 
-func TestSettingsGet_Text(t *testing.T) {
+func TestSettingsGet_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newSettingsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"settings", "get"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "PUBLIC") {
-		t.Errorf("expected 'PUBLIC' visibility in output, got: %s", out)
+	root.SetArgs([]string{"settings", "get"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("expected error for deprecated settings get endpoint")
 	}
-	if !containsStr(out, "CONNECTIONS") {
-		t.Errorf("expected 'CONNECTIONS' messaging preference in output, got: %s", out)
-	}
-	if !containsStr(out, "true") {
-		t.Errorf("expected 'true' active status in output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
-func TestSettingsGet_JSON(t *testing.T) {
+func TestSettingsGet_AliasDeprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newSettingsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"settings", "get", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, `"profile_visibility"`) {
-		t.Errorf("expected 'profile_visibility' field in JSON output, got: %s", out)
+	root.SetArgs([]string{"setting", "get"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("expected error for deprecated settings get via alias")
 	}
-	if !containsStr(out, "PUBLIC") {
-		t.Errorf("expected 'PUBLIC' in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"messaging_preference"`) {
-		t.Errorf("expected 'messaging_preference' field in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"active_status"`) {
-		t.Errorf("expected 'active_status' field in JSON output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message via alias, got: %s", err.Error())
 	}
 }
 
-func TestSettingsPrivacy_Text(t *testing.T) {
+func TestSettingsPrivacy_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newSettingsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"settings", "privacy"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "PUBLIC") {
-		t.Errorf("expected 'PUBLIC' visibility in output, got: %s", out)
+	root.SetArgs([]string{"settings", "privacy"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("expected error for deprecated settings privacy endpoint")
 	}
-	if !containsStr(out, "ALL") {
-		t.Errorf("expected 'ALL' connections visibility in output, got: %s", out)
-	}
-}
-
-func TestSettingsPrivacy_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newSettingsCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"settings", "privacy", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, `"profile_visibility"`) {
-		t.Errorf("expected 'profile_visibility' field in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"connections_visibility"`) {
-		t.Errorf("expected 'connections_visibility' field in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"last_name_visibility"`) {
-		t.Errorf("expected 'last_name_visibility' field in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"profile_photo_visibility"`) {
-		t.Errorf("expected 'profile_photo_visibility' field in JSON output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
@@ -184,22 +140,5 @@ func TestSettingsVisibility_MissingValue(t *testing.T) {
 	err := root.Execute()
 	if err == nil {
 		t.Error("expected error when --value is missing")
-	}
-}
-
-func TestSettingsAlias(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newSettingsCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"setting", "get"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "PUBLIC") {
-		t.Errorf("expected settings via alias 'setting' to work, got: %s", out)
 	}
 }

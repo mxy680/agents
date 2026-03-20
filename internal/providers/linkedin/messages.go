@@ -1,6 +1,8 @@
 package linkedin
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -9,12 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// voyagerConversationsResponse is the response envelope for listing conversations.
-type voyagerConversationsResponse struct {
-	Elements []voyagerConversationElement `json:"elements"`
-	Paging   voyagerPaging               `json:"paging"`
+// messengerConversationsQueryID is the current known queryId for the messenger conversations GraphQL endpoint.
+const messengerConversationsQueryID = "messengerConversations.0d5e6781bbee71c3e51c8843c6519f48"
+
+// messengerConversationEntity is the GraphQL normalized entity for a conversation.
+type messengerConversationEntity struct {
+	EntityURN      string `json:"entityUrn"`
+	Title          string `json:"title"`
+	LastActivityAt int64  `json:"lastActivityAt"`
+	UnreadCount    int    `json:"unreadCount"`
 }
 
+// voyagerConversationElement is kept for backward-compatibility with toConversationSummary
+// and other commands that still use the legacy messaging API.
 type voyagerConversationElement struct {
 	EntityURN      string                       `json:"entityUrn"`
 	ConversationID string                       `json:"conversationId"`
@@ -135,39 +144,97 @@ func newMessagesConversationsCmd(factory ClientFactory) *cobra.Command {
 
 func makeRunMessagesConversations(factory ClientFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
 		ctx := cmd.Context()
 		client, err := factory(ctx)
 		if err != nil {
 			return err
 		}
 
-		params := url.Values{}
-		params.Set("keyVersion", "LEGACY_INBOX")
-		params.Set("start", "0")
-		if cursor != "" {
-			params.Set("start", cursor)
+		// Step 1: resolve the current user's fsd_profile URN from /voyager/api/me.
+		profileURN, err := resolveCurrentProfileURN(ctx, client)
+		if err != nil {
+			return fmt.Errorf("resolving current user profile: %w", err)
 		}
-		params.Set("count", fmt.Sprintf("%d", limit))
 
-		resp, err := client.Get(ctx, "/voyager/api/messaging/conversations", params)
+		// Step 2: call the messaging GraphQL endpoint with the profile URN.
+		variables := fmt.Sprintf("(mailboxUrn:%s)", profileURN)
+		messagingPath := "/voyager/api/voyagerMessagingGraphQL/graphql"
+		params := url.Values{}
+		params.Set("queryId", messengerConversationsQueryID)
+		params.Set("variables", variables)
+
+		resp, err := client.Get(ctx, messagingPath, params)
 		if err != nil {
 			return fmt.Errorf("listing conversations: %w", err)
 		}
 
-		var raw voyagerConversationsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding conversations: %w", err)
 		}
 
-		summaries := make([]ConversationSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toConversationSummary(el))
-		}
+		summaries := extractConversationsFromGraphQL(normalized.Included)
 		return printConversationSummaries(cmd, summaries)
 	}
+}
+
+// resolveCurrentProfileURN calls /voyager/api/me and extracts the fsd_profile URN
+// from the miniProfile entity in the included array.
+func resolveCurrentProfileURN(ctx context.Context, client *Client) (string, error) {
+	resp, err := client.Get(ctx, "/voyager/api/me", url.Values{})
+	if err != nil {
+		return "", fmt.Errorf("GET /voyager/api/me: %w", err)
+	}
+
+	var normalized NormalizedResponse
+	if err := client.DecodeJSON(resp, &normalized); err != nil {
+		return "", fmt.Errorf("decoding /voyager/api/me: %w", err)
+	}
+
+	// Look for a MiniProfile entity in included to get the entityUrn.
+	raw := FindIncluded(normalized.Included, "MiniProfile")
+	if raw != nil {
+		var miniProfile struct {
+			EntityURN string `json:"entityUrn"`
+		}
+		if err := json.Unmarshal(raw, &miniProfile); err == nil && miniProfile.EntityURN != "" {
+			// Convert fs_miniProfile URN to fsd_profile URN for the messaging API.
+			urn := strings.Replace(miniProfile.EntityURN, "urn:li:fs_miniProfile:", "urn:li:fsd_profile:", 1)
+			return urn, nil
+		}
+	}
+
+	// Fall back to the data field's *miniProfile reference if included lookup failed.
+	var data struct {
+		MiniProfile string `json:"*miniProfile"`
+	}
+	if err := json.Unmarshal(normalized.Data, &data); err == nil && data.MiniProfile != "" {
+		urn := strings.Replace(data.MiniProfile, "urn:li:fs_miniProfile:", "urn:li:fsd_profile:", 1)
+		return urn, nil
+	}
+
+	return "", fmt.Errorf("could not determine current user profile URN from /voyager/api/me")
+}
+
+// extractConversationsFromGraphQL finds all Conversation entities in the included array
+// and maps them to ConversationSummary values.
+func extractConversationsFromGraphQL(included []json.RawMessage) []ConversationSummary {
+	rawEntities := FindAllIncluded(included, "com.linkedin.messenger.Conversation")
+	summaries := make([]ConversationSummary, 0, len(rawEntities))
+	for _, raw := range rawEntities {
+		var entity messengerConversationEntity
+		if err := json.Unmarshal(raw, &entity); err != nil {
+			continue
+		}
+		summaries = append(summaries, ConversationSummary{
+			ID:              entity.EntityURN,
+			Title:           entity.Title,
+			LastActivityAt:  entity.LastActivityAt,
+			UnreadCount:     entity.UnreadCount,
+			ParticipantURNs: []string{},
+		})
+	}
+	return summaries
 }
 
 // newMessagesListCmd builds the "messages list" command.

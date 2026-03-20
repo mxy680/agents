@@ -2,7 +2,6 @@ package linkedin
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -61,49 +60,9 @@ func newNotificationsMarkReadCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunNotificationsList(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/identity/notifications", params)
-		if err != nil {
-			return fmt.Errorf("listing notifications: %w", err)
-		}
-
-		var raw voyagerNotificationsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding notifications: %w", err)
-		}
-
-		summaries := make([]NotificationSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, NotificationSummary{
-				ID:        el.EntityURN,
-				Text:      el.Headline.Text,
-				Timestamp: el.PublishedAt,
-				IsRead:    el.Read,
-			})
-		}
-
-		return printNotificationSummaries(cmd, summaries)
+func makeRunNotificationsList(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
@@ -120,7 +79,7 @@ func makeRunNotificationsMarkRead(factory ClientFactory) func(*cobra.Command, []
 			return err
 		}
 
-		resp, err := client.PostJSON(ctx, "/voyager/api/identity/notifications/markAllAsRead", map[string]any{})
+		resp, err := client.PostJSON(ctx, "/voyager/api/voyagerNotificationsDashBadge?action=markAllItemsAsSeen", map[string]any{})
 		if err != nil {
 			return fmt.Errorf("marking notifications as read: %w", err)
 		}

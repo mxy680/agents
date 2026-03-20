@@ -130,79 +130,15 @@ func newNetworkSuggestionsCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunNetworkFollowers(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"q":     {"followerList"},
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/relationships/dash/followers", params)
-		if err != nil {
-			return fmt.Errorf("listing followers: %w", err)
-		}
-
-		var raw voyagerFollowersResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding followers: %w", err)
-		}
-
-		summaries := followersResponseToProfiles(raw)
-		return printProfileSummaries(cmd, summaries)
+func makeRunNetworkFollowers(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
-func makeRunNetworkFollowing(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		start := 0
-		if cursor != "" {
-			if _, err := fmt.Sscanf(cursor, "%d", &start); err != nil {
-				return fmt.Errorf("invalid cursor %q: must be a numeric start offset", cursor)
-			}
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"q":     {"followedEntities"},
-			"start": {fmt.Sprintf("%d", start)},
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/relationships/dash/following", params)
-		if err != nil {
-			return fmt.Errorf("listing following: %w", err)
-		}
-
-		var raw voyagerFollowersResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding following: %w", err)
-		}
-
-		summaries := followersResponseToProfiles(raw)
-		return printProfileSummaries(cmd, summaries)
+func makeRunNetworkFollowing(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
@@ -275,31 +211,9 @@ func makeRunNetworkUnfollow(factory ClientFactory) func(*cobra.Command, []string
 	}
 }
 
-func makeRunNetworkSuggestions(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{
-			"count": {fmt.Sprintf("%d", limit)},
-		}
-		resp, err := client.Get(ctx, "/voyager/api/relationships/dash/connectionsYouMayKnow", params)
-		if err != nil {
-			return fmt.Errorf("fetching suggestions: %w", err)
-		}
-
-		var raw voyagerFollowersResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding suggestions: %w", err)
-		}
-
-		summaries := followersResponseToProfiles(raw)
-		return printProfileSummaries(cmd, summaries)
+func makeRunNetworkSuggestions(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 

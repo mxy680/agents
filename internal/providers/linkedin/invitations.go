@@ -136,7 +136,8 @@ func makeRunInvitationsList(factory ClientFactory) func(*cobra.Command, []string
 
 		switch direction {
 		case "sent":
-			path = "/voyager/api/relationships/sentInvitationViewsV2"
+			// sentInvitationViewsV2 returned 400; use sentInvitationViews instead.
+			path = "/voyager/api/relationships/sentInvitationViews"
 		default:
 			path = "/voyager/api/relationships/invitationViews"
 			params.Set("q", "receivedInvitation")

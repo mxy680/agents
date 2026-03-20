@@ -1,6 +1,7 @@
 package linkedin
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -156,6 +157,10 @@ type AnalyticsProfileViews struct {
 	TotalViews int    `json:"total_views"`
 	TimePeriod string `json:"time_period"`
 }
+
+// errEndpointDeprecated is returned for endpoints LinkedIn has migrated to SSR,
+// making them unavailable via the Voyager API.
+var errEndpointDeprecated = errors.New("this endpoint has been deprecated by LinkedIn and is no longer available via API")
 
 // truncate shortens s to at most max runes, appending "..." if truncated.
 func truncate(s string, max int) string {

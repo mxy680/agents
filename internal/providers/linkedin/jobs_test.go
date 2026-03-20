@@ -209,7 +209,7 @@ func TestJobsUnsave_Execute(t *testing.T) {
 	}
 }
 
-func TestJobsSaved_Text(t *testing.T) {
+func TestJobsSaved_Deprecated(t *testing.T) {
 	srv := newFullMockServer(t)
 	defer srv.Close()
 
@@ -218,40 +218,17 @@ func TestJobsSaved_Text(t *testing.T) {
 	root := newTestRootCmd()
 	root.AddCommand(cmd)
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"saved"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, "Senior Software Engineer") {
-		t.Errorf("expected job title in output, got: %s", out)
+	root.SetArgs([]string{"saved"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Error("expected error for deprecated jobs saved endpoint")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
-func TestJobsSaved_JSON(t *testing.T) {
-	srv := newFullMockServer(t)
-	defer srv.Close()
-
-	factory := newTestClientFactory(srv)
-	cmd := newJobsSavedCmd(factory)
-	root := newTestRootCmd()
-	root.AddCommand(cmd)
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"--json", "saved"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, `"title"`) {
-		t.Errorf("expected JSON output with title field, got: %s", out)
-	}
-}
-
-func TestJobsRecommended_Text(t *testing.T) {
+func TestJobsRecommended_Deprecated(t *testing.T) {
 	srv := newFullMockServer(t)
 	defer srv.Close()
 
@@ -260,39 +237,13 @@ func TestJobsRecommended_Text(t *testing.T) {
 	root := newTestRootCmd()
 	root.AddCommand(cmd)
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"recommended"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, "Staff Engineer") {
-		t.Errorf("expected recommended job title in output, got: %s", out)
+	root.SetArgs([]string{"recommended"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Error("expected error for deprecated jobs recommended endpoint")
 	}
-	if !containsStr(out, "BigCo") {
-		t.Errorf("expected company name in output, got: %s", out)
-	}
-}
-
-func TestJobsRecommended_JSON(t *testing.T) {
-	srv := newFullMockServer(t)
-	defer srv.Close()
-
-	factory := newTestClientFactory(srv)
-	cmd := newJobsRecommendedCmd(factory)
-	root := newTestRootCmd()
-	root.AddCommand(cmd)
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"--json", "recommended"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, `"title"`) {
-		t.Errorf("expected JSON output with title field, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 

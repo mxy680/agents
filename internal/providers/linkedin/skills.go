@@ -124,33 +124,72 @@ func makeRunSkillsList(factory ClientFactory) func(*cobra.Command, []string) err
 			if err := client.DecodeJSON(meResp, &normalized); err != nil {
 				return fmt.Errorf("decoding current user: %w", err)
 			}
-			raw := FindIncluded(normalized.Included, "MiniProfile")
-			if raw == nil {
+			rawMP := FindIncluded(normalized.Included, "MiniProfile")
+			if rawMP == nil {
 				return fmt.Errorf("miniProfile not found in /me response")
 			}
 			var mp miniProfileEntity
-			if err := json.Unmarshal(raw, &mp); err != nil {
+			if err := json.Unmarshal(rawMP, &mp); err != nil {
 				return fmt.Errorf("parsing miniProfile: %w", err)
 			}
 			username = mp.PublicIdentifier
 		}
 
-		path := "/voyager/api/identity/profiles/" + url.PathEscape(username) + "/skills"
-		params := url.Values{"count": {"50"}}
-		resp, err := client.Get(ctx, path, params)
+		// Use the decorated full profile endpoint which includes skills in included[].
+		params := url.Values{}
+		params.Set("q", "memberIdentity")
+		params.Set("memberIdentity", username)
+		params.Set("decorationId", "com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93")
+
+		resp, err := client.Get(ctx, "/voyager/api/identity/dash/profiles", params)
 		if err != nil {
-			return fmt.Errorf("listing skills for %s: %w", username, err)
+			return fmt.Errorf("fetching profile for skills (%s): %w", username, err)
 		}
 
-		var raw voyagerSkillsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding skills: %w", err)
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
+			return fmt.Errorf("decoding profile response: %w", err)
 		}
 
-		summaries := make([]SkillSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toSkillSummary(el))
+		skillEntities := FindAllIncluded(normalized.Included, "Skill")
+
+		// dashSkillEntity is the shape of a skill in dash profiles included[].
+		type dashSkillEntity struct {
+			EntityURN string `json:"entityUrn"`
+			Name      string `json:"name"`
 		}
+
+		summaries := make([]SkillSummary, 0, len(skillEntities))
+		for _, rawSkill := range skillEntities {
+			var s dashSkillEntity
+			if err := json.Unmarshal(rawSkill, &s); err != nil {
+				continue
+			}
+			id := s.EntityURN
+			if parts := strings.Split(s.EntityURN, ":"); len(parts) > 0 {
+				id = parts[len(parts)-1]
+			}
+			summaries = append(summaries, SkillSummary{
+				ID:   id,
+				Name: s.Name,
+			})
+		}
+
+		// Fallback: if no skills found in dash response, try the legacy endpoint.
+		if len(summaries) == 0 {
+			path := "/voyager/api/identity/profiles/" + url.PathEscape(username) + "/skills"
+			legacyParams := url.Values{"count": {"50"}}
+			legacyResp, legacyErr := client.Get(ctx, path, legacyParams)
+			if legacyErr == nil {
+				var raw voyagerSkillsResponse
+				if decodeErr := client.DecodeJSON(legacyResp, &raw); decodeErr == nil {
+					for _, el := range raw.Elements {
+						summaries = append(summaries, toSkillSummary(el))
+					}
+				}
+			}
+		}
+
 		return printSkillSummaries(cmd, summaries)
 	}
 }

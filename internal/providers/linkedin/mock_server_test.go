@@ -262,6 +262,29 @@ func withInvitationsMock(mux *http.ServeMux) {
 		}`))
 	})
 
+	// GET /voyager/api/relationships/sentInvitationViews (sent, without V2)
+	mux.HandleFunc("/voyager/api/relationships/sentInvitationViews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"invitation": {
+						"invitationId": "789012",
+						"sharedSecret": "secret2",
+						"sentTime": 1703980800000,
+						"message": "Looking to connect",
+						"inviterResolved": {
+							"entityUrn": "urn:li:fs_miniProfile:ACoAAMe",
+							"firstName": "Mark",
+							"lastName": "Test"
+						}
+					}
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
 	// POST /voyager/api/relationships/invitation (send)
 	mux.HandleFunc("/voyager/api/relationships/invitation", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -469,6 +492,23 @@ func withFeedMock(mux *http.ServeMux) {
 
 // withMessagesMock registers messaging-related mock handlers on mux.
 func withMessagesMock(mux *http.ServeMux) {
+	// GET /voyager/api/voyagerMessagingGraphQL/graphql — GraphQL messaging endpoint
+	mux.HandleFunc("/voyager/api/voyagerMessagingGraphQL/graphql", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": {},
+			"included": [
+				{
+					"$type": "com.linkedin.messenger.Conversation",
+					"entityUrn": "conv1",
+					"title": "Jane Doe",
+					"lastActivityAt": 1704067200000,
+					"unreadCount": 2
+				}
+			]
+		}`))
+	})
+
 	// GET/POST /voyager/api/messaging/conversations — list and create
 	mux.HandleFunc("/voyager/api/messaging/conversations", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -544,12 +584,21 @@ func withCompaniesMock(mux *http.ServeMux) {
 	mux.HandleFunc("/voyager/api/organization/companies", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{
-			"entityUrn": "urn:li:fs_normalized_company:1234",
-			"name": "TestCorp",
-			"industryName": "Computer Software",
-			"staffCount": 500,
-			"followerCount": 10000,
-			"description": "A test company"
+			"data": {
+				"$type": "com.linkedin.restli.common.CollectionResponse"
+			},
+			"included": [
+				{
+					"$type": "com.linkedin.voyager.organization.Company",
+					"entityUrn": "urn:li:fs_normalized_company:1234",
+					"name": "TestCorp",
+					"universalName": "testcorp",
+					"staffCount": 500,
+					"companyIndustries": [
+						{"localizedName": "Computer Software"}
+					]
+				}
+			]
 		}`))
 	})
 
@@ -689,10 +738,21 @@ func withJobsMock(mux *http.ServeMux) {
 // withAnalyticsMock registers analytics-related mock handlers on mux.
 // Post impressions are handled by /voyager/api/socialActions/ in withPostsMock.
 func withAnalyticsMock(mux *http.ServeMux) {
-	// GET /voyager/api/identity/wvmpCards (profile views)
+	// GET /voyager/api/identity/wvmpCards (profile views) — normalized response.
 	mux.HandleFunc("/voyager/api/identity/wvmpCards", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"viewsCount": 42, "timePeriod": "7 days"}`))
+		w.Write([]byte(`{
+			"data": {
+				"$type": "com.linkedin.restli.common.CollectionResponse"
+			},
+			"included": [
+				{
+					"$type": "com.linkedin.voyager.identity.me.wvmpOverview.WvmpCard",
+					"numViewers": 42,
+					"timePeriod": "7 days"
+				}
+			]
+		}`))
 	})
 
 	// GET /voyager/api/identity/searchAppearances
@@ -732,12 +792,36 @@ func withSettingsMock(mux *http.ServeMux) {
 	})
 }
 
-// withSearchMock registers search-related mock handlers on mux.
-// NOTE: /voyager/api/search/dash/clusters is already registered by withCompaniesMock.
-// This function is a no-op kept for symmetry so callers can call withSearchMock explicitly.
-func withSearchMock(_ *http.ServeMux) {
-	// Intentionally empty: the /voyager/api/search/dash/clusters handler is
-	// registered by withCompaniesMock which is called earlier in newFullMockServer.
+// withSearchMock registers search-related GraphQL mock handlers on mux.
+func withSearchMock(mux *http.ServeMux) {
+	// GET /voyager/api/graphql — GraphQL search endpoint (voyagerSearchDashClusters queryId)
+	mux.HandleFunc("/voyager/api/graphql", func(w http.ResponseWriter, r *http.Request) {
+		queryID := r.URL.Query().Get("queryId")
+		if !strings.Contains(queryID, "SearchDashClusters") && !strings.Contains(queryID, "voyagerSearch") {
+			http.Error(w, `{"message":"unknown queryId"}`, http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": {},
+			"included": [
+				{
+					"$type": "com.linkedin.voyager.search.dash.clusters.EntityResultViewModel",
+					"entityUrn": "urn:li:fs_normalized_company:1234",
+					"trackingUrn": "urn:li:fs_normalized_company:1234",
+					"title": {"text": "TestCorp"},
+					"primarySubtitle": {"text": "Computer Software"}
+				},
+				{
+					"$type": "com.linkedin.voyager.search.dash.clusters.EntityResultViewModel",
+					"entityUrn": "urn:li:fs_miniProfile:ACoAABtest123",
+					"trackingUrn": "urn:li:fs_miniProfile:ACoAABtest123",
+					"title": {"text": "Test User"},
+					"primarySubtitle": {"text": "Software Engineer"}
+				}
+			]
+		}`))
+	})
 }
 
 // withNetworkMock registers network (followers/following/suggestions) mock handlers on mux.
@@ -818,8 +902,18 @@ func withNotificationsMock(mux *http.ServeMux) {
 		}`))
 	})
 
-	// POST /voyager/api/identity/notifications/markAllAsRead
+	// POST /voyager/api/identity/notifications/markAllAsRead (legacy — kept for compat)
 	mux.HandleFunc("/voyager/api/identity/notifications/markAllAsRead", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{}`))
+	})
+
+	// POST /voyager/api/voyagerNotificationsDashBadge?action=markAllItemsAsSeen
+	mux.HandleFunc("/voyager/api/voyagerNotificationsDashBadge", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
 			return

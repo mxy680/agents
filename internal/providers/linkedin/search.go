@@ -1,52 +1,35 @@
 package linkedin
 
 import (
+	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
 
-// voyagerSearchResponse is the response envelope for GET /voyager/api/search/dash/clusters.
-type voyagerSearchResponse struct {
-	Elements []struct {
-		Items []struct {
-			Item struct {
-				EntityResult struct {
-					EntityURN       string `json:"entityUrn"`
-					Title           struct{ Text string `json:"text"` } `json:"title"`
-					PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-				} `json:"entityResult"`
-				// Alternate key used by some LinkedIn response shapes
-				SearchEntityResult struct {
-					EntityURN       string `json:"entityUrn"`
-					Title           struct{ Text string `json:"text"` } `json:"title"`
-					PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-				} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-			} `json:"item"`
-		} `json:"items"`
-		// Outer cluster may also have an "elements" list (some shapes flatten items here)
-		Elements []struct {
-			Item struct {
-				EntityResult struct {
-					EntityURN       string `json:"entityUrn"`
-					Title           struct{ Text string `json:"text"` } `json:"title"`
-					PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-				} `json:"entityResult"`
-				SearchEntityResult struct {
-					EntityURN       string `json:"entityUrn"`
-					Title           struct{ Text string `json:"text"` } `json:"title"`
-					PrimarySubtitle struct{ Text string `json:"text"` } `json:"primarySubtitle"`
-				} `json:"com.linkedin.voyager.search.SearchEntityResult"`
-			} `json:"item"`
-		} `json:"elements"`
-	} `json:"elements"`
-	Paging struct {
-		Start int `json:"start"`
-		Count int `json:"count"`
-		Total int `json:"total"`
-	} `json:"paging"`
+// searchClustersQueryID is the current known queryId for the search clusters GraphQL endpoint.
+const searchClustersQueryID = "voyagerSearchDashClusters.05111e1b90ee7fea15bebe9f9410ced9"
+
+// searchEntityResult maps the EntityResultViewModel shape returned in GraphQL included[].
+type searchEntityResult struct {
+	Title struct {
+		Text string `json:"text"`
+	} `json:"title"`
+	PrimarySubtitle struct {
+		Text string `json:"text"`
+	} `json:"primarySubtitle"`
+	TrackingURN string `json:"trackingUrn"`
+	EntityURN   string `json:"entityUrn"`
+}
+
+// searchTypeToResultType maps our result type names to LinkedIn GraphQL result type values.
+var searchTypeToResultType = map[string]string{
+	"person":  "PEOPLE",
+	"company": "COMPANIES",
+	"job":     "JOBS",
+	"post":    "CONTENT",
+	"group":   "GROUPS",
 }
 
 // newSearchCmd builds the "search" (alias: find) subcommand group.
@@ -143,24 +126,6 @@ func newSearchGroupsCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-// searchTypeToOrigin maps result types to the LinkedIn search origin query parameter.
-var searchTypeToOrigin = map[string]string{
-	"person":  "FACETED_SEARCH",
-	"company": "FACETED_SEARCH",
-	"job":     "JOB_SEARCH",
-	"post":    "FACETED_SEARCH",
-	"group":   "FACETED_SEARCH",
-}
-
-// searchTypeToQuery maps result types to the LinkedIn q parameter.
-var searchTypeToQuery = map[string]string{
-	"person":  "SEARCH_HITS",
-	"company": "SEARCH_HITS",
-	"job":     "SEARCH_HITS",
-	"post":    "SEARCH_HITS",
-	"group":   "SEARCH_HITS",
-}
-
 // makeRunSearch builds a RunE function for the given search type.
 func makeRunSearch(factory ClientFactory, resultType string) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
@@ -169,7 +134,7 @@ func makeRunSearch(factory ClientFactory, resultType string) func(*cobra.Command
 			return fmt.Errorf("--query is required")
 		}
 
-		limit, _ := cmd.Flags().GetInt("limit")
+		_, _ = cmd.Flags().GetInt("limit") // limit flag kept for API compatibility; not used in GraphQL variables
 		cursor, _ := cmd.Flags().GetString("cursor")
 
 		start := 0
@@ -179,97 +144,61 @@ func makeRunSearch(factory ClientFactory, resultType string) func(*cobra.Command
 			}
 		}
 
+		linkedinType := searchTypeToResultType[resultType]
+
+		// Build the Rest-li tuple variables string for the GraphQL request.
+		variables := fmt.Sprintf(
+			"(start:%d,origin:GLOBAL_SEARCH_HEADER,query:(keywords:%s,flagshipSearchIntent:SEARCH_SRP,queryParameters:List((key:resultType,value:List(%s))),includeFiltersInResponse:false))",
+			start, query, linkedinType,
+		)
+
 		ctx := cmd.Context()
 		client, err := factory(ctx)
 		if err != nil {
 			return err
 		}
 
-		params := url.Values{
-			"q":      {searchTypeToQuery[resultType]},
-			"origin": {searchTypeToOrigin[resultType]},
-			"query":  {fmt.Sprintf(`(keywords:%s)`, query)},
-			"start":  {fmt.Sprintf("%d", start)},
-			"count":  {fmt.Sprintf("%d", limit)},
-		}
-
-		// Add optional filters when present
-		if loc, _ := cmd.Flags().GetString("location"); loc != "" {
-			params.Set("filters", fmt.Sprintf("List((filter:geoUrn,values:List((text:%s))))", loc))
-		}
-		if network, _ := cmd.Flags().GetString("network"); network != "" {
-			params.Set("filters", fmt.Sprintf("List((filter:network,values:List((value:%s))))", network))
-		}
-		if author, _ := cmd.Flags().GetString("author"); author != "" {
-			params.Set("filters", fmt.Sprintf("List((filter:authorUrn,values:List((value:%s))))", author))
-		}
-
-		resp, err := client.Get(ctx, "/voyager/api/search/dash/clusters", params)
+		resp, err := client.GetGraphQL(ctx, searchClustersQueryID, variables)
 		if err != nil {
 			return fmt.Errorf("searching %ss: %w", resultType, err)
 		}
 
-		var raw voyagerSearchResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
+		var normalized NormalizedResponse
+		if err := client.DecodeJSON(resp, &normalized); err != nil {
 			return fmt.Errorf("decoding search results: %w", err)
 		}
 
-		results := extractSearchResults(raw, resultType)
+		results := extractGraphQLSearchResults(normalized.Included, resultType)
 		return printSearchResults(cmd, results)
 	}
 }
 
-// extractSearchResults flattens the nested search response into a SearchResult slice.
-func extractSearchResults(raw voyagerSearchResponse, resultType string) []SearchResult {
-	results := make([]SearchResult, 0)
-	for _, cluster := range raw.Elements {
-		// Handle shape 1: cluster.items
-		for _, item := range cluster.Items {
-			if r := toSearchResult(item.Item.EntityResult.EntityURN,
-				item.Item.EntityResult.Title.Text,
-				item.Item.EntityResult.PrimarySubtitle.Text,
-				resultType); r != nil {
-				results = append(results, *r)
-				continue
-			}
-			if r := toSearchResult(item.Item.SearchEntityResult.EntityURN,
-				item.Item.SearchEntityResult.Title.Text,
-				item.Item.SearchEntityResult.PrimarySubtitle.Text,
-				resultType); r != nil {
-				results = append(results, *r)
-			}
+// extractGraphQLSearchResults finds all EntityResultViewModel entities in the included array
+// and maps them to SearchResult values.
+func extractGraphQLSearchResults(included []json.RawMessage, resultType string) []SearchResult {
+	rawEntities := FindAllIncluded(included, "EntityResultViewModel")
+	results := make([]SearchResult, 0, len(rawEntities))
+	for _, raw := range rawEntities {
+		var entity searchEntityResult
+		if err := json.Unmarshal(raw, &entity); err != nil {
+			continue
 		}
-		// Handle shape 2: cluster.elements
-		for _, el := range cluster.Elements {
-			if r := toSearchResult(el.Item.EntityResult.EntityURN,
-				el.Item.EntityResult.Title.Text,
-				el.Item.EntityResult.PrimarySubtitle.Text,
-				resultType); r != nil {
-				results = append(results, *r)
-				continue
-			}
-			if r := toSearchResult(el.Item.SearchEntityResult.EntityURN,
-				el.Item.SearchEntityResult.Title.Text,
-				el.Item.SearchEntityResult.PrimarySubtitle.Text,
-				resultType); r != nil {
-				results = append(results, *r)
-			}
+		// Prefer entityUrn; fall back to trackingUrn.
+		urn := entity.EntityURN
+		if urn == "" {
+			urn = entity.TrackingURN
 		}
+		if urn == "" {
+			continue
+		}
+		results = append(results, SearchResult{
+			URN:      urn,
+			Title:    entity.Title.Text,
+			Subtitle: entity.PrimarySubtitle.Text,
+			Type:     resultType,
+		})
 	}
 	return results
-}
-
-// toSearchResult returns a SearchResult if urn is non-empty, otherwise nil.
-func toSearchResult(urn, title, subtitle, resultType string) *SearchResult {
-	if urn == "" {
-		return nil
-	}
-	return &SearchResult{
-		URN:      urn,
-		Title:    title,
-		Subtitle: subtitle,
-		Type:     resultType,
-	}
 }
 
 // printSearchResults outputs search results as JSON or text.

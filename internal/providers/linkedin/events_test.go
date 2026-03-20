@@ -5,113 +5,54 @@ import (
 	"testing"
 )
 
-func TestEventsList_Text(t *testing.T) {
+func TestEventsList_Deprecated(t *testing.T) {
 	srv := newFullMockServer(t)
 	defer srv.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newEventsCmd(newTestClientFactory(srv)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"events", "list"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, "Go Meetup 2024") {
-		t.Errorf("expected 'Go Meetup 2024' in output, got: %s", out)
+	root.SetArgs([]string{"events", "list"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Error("expected error for deprecated events list endpoint")
 	}
-	if !containsStr(out, "Cloud Summit") {
-		t.Errorf("expected 'Cloud Summit' in output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
-func TestEventsList_JSON(t *testing.T) {
+func TestEventsList_AliasDeprecated(t *testing.T) {
 	srv := newFullMockServer(t)
 	defer srv.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newEventsCmd(newTestClientFactory(srv)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"--json", "events", "list"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, `"title"`) {
-		t.Errorf("expected JSON field 'title' in output, got: %s", out)
+	root.SetArgs([]string{"event", "list"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Error("expected error for deprecated events list via alias")
 	}
-	if !containsStr(out, "Go Meetup 2024") {
-		t.Errorf("expected event title in JSON output, got: %s", out)
-	}
-	if !containsStr(out, `"starts_at"`) {
-		t.Errorf("expected 'starts_at' in JSON output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message via alias, got: %s", err.Error())
 	}
 }
 
-func TestEventsList_WithAlias(t *testing.T) {
+func TestEventsGet_Deprecated(t *testing.T) {
 	srv := newFullMockServer(t)
 	defer srv.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newEventsCmd(newTestClientFactory(srv)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"event", "list"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, "Go Meetup 2024") {
-		t.Errorf("expected event title in output via alias, got: %s", out)
+	root.SetArgs([]string{"events", "get", "--event-id=67890"})
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Error("expected error for deprecated events get endpoint")
 	}
-}
-
-func TestEventsGet_Text(t *testing.T) {
-	srv := newFullMockServer(t)
-	defer srv.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newEventsCmd(newTestClientFactory(srv)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"events", "get", "--event-id=67890"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, "Go Meetup 2024") {
-		t.Errorf("expected event title in output, got: %s", out)
-	}
-	if !containsStr(out, "San Francisco") {
-		t.Errorf("expected location in output, got: %s", out)
-	}
-}
-
-func TestEventsGet_JSON(t *testing.T) {
-	srv := newFullMockServer(t)
-	defer srv.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newEventsCmd(newTestClientFactory(srv)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"--json", "events", "get", "--event-id=67890"})
-		if err := root.ExecuteContext(context.Background()); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
-
-	if !containsStr(out, `"title"`) {
-		t.Errorf("expected JSON field 'title' in output, got: %s", out)
-	}
-	if !containsStr(out, "Go Meetup 2024") {
-		t.Errorf("expected event title in JSON output, got: %s", out)
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 

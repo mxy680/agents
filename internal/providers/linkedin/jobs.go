@@ -324,39 +324,9 @@ func newJobsSavedCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunJobsSaved(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{}
-		params.Set("start", "0")
-		if cursor != "" {
-			params.Set("start", cursor)
-		}
-		params.Set("count", fmt.Sprintf("%d", limit))
-
-		resp, err := client.Get(ctx, "/voyager/api/jobs/savedJobs", params)
-		if err != nil {
-			return fmt.Errorf("listing saved jobs: %w", err)
-		}
-
-		var raw voyagerSavedJobsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding saved jobs: %w", err)
-		}
-
-		summaries := make([]JobSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toJobSummaryFromPosting(el.JobPosting))
-		}
-		return printJobSummaries(cmd, summaries)
+func makeRunJobsSaved(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 
@@ -373,38 +343,9 @@ func newJobsRecommendedCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func makeRunJobsRecommended(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		limit, _ := cmd.Flags().GetInt("limit")
-		cursor, _ := cmd.Flags().GetString("cursor")
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		params := url.Values{}
-		params.Set("count", fmt.Sprintf("%d", limit))
-		if cursor != "" {
-			params.Set("start", cursor)
-		}
-
-		resp, err := client.Get(ctx, "/voyager/api/jobs/jobRecommendations", params)
-		if err != nil {
-			return fmt.Errorf("listing recommended jobs: %w", err)
-		}
-
-		var raw voyagerRecommendedJobsResponse
-		if err := client.DecodeJSON(resp, &raw); err != nil {
-			return fmt.Errorf("decoding recommended jobs: %w", err)
-		}
-
-		summaries := make([]JobSummary, 0, len(raw.Elements))
-		for _, el := range raw.Elements {
-			summaries = append(summaries, toJobSummaryFromPosting(el))
-		}
-		return printJobSummaries(cmd, summaries)
+func makeRunJobsRecommended(_ ClientFactory) func(*cobra.Command, []string) error {
+	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
 	}
 }
 

@@ -6,94 +6,37 @@ import (
 	"testing"
 )
 
-func TestNotificationsList_Text(t *testing.T) {
+func TestNotificationsList_Deprecated(t *testing.T) {
 	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notifications", "list"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "Alice Smith viewed your profile") {
-		t.Errorf("expected notification text in output, got: %s", out)
-	}
-	if !containsStr(out, "Bob Jones liked your post") {
-		t.Errorf("expected second notification text in output, got: %s", out)
-	}
-}
-
-func TestNotificationsList_JSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notifications", "list", "--json"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, `"is_read"`) {
-		t.Errorf("expected JSON field 'is_read' in output, got: %s", out)
-	}
-	if !containsStr(out, "urn:li:notification:111") {
-		t.Errorf("expected notification URN in JSON output, got: %s", out)
-	}
-	if !containsStr(out, "urn:li:notification:222") {
-		t.Errorf("expected second notification URN in JSON output, got: %s", out)
-	}
-}
-
-func TestNotificationsList_Alias(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notif", "list"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "Alice") {
-		t.Errorf("expected output via 'notif' alias, got: %s", out)
-	}
-}
-
-func TestNotificationsList_InvalidCursor(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	root := newTestRootCmd()
-	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
-
-	root.SetArgs([]string{"notifications", "list", "--cursor", "notanumber"})
+	root.SetArgs([]string{"notifications", "list"})
 	err := root.Execute()
 	if err == nil {
-		t.Error("expected error for invalid cursor")
+		t.Error("expected error for deprecated notifications list endpoint")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message, got: %s", err.Error())
 	}
 }
 
-func TestNotificationsList_Empty(t *testing.T) {
-	server := newEmptyNotificationsServer(t)
+func TestNotificationsList_AliasDeprecated(t *testing.T) {
+	server := newFullMockServer(t)
 	defer server.Close()
 
 	root := newTestRootCmd()
 	root.AddCommand(newNotificationsCmd(newTestClientFactory(server)))
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"notifications", "list"})
-		root.Execute() //nolint:errcheck
-	})
-
-	if !containsStr(out, "No notifications found.") {
-		t.Errorf("expected 'No notifications found.' in output, got: %s", out)
+	root.SetArgs([]string{"notif", "list"})
+	err := root.Execute()
+	if err == nil {
+		t.Error("expected error for deprecated notifications list via alias")
+	}
+	if !containsStr(err.Error(), "deprecated") {
+		t.Errorf("expected 'deprecated' in error message via alias, got: %s", err.Error())
 	}
 }
 
