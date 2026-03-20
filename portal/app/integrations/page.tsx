@@ -18,11 +18,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
 import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
+import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
   IconBrandGithub,
   IconBrandInstagram,
+  IconBrandLinkedin,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -44,6 +46,12 @@ const providers = [
     name: "Instagram",
     description: "Media, Stories, Comments, Messages",
     icon: IconBrandInstagram,
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    description: "Posts, Connections, Messages, Jobs",
+    icon: IconBrandLinkedin,
   },
 ]
 
@@ -142,6 +150,15 @@ export default async function IntegrationsPage() {
                             : "Connect"}
                         </Button>
                       </InstagramConnectDialog>
+                    ) : provider.id === "linkedin" ? (
+                      <LinkedinConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </LinkedinConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

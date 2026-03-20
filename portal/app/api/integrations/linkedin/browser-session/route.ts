@@ -24,20 +24,16 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}))
   const rawLabel = typeof body.label === "string" ? body.label.trim() : ""
-  const label = rawLabel.slice(0, 100) || "Instagram Account"
+  const label = rawLabel.slice(0, 100) || "LinkedIn Account"
 
-  // Create a signed token embedding userId and label.
-  // The WS server verifies this token sent as the first message (not in URL).
   const token = createOAuthState(user.id, label)
 
   const wsHost = process.env.BROWSER_WS_HOST ?? "localhost"
   const isLocal = wsHost === "localhost" || wsHost === "127.0.0.1"
 
-  // Local: direct connection to WS server port
-  // Production: go through Caddy reverse proxy at /ws/*
   const wsUrl = isLocal
-    ? `ws://${wsHost}:${process.env.BROWSER_WS_PORT ?? "3001"}/browser-session/instagram`
-    : `wss://${wsHost}/ws/browser-session/instagram`
+    ? `ws://${wsHost}:${process.env.BROWSER_WS_PORT ?? "3001"}/browser-session/linkedin`
+    : `wss://${wsHost}/ws/browser-session/linkedin`
 
   return NextResponse.json({ wsUrl, token })
 }

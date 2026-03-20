@@ -70,10 +70,18 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
   const rawUrl = req.url ?? "/"
   const url = new URL(rawUrl, `http://localhost`)
 
-  // Path: /browser-session
-  // Accept /browser-session (direct) or /ws/browser-session (via Caddy proxy)
-  if (!url.pathname.startsWith("/browser-session") && !url.pathname.startsWith("/ws/browser-session")) {
+  // Extract provider from path: /browser-session/:provider or /ws/browser-session/:provider
+  const pathParts = url.pathname.split("/").filter(Boolean)
+  // For /browser-session/instagram → ["browser-session", "instagram"]
+  // For /ws/browser-session/linkedin → ["ws", "browser-session", "linkedin"]
+  const bsIndex = pathParts.indexOf("browser-session")
+  if (bsIndex === -1) {
     ws.close(4000, "Invalid path")
+    return
+  }
+  const provider = pathParts[bsIndex + 1]
+  if (!provider) {
+    ws.close(4000, "Missing provider in path")
     return
   }
 
@@ -121,7 +129,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
 
   let session: BrowserSession
   try {
-    session = createSession(userId, label)
+    session = createSession(userId, label, provider)
     console.log("[ws] Session created:", session.id)
   } catch (err) {
     console.error("[ws] Session creation failed:", err)
@@ -146,7 +154,7 @@ wss.on("connection", async (ws: WebSocket, req: IncomingMessage) => {
         await supabase.from("user_integrations").upsert(
           {
             user_id: userId,
-            provider: "instagram",
+            provider,
             label,
             status: "active",
             credentials: `\\x${encrypted.toString("hex")}`,
