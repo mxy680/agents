@@ -419,6 +419,225 @@ func withFeedMock(mux *http.ServeMux) {
 	})
 }
 
+// withMessagesMock registers messaging-related mock handlers on mux.
+func withMessagesMock(mux *http.ServeMux) {
+	// GET/POST /voyager/api/messaging/conversations — list and create
+	mux.HandleFunc("/voyager/api/messaging/conversations", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"entityUrn": "urn:li:fs_conversation:conv1",
+						"conversationId": "conv1",
+						"lastActivityAt": 1704067200000,
+						"unreadCount": 2,
+						"participants": [
+							{"com.linkedin.voyager.messaging.MessagingMember": {"miniProfile": {"entityUrn":"urn:li:fs_miniProfile:ABC","firstName":"Jane","lastName":"Doe"}}}
+						]
+					}
+				],
+				"paging": {"start": 0, "count": 20, "total": 1}
+			}`))
+		case http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"conversationId":"new-conv-1"}`))
+		default:
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
+	// /voyager/api/messaging/conversations/{id}[/events]
+	mux.HandleFunc("/voyager/api/messaging/conversations/", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/voyager/api/messaging/conversations/")
+
+		// /conversations/{id}/events
+		if strings.HasSuffix(path, "/events") {
+			switch r.Method {
+			case http.MethodGet:
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{
+					"elements": [
+						{
+							"entityUrn": "urn:li:fs_event:msg1",
+							"from": {"com.linkedin.voyager.messaging.MessagingMember": {"miniProfile": {"entityUrn":"urn:li:fs_miniProfile:ABC","firstName":"Jane","lastName":"Doe"}}},
+							"eventContent": {"com.linkedin.voyager.messaging.event.MessageEvent": {"body": "Hello!"}},
+							"createdAt": 1704067200000
+						}
+					],
+					"paging": {"start": 0, "count": 20, "total": 1}
+				}`))
+			case http.MethodPost:
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"entityUrn":"urn:li:fs_event:msg2"}`))
+			default:
+				http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+			return
+		}
+
+		// /conversations/{id} — delete or patch
+		switch r.Method {
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodPatch:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{}`))
+		default:
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+}
+
+// withCompaniesMock registers company-related mock handlers on mux.
+func withCompaniesMock(mux *http.ServeMux) {
+	// GET /voyager/api/organization/companies
+	mux.HandleFunc("/voyager/api/organization/companies", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"entityUrn": "urn:li:fs_normalized_company:1234",
+			"name": "TestCorp",
+			"industryName": "Computer Software",
+			"staffCount": 500,
+			"followerCount": 10000,
+			"description": "A test company"
+		}`))
+	})
+
+	// POST /voyager/api/feed/follows — follow company
+	mux.HandleFunc("/voyager/api/feed/follows", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{}`))
+	})
+
+	// DELETE /voyager/api/feed/follows/... — unfollow company
+	mux.HandleFunc("/voyager/api/feed/follows/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// GET /voyager/api/jobs/jobPostings (company jobs)
+	mux.HandleFunc("/voyager/api/jobs/jobPostings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_normalized_jobPosting:3456",
+					"title": "Senior Software Engineer",
+					"companyName": "TestCorp",
+					"formattedLocation": "San Francisco, CA",
+					"listedAt": 1704067200000,
+					"workRemoteAllowed": true
+				}
+			],
+			"paging": {"start": 0, "count": 10, "total": 1}
+		}`))
+	})
+
+	// GET /voyager/api/search/dash/clusters — company/employee search
+	mux.HandleFunc("/voyager/api/search/dash/clusters", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"elements": [
+						{
+							"item": {
+								"com.linkedin.voyager.search.SearchEntityResult": {
+									"entityUrn": "urn:li:fs_normalized_company:1234",
+									"title": {"text": "TestCorp"},
+									"primarySubtitle": {"text": "Computer Software"}
+								}
+							}
+						}
+					]
+				}
+			]
+		}`))
+	})
+}
+
+// withJobsMock registers job-related mock handlers on mux.
+func withJobsMock(mux *http.ServeMux) {
+	// GET /voyager/api/jobs/jobPostings/{id}
+	mux.HandleFunc("/voyager/api/jobs/jobPostings/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"entityUrn": "urn:li:fs_normalized_jobPosting:3456",
+			"title": "Senior Software Engineer",
+			"companyName": "TestCorp",
+			"formattedLocation": "San Francisco, CA",
+			"listedAt": 1704067200000,
+			"workRemoteAllowed": true,
+			"description": {"text": "An exciting role."}
+		}`))
+	})
+
+	// GET/POST /voyager/api/jobs/savedJobs
+	mux.HandleFunc("/voyager/api/jobs/savedJobs", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{
+				"elements": [
+					{
+						"entityUrn": "urn:li:fs_savedJob:99",
+						"jobPosting": {
+							"entityUrn": "urn:li:fs_normalized_jobPosting:3456",
+							"title": "Senior Software Engineer",
+							"companyName": "TestCorp",
+							"formattedLocation": "San Francisco, CA",
+							"listedAt": 1704067200000,
+							"workRemoteAllowed": true
+						}
+					}
+				],
+				"paging": {"start": 0, "count": 20, "total": 1}
+			}`))
+		case http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{}`))
+		default:
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+	})
+
+	// DELETE /voyager/api/jobs/savedJobs/{id}
+	mux.HandleFunc("/voyager/api/jobs/savedJobs/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, `{"message":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// GET /voyager/api/jobs/jobRecommendations
+	mux.HandleFunc("/voyager/api/jobs/jobRecommendations", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"elements": [
+				{
+					"entityUrn": "urn:li:fs_normalized_jobPosting:7890",
+					"title": "Staff Engineer",
+					"companyName": "BigCo",
+					"formattedLocation": "New York, NY",
+					"listedAt": 1704067200000,
+					"workRemoteAllowed": false
+				}
+			],
+			"paging": {"start": 0, "count": 20, "total": 1}
+		}`))
+	})
+}
+
 // newFullMockServer creates a test server with all LinkedIn mock handlers.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -429,5 +648,8 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withPostsMock(mux)
 	withCommentsMock(mux)
 	withFeedMock(mux)
+	withMessagesMock(mux)
+	withCompaniesMock(mux)
+	withJobsMock(mux)
 	return httptest.NewServer(mux)
 }
