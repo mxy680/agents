@@ -176,6 +176,27 @@ func TestProcessIntegrationInstagram(t *testing.T) {
 	}
 }
 
+func TestProcessIntegrationLinkedIn(t *testing.T) {
+	creds := encryptCredentialsForTest(map[string]string{
+		"li_at":      "li-at-token",
+		"jsessionid": "ajax:1234567890",
+	})
+	ui := &UserIntegration{Provider: "linkedin", Credentials: creds}
+	env := make(map[string]string)
+	if err := processIntegration(ui, testKey, env); err != nil {
+		t.Fatalf("error = %v", err)
+	}
+	expected := map[string]string{
+		"LINKEDIN_LI_AT":     "li-at-token",
+		"LINKEDIN_JSESSIONID": "ajax:1234567890",
+	}
+	for k, want := range expected {
+		if env[k] != want {
+			t.Errorf("%s = %q, want %q", k, env[k], want)
+		}
+	}
+}
+
 func TestProcessIntegrationUnknown(t *testing.T) {
 	creds := encryptCredentialsForTest(map[string]string{"key": "val"})
 	ui := &UserIntegration{Provider: "slack", Credentials: creds}
