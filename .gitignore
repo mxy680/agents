@@ -1,6 +1,14 @@
 bin/
-coverage.out
+*.out
 .env
+.env.local
 oauth-setup
 .playwright-mcp/
 docker/agent-base/bin/
+docker/export-creds/bin/
+
+# IDE / tool artifacts
+.agents/
+.windsurf/
+skills/
+skills-lock.json
