@@ -68,5 +68,48 @@ export async function applyStealthScripts(page: Page): Promise<void> {
         return originalQuery(parameters)
       }
     }
+
+    // Spoof hardwareConcurrency (headless often reports 1-2)
+    Object.defineProperty(navigator, "hardwareConcurrency", {
+      get: () => 8,
+      configurable: true,
+    })
+
+    // Spoof deviceMemory
+    Object.defineProperty(navigator, "deviceMemory", {
+      get: () => 8,
+      configurable: true,
+    })
+
+    // Spoof connection type
+    Object.defineProperty(navigator, "connection", {
+      get: () => ({
+        effectiveType: "4g",
+        rtt: 50,
+        downlink: 10,
+        saveData: false,
+      }),
+      configurable: true,
+    })
+
+    // Patch WebGL renderer and vendor to match real hardware
+    const getParameterOrig = WebGLRenderingContext.prototype.getParameter
+    WebGLRenderingContext.prototype.getParameter = function (param: number) {
+      // UNMASKED_VENDOR_WEBGL
+      if (param === 0x9245) return "Google Inc. (Apple)"
+      // UNMASKED_RENDERER_WEBGL
+      if (param === 0x9246) return "ANGLE (Apple, Apple M1 Pro, OpenGL 4.1)"
+      return getParameterOrig.call(this, param)
+    }
+
+    // Do the same for WebGL2
+    if (typeof WebGL2RenderingContext !== "undefined") {
+      const getParam2Orig = WebGL2RenderingContext.prototype.getParameter
+      WebGL2RenderingContext.prototype.getParameter = function (param: number) {
+        if (param === 0x9245) return "Google Inc. (Apple)"
+        if (param === 0x9246) return "ANGLE (Apple, Apple M1 Pro, OpenGL 4.1)"
+        return getParam2Orig.call(this, param)
+      }
+    }
   })
 }

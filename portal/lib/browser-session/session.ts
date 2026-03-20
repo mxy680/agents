@@ -92,16 +92,22 @@ export class BrowserSession {
     this.browser = await chromium.launch({
       headless: true,
       args: [
+        // Use Chrome's new headless mode — same rendering engine as headed,
+        // making it indistinguishable from a real browser. The old headless
+        // mode has a separate codepath that sites like LinkedIn fingerprint.
+        "--headless=new",
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
         "--disable-dev-shm-usage",
+        "--disable-infobars",
+        "--window-size=1280,720",
       ],
     })
 
     this.context = await this.browser.newContext({
       viewport: { width: 1280, height: 720 },
       userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36",
       locale: "en-US",
     })
 
