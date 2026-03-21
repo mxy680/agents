@@ -1,40 +1,42 @@
 /**
  * Emdash Integrations — Content Script
  *
- * Injected into portal pages to announce the extension's presence.
- * The portal page reads window.__EMDASH_EXTENSION_ID__ to know which
- * extension ID to use with chrome.runtime.sendMessage().
+ * Injected into portal pages to announce the extension's presence and relay
+ * messages between the portal page and the background service worker.
  *
- * Also relays messages between the portal page and the background
- * service worker, since the page context can't call chrome.runtime
- * directly but the content script can.
+ * Communication uses CustomEvents on the document, which work across the
+ * content script / page context boundary without needing inline script
+ * injection (which can be blocked by CSP).
  */
 
 "use strict"
 
-// Inject the extension ID into the page context
-const script = document.createElement("script")
-script.textContent = `window.__EMDASH_EXTENSION_ID__ = "${chrome.runtime.id}";`
-;(document.head || document.documentElement).appendChild(script)
-script.remove()
+// Announce presence by setting a data attribute on the document element.
+// The portal page can check for this synchronously.
+document.documentElement.setAttribute("data-emdash-extension", chrome.runtime.id)
 
-// Relay messages from the page to the background service worker
-window.addEventListener("message", (event) => {
-  // Only accept messages from the same page
-  if (event.source !== window) return
-  if (!event.data || event.data.direction !== "emdash-to-extension") return
+// Also dispatch an event for pages that are already loaded
+document.dispatchEvent(
+  new CustomEvent("emdash-extension-ready", {
+    detail: { id: chrome.runtime.id },
+  })
+)
 
-  const { id, payload } = event.data
+// Relay messages from the page to the background service worker.
+// The page dispatches "emdash-to-extension" events on the document,
+// and we respond with "emdash-from-extension" events.
+document.addEventListener("emdash-to-extension", (event) => {
+  const { id, payload } = event.detail
 
   chrome.runtime.sendMessage(payload, (response) => {
-    window.postMessage(
-      {
-        direction: "emdash-from-extension",
-        id,
-        response: response ?? null,
-        error: chrome.runtime.lastError?.message ?? null,
-      },
-      "*"
+    document.dispatchEvent(
+      new CustomEvent("emdash-from-extension", {
+        detail: {
+          id,
+          response: response ?? null,
+          error: chrome.runtime.lastError?.message ?? null,
+        },
+      })
     )
   })
 })

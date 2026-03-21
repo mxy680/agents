@@ -30,43 +30,45 @@ let messageCounter = 0
 /**
  * Send a message to the extension's background service worker via the
  * content script relay. The content script listens for "emdash-to-extension"
- * messages on the window and forwards them to chrome.runtime.sendMessage,
- * then posts the response back as "emdash-from-extension".
+ * CustomEvents on document and forwards them to chrome.runtime.sendMessage,
+ * then dispatches "emdash-from-extension" CustomEvents with the response.
  */
 function sendToExtension(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
     const id = ++messageCounter
 
     const timeout = setTimeout(() => {
-      window.removeEventListener("message", handler)
+      document.removeEventListener("emdash-from-extension", handler)
       resolve(null)
     }, 3000)
 
-    function handler(event: MessageEvent) {
-      if (event.source !== window) return
-      if (!event.data || event.data.direction !== "emdash-from-extension") return
-      if (event.data.id !== id) return
+    function handler(event: Event) {
+      const detail = (event as CustomEvent).detail
+      if (detail?.id !== id) return
 
       clearTimeout(timeout)
-      window.removeEventListener("message", handler)
+      document.removeEventListener("emdash-from-extension", handler)
 
-      if (event.data.error) {
+      if (detail.error) {
         resolve(null)
       } else {
-        resolve(event.data.response)
+        resolve(detail.response)
       }
     }
 
-    window.addEventListener("message", handler)
-    window.postMessage({ direction: "emdash-to-extension", id, payload }, "*")
+    document.addEventListener("emdash-from-extension", handler)
+    document.dispatchEvent(
+      new CustomEvent("emdash-to-extension", { detail: { id, payload } })
+    )
   })
 }
 
 /**
- * Check if the extension is installed by looking for the global it injects.
+ * Check if the extension is installed by looking for the data attribute
+ * the content script sets on <html>.
  */
 function isExtensionInstalled(): boolean {
-  return typeof (window as Record<string, unknown>).__EMDASH_EXTENSION_ID__ === "string"
+  return document.documentElement.hasAttribute("data-emdash-extension")
 }
 
 const PROVIDER_LOGIN_URLS: Record<string, string> = {
