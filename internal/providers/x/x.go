@@ -38,6 +38,8 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	xCmd.AddCommand(newLikesCmd(p.ClientFactory))
 	xCmd.AddCommand(newRetweetsCmd(p.ClientFactory))
 	xCmd.AddCommand(newBookmarksCmd(p.ClientFactory))
+	xCmd.AddCommand(newDMCmd(p.ClientFactory))
+	xCmd.AddCommand(newListsCmd(p.ClientFactory))
 
 	parent.AddCommand(xCmd)
 }

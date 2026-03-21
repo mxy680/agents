@@ -343,3 +343,72 @@ func containsAny(s string, subs ...string) bool {
 	}
 	return false
 }
+
+// DMConversationSummary is a condensed representation of an X DM conversation.
+type DMConversationSummary struct {
+	ID           string   `json:"id"`
+	Type         string   `json:"type"`
+	Participants []string `json:"participants"`
+}
+
+// DMMessageSummary is a condensed representation of an X direct message.
+type DMMessageSummary struct {
+	ID             string `json:"id"`
+	ConversationID string `json:"conversation_id"`
+	SenderID       string `json:"sender_id"`
+	Text           string `json:"text"`
+	Timestamp      string `json:"timestamp"`
+}
+
+// ListSummary is a condensed representation of an X list.
+type ListSummary struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Description     string `json:"description,omitempty"`
+	MemberCount     int    `json:"member_count"`
+	SubscriberCount int    `json:"subscriber_count"`
+	Private         bool   `json:"private"`
+	CreatedAt       string `json:"created_at,omitempty"`
+	OwnerName       string `json:"owner_name,omitempty"`
+	OwnerUsername   string `json:"owner_username,omitempty"`
+}
+
+// parseListResult parses X's GraphQL list result format into a ListSummary.
+// The input raw is the value of the "list" key in the data response.
+func parseListResult(raw json.RawMessage) (*ListSummary, error) {
+	var result struct {
+		IDStr           string `json:"id_str"`
+		Name            string `json:"name"`
+		Description     string `json:"description"`
+		MemberCount     int    `json:"member_count"`
+		SubscriberCount int    `json:"subscriber_count"`
+		Mode            string `json:"mode"`
+		CreatedAt       int64  `json:"created_at"`
+		UserResults     struct {
+			Result struct {
+				Legacy xUserLegacy `json:"legacy"`
+			} `json:"result"`
+		} `json:"user_results"`
+	}
+
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return nil, fmt.Errorf("parse list result: %w", err)
+	}
+
+	createdAt := ""
+	if result.CreatedAt > 0 {
+		createdAt = fmt.Sprintf("%d", result.CreatedAt)
+	}
+
+	return &ListSummary{
+		ID:              result.IDStr,
+		Name:            result.Name,
+		Description:     result.Description,
+		MemberCount:     result.MemberCount,
+		SubscriberCount: result.SubscriberCount,
+		Private:         result.Mode == "Private",
+		CreatedAt:       createdAt,
+		OwnerName:       result.UserResults.Result.Legacy.Name,
+		OwnerUsername:   result.UserResults.Result.Legacy.ScreenName,
+	}, nil
+}

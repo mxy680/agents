@@ -564,6 +564,265 @@ func withBookmarksMock(mux *http.ServeMux) {
 	})
 }
 
+// withDMMock registers mock handlers for DM v1.1 and GraphQL mutation endpoints.
+func withDMMock(mux *http.ServeMux) {
+	// dm/inbox_initial_state.json — dm inbox
+	mux.HandleFunc("/i/api/1.1/dm/inbox_initial_state.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"inbox_initial_state": map[string]any{
+				"conversations": map[string]any{
+					"conv-abc-123": map[string]any{
+						"conversation_id": "conv-abc-123",
+						"type":            "ONE_TO_ONE",
+						"participants": []any{
+							map[string]any{"user_id": "111"},
+							map[string]any{"user_id": "222"},
+						},
+					},
+				},
+				"entries": []any{
+					map[string]any{
+						"message": map[string]any{
+							"id":              "msg-001",
+							"conversation_id": "conv-abc-123",
+							"message_data": map[string]any{
+								"text":      "Hello there!",
+								"sender_id": "111",
+								"time":      "1710000000000",
+							},
+						},
+					},
+				},
+			},
+		})
+		w.Write(raw)
+	})
+
+	// dm/conversation/{id}.json — dm conversation
+	mux.HandleFunc("/i/api/1.1/dm/conversation/", func(w http.ResponseWriter, r *http.Request) {
+		// Handle both conversation fetch and rename-group (update_name).
+		if strings.HasSuffix(r.URL.Path, "/update_name.json") {
+			w.Header().Set("Content-Type", "application/json")
+			raw, _ := json.Marshal(map[string]any{"conversation_id": "conv-abc-123", "name": "New Group Name"})
+			w.Write(raw)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"conversation_timeline": map[string]any{
+				"entries": []any{
+					map[string]any{
+						"message": map[string]any{
+							"id":              "msg-001",
+							"conversation_id": "conv-abc-123",
+							"message_data": map[string]any{
+								"text":      "Hello there!",
+								"sender_id": "111",
+								"time":      "1710000000000",
+							},
+						},
+					},
+				},
+				"min_entry_id": "msg-000",
+			},
+		})
+		w.Write(raw)
+	})
+
+	// dm/new2.json — dm send and dm send-group
+	mux.HandleFunc("/i/api/1.1/dm/new2.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"event": map[string]any{
+				"id":   "msg-new-001",
+				"type": "message_create",
+			},
+		})
+		w.Write(raw)
+	})
+
+	// DMMessageDeleteMutation — dm delete
+	mux.HandleFunc("/i/api/graphql/"+hashDMMessageDelete+"/DMMessageDeleteMutation", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"dm_message_delete": map[string]any{}}))
+	})
+
+	// useDMReactionMutationAddMutation — dm react
+	mux.HandleFunc("/i/api/graphql/"+hashDMReactionAdd+"/useDMReactionMutationAddMutation", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"dm_reaction_add": map[string]any{}}))
+	})
+
+	// useDMReactionMutationRemoveMutation — dm unreact
+	mux.HandleFunc("/i/api/graphql/"+hashDMReactionRemove+"/useDMReactionMutationRemoveMutation", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"dm_reaction_remove": map[string]any{}}))
+	})
+
+	// AddParticipantsMutation — dm add-members
+	mux.HandleFunc("/i/api/graphql/"+hashDMAddParticipants+"/AddParticipantsMutation", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"add_participants": map[string]any{}}))
+	})
+}
+
+// mockListResult returns a mock list GraphQL result object.
+func mockListResult(id, name string) json.RawMessage {
+	raw, _ := json.Marshal(map[string]any{
+		"id_str":           id,
+		"name":             name,
+		"description":      "A test list",
+		"member_count":     42,
+		"subscriber_count": 10,
+		"mode":             "Public",
+		"created_at":       1710000000,
+		"user_results": map[string]any{
+			"result": map[string]any{
+				"legacy": map[string]any{
+					"screen_name": "listowner",
+					"name":        "List Owner",
+				},
+			},
+		},
+	})
+	return raw
+}
+
+// mockListTimelineResponse builds a GraphQL timeline response containing one list entry and a cursor.
+func mockListTimelineResponse(listRaw json.RawMessage, cursor string) []byte {
+	entries := []any{
+		map[string]any{
+			"entryId":   "list-" + string(listRaw[:10]),
+			"sortIndex": "9999",
+			"content": map[string]any{
+				"entryType": "TimelineTimelineItem",
+				"itemContent": map[string]any{
+					"itemType": "TimelineList",
+					"list_results": map[string]any{
+						"result": listRaw,
+					},
+				},
+			},
+		},
+	}
+	if cursor != "" {
+		entries = append(entries, map[string]any{
+			"entryId":   "cursor-bottom",
+			"sortIndex": "0",
+			"content": map[string]any{
+				"entryType":  "TimelineTimelineCursor",
+				"value":      cursor,
+				"cursorType": "Bottom",
+			},
+		})
+	}
+
+	resp := map[string]any{
+		"data": map[string]any{
+			"lists_management_page_timeline": map[string]any{
+				"timeline": map[string]any{
+					"instructions": []any{
+						map[string]any{
+							"type":    "TimelineAddEntries",
+							"entries": entries,
+						},
+					},
+				},
+			},
+		},
+	}
+	raw, _ := json.Marshal(resp)
+	return raw
+}
+
+// withListsMock registers mock handlers for list GraphQL queries and mutations.
+func withListsMock(mux *http.ServeMux) {
+	listRaw := mockListResult("list-001", "My Test List")
+	userRaw := mockUserResult("111", "listmember", "List Member")
+	tweetRaw := mockTweetResult("123456789", "List tweet!", "999", "Test User", "testuser")
+
+	// ListByRestId — lists get
+	mux.HandleFunc("/i/api/graphql/"+hashListByRestId+"/ListByRestId", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"list": listRaw}))
+	})
+
+	// ListsManagementPageTimeline — lists owned
+	mux.HandleFunc("/i/api/graphql/"+hashListsManagementPageTimeline+"/ListsManagementPageTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockListTimelineResponse(listRaw, "lists-cursor-abc"))
+	})
+
+	// SearchTimeline for lists — lists search (reuses the existing hashSearchTimeline handler
+	// already registered by withPostsMock; the mock returns a timeline response that may not
+	// contain list entries, so extractListTimeline will return empty — that is acceptable for tests).
+
+	// ListLatestTweetsTimeline — lists tweets
+	mux.HandleFunc("/i/api/graphql/"+hashListLatestTweetsTimeline+"/ListLatestTweetsTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "list-tweets-cursor"))
+	})
+
+	// ListMembers — lists members
+	mux.HandleFunc("/i/api/graphql/"+hashListMembers+"/ListMembers", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// ListSubscribers — lists subscribers
+	mux.HandleFunc("/i/api/graphql/"+hashListSubscribers+"/ListSubscribers", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// CreateList — lists create
+	mux.HandleFunc("/i/api/graphql/"+hashCreateList+"/CreateList", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"create_list": map[string]any{
+				"list": listRaw,
+			},
+		}))
+	})
+
+	// UpdateList — lists update
+	mux.HandleFunc("/i/api/graphql/"+hashUpdateList+"/UpdateList", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"update_list": map[string]any{}}))
+	})
+
+	// DeleteList — lists delete
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteList+"/DeleteList", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"delete_list": map[string]any{}}))
+	})
+
+	// ListAddMember — lists add-member
+	mux.HandleFunc("/i/api/graphql/"+hashListAddMember+"/ListAddMember", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"list_add_member": map[string]any{}}))
+	})
+
+	// ListRemoveMember — lists remove-member
+	mux.HandleFunc("/i/api/graphql/"+hashListRemoveMember+"/ListRemoveMember", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"list_remove_member": map[string]any{}}))
+	})
+
+	// EditListBanner — lists set-banner
+	mux.HandleFunc("/i/api/graphql/"+hashEditListBanner+"/EditListBanner", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"edit_list_banner": map[string]any{}}))
+	})
+
+	// DeleteListBanner — lists remove-banner
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteListBanner+"/DeleteListBanner", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"delete_list_banner": map[string]any{}}))
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all mock handlers registered.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -576,5 +835,7 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withLikesMock(mux)
 	withRetweetsMock(mux)
 	withBookmarksMock(mux)
+	withDMMock(mux)
+	withListsMock(mux)
 	return httptest.NewServer(mux)
 }
