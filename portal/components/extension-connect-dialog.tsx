@@ -124,8 +124,13 @@ export function ExtensionConnectDialog({
           method: "POST",
         })
         if (!tokenRes.ok) {
-          setError("Failed to generate auth token")
-          setStep("install")
+          const data = await tokenRes.json().catch(() => ({}))
+          setError(data.error ?? "Failed to generate auth token")
+          // Extension is installed but token failed — still show choose-mode
+          // so user can retry or use sync-current-session
+          const incognitoResp = await sendToExtension({ type: "check-incognito" })
+          setIncognitoAllowed(incognitoResp?.allowed === true)
+          setStep("choose-mode")
           return
         }
         const { token } = await tokenRes.json()
@@ -138,8 +143,6 @@ export function ExtensionConnectDialog({
 
         if (!configResp?.ok) {
           setError("Failed to configure extension")
-          setStep("install")
-          return
         }
 
         // Check incognito access and move to mode selection
@@ -148,7 +151,7 @@ export function ExtensionConnectDialog({
         setStep("choose-mode")
       } catch {
         setError("Connection failed")
-        setStep("install")
+        setStep("choose-mode")
       }
     }
 
