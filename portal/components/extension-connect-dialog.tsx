@@ -21,38 +21,42 @@ interface ExtensionConnectDialogProps {
   children: React.ReactNode
 }
 
-// ---------------------------------------------------------------------------
-// Extension communication via window.postMessage (crosses isolation boundary)
-// ---------------------------------------------------------------------------
+// Stable extension ID — derived from the `key` field in manifest.json.
+// This never changes regardless of where the extension is loaded from.
+const EXTENSION_ID = "pkkpglobhebcecahhomkiniapgdpfico"
 
-let messageCounter = 0
+// ---------------------------------------------------------------------------
+// Direct messaging via chrome.runtime.sendMessage (externally_connectable)
+// No content script needed — the page talks directly to the background worker.
+// ---------------------------------------------------------------------------
 
 function sendToExtension(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
-    const id = ++messageCounter
+    const timeout = setTimeout(() => resolve(null), 2000)
 
-    const timeout = setTimeout(() => {
-      window.removeEventListener("message", handler)
-      resolve(null)
-    }, 2000)
+    try {
+      // chrome.runtime.sendMessage is available on pages matching externally_connectable
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chrome = (window as any).chrome
+      if (!chrome?.runtime?.sendMessage) {
+        clearTimeout(timeout)
+        resolve(null)
+        return
+      }
 
-    function handler(event: MessageEvent) {
-      if (event.source !== window) return
-      if (event.data?.direction !== "emdash-from-extension") return
-      if (event.data?.id !== id) return
-
+      chrome.runtime.sendMessage(EXTENSION_ID, payload, (response: Record<string, unknown> | undefined) => {
+        clearTimeout(timeout)
+        if (chrome.runtime.lastError) {
+          resolve(null)
+        } else {
+          resolve(response ?? null)
+        }
+      })
+    } catch {
       clearTimeout(timeout)
-      window.removeEventListener("message", handler)
-      resolve(event.data.error ? null : event.data.response)
+      resolve(null)
     }
-
-    window.addEventListener("message", handler)
-    window.postMessage({ direction: "emdash-to-extension", id, payload }, "*")
   })
-}
-
-function isExtensionInstalled(): boolean {
-  return document.documentElement.hasAttribute("data-emdash-extension")
 }
 
 const PROVIDER_LOGIN_URLS: Record<string, string> = {
@@ -92,12 +96,7 @@ export function ExtensionConnectDialog({
     if (!open || step !== "connect") return
 
     async function tryConnect() {
-      if (!isExtensionInstalled()) {
-        setStep("install")
-        return
-      }
-
-      // Verify extension responds via window.postMessage relay
+      // Ping extension directly — no content script needed
       const ping = await sendToExtension({ type: "ping" })
       if (!ping?.ok) {
         setStep("install")
@@ -217,7 +216,7 @@ export function ExtensionConnectDialog({
                   <li>3. Turn on &quot;Developer mode&quot; (top right)</li>
                   <li>4. Click &quot;Load unpacked&quot; and select the unzipped folder</li>
                 </ol>
-                <p className="mt-2">The page will reload automatically after installation.</p>
+                <p className="mt-2">Then come back and click Connect again.</p>
               </div>
 
               {error && <p className="text-sm text-destructive">{error}</p>}

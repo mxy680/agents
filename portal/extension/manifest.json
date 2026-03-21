@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Emdash Integrations",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Automatically sync login sessions to your Emdash agent marketplace",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApkTMff42R23Z439E/ecJHu60pykORF9yXUvDNoj5NnuLwCLuhrscBHqq2NYfqWzx6cQmx+AORaSdwccXpY1yZTNtggTJA4uVoA0ZOVYZHQ5umkWaEmjz+YZp8rdeV8YOIqfUpiHAVq0e7qegMlRFKrWR/iLpL0sYSRpBxsNDE+CH8VfY7M4Jf0g88Qrz8wctkqFT3xtbE47YFt03QWSdzGWBP+22yB9IG+HcqcC0870Dq3+fiaSU7F9gympLbx+Ay9Vwtw4uwV8K+zHNxaWyqv3aNLMpdKUu60dKtMk3GF/37KcrKyQu9fxVO3NoxbYubfjDlELF3TAr4GnjKjQthwIDAQAB",
   "permissions": ["cookies", "storage"],
   "host_permissions": [
     "*://*.instagram.com/*",
@@ -17,13 +18,6 @@
       "https://*.emdash.dev/*"
     ]
   },
-  "content_scripts": [
-    {
-      "matches": ["http://localhost:*/*", "https://*.emdash.io/*", "https://*.emdash.dev/*"],
-      "js": ["content.js"],
-      "run_at": "document_start"
-    }
-  ],
   "background": {
     "service_worker": "background.js"
   },
