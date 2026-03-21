@@ -423,11 +423,15 @@ async function captureIncognitoCookies(sessionId) {
     return
   }
 
-  // Get cookies — in the incognito worker, getAll returns incognito cookies by default
+  // Get cookies from the incognito cookie store.
+  // In spanning mode, we need to find the incognito storeId explicitly.
   const url = `https://${provider.domain.replace(/^\./, "www.")}`
   let allCookies
   try {
-    allCookies = await chrome.cookies.getAll({ url })
+    const stores = await chrome.cookies.getAllCookieStores()
+    const incognitoStore = stores.find((s) => s.id !== "0") // "0" is the normal store
+    const storeId = incognitoStore?.id
+    allCookies = await chrome.cookies.getAll(storeId ? { url, storeId } : { url })
   } catch (err) {
     session.status = "error"
     session.error = `Failed to read cookies: ${err.message}`
