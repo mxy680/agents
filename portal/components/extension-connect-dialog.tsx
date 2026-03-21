@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,10 +11,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { IconCheck, IconCopy, IconLoader2 } from "@tabler/icons-react"
+import { IconCheck, IconLoader2, IconPuzzle, IconExternalLink } from "@tabler/icons-react"
 
-type Step = "setup" | "waiting" | "success"
+type Step = "detecting" | "not-installed" | "connecting" | "waiting" | "success"
 
 interface ExtensionConnectDialogProps {
   provider: string
@@ -22,17 +21,72 @@ interface ExtensionConnectDialogProps {
   children: React.ReactNode
 }
 
+// ---------------------------------------------------------------------------
+// Extension communication via content script relay
+// ---------------------------------------------------------------------------
+
+let messageCounter = 0
+
+/**
+ * Send a message to the extension's background service worker via the
+ * content script relay. The content script listens for "emdash-to-extension"
+ * messages on the window and forwards them to chrome.runtime.sendMessage,
+ * then posts the response back as "emdash-from-extension".
+ */
+function sendToExtension(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  return new Promise((resolve) => {
+    const id = ++messageCounter
+
+    const timeout = setTimeout(() => {
+      window.removeEventListener("message", handler)
+      resolve(null)
+    }, 3000)
+
+    function handler(event: MessageEvent) {
+      if (event.source !== window) return
+      if (!event.data || event.data.direction !== "emdash-from-extension") return
+      if (event.data.id !== id) return
+
+      clearTimeout(timeout)
+      window.removeEventListener("message", handler)
+
+      if (event.data.error) {
+        resolve(null)
+      } else {
+        resolve(event.data.response)
+      }
+    }
+
+    window.addEventListener("message", handler)
+    window.postMessage({ direction: "emdash-to-extension", id, payload }, "*")
+  })
+}
+
+/**
+ * Check if the extension is installed by looking for the global it injects.
+ */
+function isExtensionInstalled(): boolean {
+  return typeof (window as Record<string, unknown>).__EMDASH_EXTENSION_ID__ === "string"
+}
+
+const PROVIDER_LOGIN_URLS: Record<string, string> = {
+  instagram: "https://www.instagram.com/",
+  linkedin: "https://www.linkedin.com/",
+  x: "https://x.com/",
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function ExtensionConnectDialog({
   provider,
   providerName,
   children,
 }: ExtensionConnectDialogProps) {
   const [open, setOpen] = useState(false)
-  const [step, setStep] = useState<Step>("setup")
-  const [token, setToken] = useState<string | null>(null)
-  const [tokenError, setTokenError] = useState<string | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [step, setStep] = useState<Step>("detecting")
+  const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function stopPolling() {
@@ -46,73 +100,105 @@ export function ExtensionConnectDialog({
     setOpen(v)
     if (!v) {
       stopPolling()
-      setStep("setup")
-      setToken(null)
-      setTokenError(null)
-      setIsGenerating(false)
-      setCopied(false)
+      setStep("detecting")
+      setError(null)
     }
   }
 
-  async function handleGenerateToken() {
-    setIsGenerating(true)
-    setTokenError(null)
-    try {
-      const res = await fetch("/api/integrations/extension/token", {
-        method: "POST",
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setTokenError(data.error ?? "Failed to generate token")
+  // Step 1: Detect extension on dialog open
+  useEffect(() => {
+    if (!open || step !== "detecting") return
+
+    async function detect() {
+      // Check if the content script injected the extension ID
+      if (!isExtensionInstalled()) {
+        setStep("not-installed")
         return
       }
-      const data = await res.json()
-      setToken(data.token)
-    } catch {
-      setTokenError("Network error. Please try again.")
-    } finally {
-      setIsGenerating(false)
+
+      // Verify the extension is responsive
+      const resp = await sendToExtension({ type: "ping" })
+      if (resp?.ok) {
+        setStep("connecting")
+      } else {
+        setStep("not-installed")
+      }
     }
-  }
 
-  async function handleCopyToken() {
-    if (!token) return
-    await navigator.clipboard.writeText(token)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+    // Small delay to let the content script inject
+    const timer = setTimeout(detect, 200)
+    return () => clearTimeout(timer)
+  }, [open, step])
 
-  function handleContinue() {
-    setStep("waiting")
-  }
+  // Step 2: Auto-configure extension and trigger sync
+  useEffect(() => {
+    if (step !== "connecting") return
+
+    async function configure() {
+      try {
+        // Generate a token from the portal API
+        const tokenRes = await fetch("/api/integrations/extension/token", {
+          method: "POST",
+        })
+        if (!tokenRes.ok) {
+          setError("Failed to generate auth token")
+          return
+        }
+        const { token } = await tokenRes.json()
+
+        // Send config to extension — no copy/paste needed!
+        const configResp = await sendToExtension({
+          type: "configure",
+          token,
+          portalUrl: window.location.origin,
+        })
+
+        if (!configResp?.ok) {
+          setError("Failed to configure extension")
+          return
+        }
+
+        // Trigger a sync for this provider
+        sendToExtension({ type: "sync", provider })
+
+        setStep("waiting")
+      } catch {
+        setError("Failed to connect to extension")
+      }
+    }
+
+    configure()
+  }, [step, provider])
+
+  // Step 3: Poll for integration to appear
+  const pollForIntegration = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations")
+      if (!res.ok) return
+      const data = await res.json()
+      const found = (data.integrations ?? []).some(
+        (i: { provider: string; status: string }) =>
+          i.provider === provider && i.status === "active"
+      )
+      if (found) {
+        stopPolling()
+        setStep("success")
+      }
+    } catch {
+      // Ignore polling errors
+    }
+  }, [provider])
 
   useEffect(() => {
     if (step !== "waiting") return
 
-    async function poll() {
-      try {
-        const res = await fetch("/api/integrations")
-        if (!res.ok) return
-        const data = await res.json()
-        const found = (data.integrations ?? []).some(
-          (i: { provider: string; status: string }) =>
-            i.provider === provider && i.status === "active"
-        )
-        if (found) {
-          stopPolling()
-          setStep("success")
-        }
-      } catch {
-        // Ignore polling errors
-      }
-    }
-
-    poll()
-    intervalRef.current = setInterval(poll, 3000)
+    pollForIntegration()
+    intervalRef.current = setInterval(pollForIntegration, 3000)
 
     return () => stopPolling()
-  }, [step, provider])
+  }, [step, pollForIntegration])
 
+  // Step 4: Auto-close on success
   useEffect(() => {
     if (step !== "success") return
 
@@ -128,107 +214,85 @@ export function ExtensionConnectDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
-        {step === "setup" && (
+        {step === "detecting" && (
           <>
             <DialogHeader>
               <DialogTitle>Connect {providerName}</DialogTitle>
+              <DialogDescription>Detecting extension...</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-6">
+              <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
+            </div>
+          </>
+        )}
+
+        {step === "not-installed" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Install Extension</DialogTitle>
               <DialogDescription>
-                Use the Emdash Chrome extension to sync your {providerName} session
-                automatically.
+                The Emdash Chrome extension is needed to connect your {providerName} account.
               </DialogDescription>
             </DialogHeader>
 
-            <ol className="flex flex-col gap-4 text-sm">
-              <li className="flex flex-col gap-1">
-                <span className="font-medium">1. Install the Emdash Chrome extension</span>
-                <span className="text-muted-foreground">
-                  Load it unpacked from the{" "}
-                  <code className="rounded bg-muted px-1 py-0.5 text-xs">
-                    portal/extension/
-                  </code>{" "}
-                  directory in Chrome&apos;s extension settings.
-                </span>
-              </li>
-
-              <li className="flex flex-col gap-2">
-                <span className="font-medium">2. Generate an auth token</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateToken}
-                    disabled={isGenerating}
-                  >
-                    {isGenerating ? (
-                      <>
-                        <IconLoader2 className="size-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      "Generate token"
-                    )}
-                  </Button>
+            <div className="flex flex-col gap-4 py-2">
+              <div className="flex items-start gap-3 rounded-lg border p-4">
+                <IconPuzzle className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+                <div className="flex flex-col gap-2 text-sm">
+                  <p className="font-medium">One-time setup (30 seconds)</p>
+                  <ol className="flex flex-col gap-1.5 text-muted-foreground">
+                    <li>1. Open <code className="rounded bg-muted px-1 py-0.5 text-xs">chrome://extensions</code></li>
+                    <li>2. Enable &quot;Developer mode&quot; (top right)</li>
+                    <li>3. Click &quot;Load unpacked&quot; → select the <code className="rounded bg-muted px-1 py-0.5 text-xs">portal/extension</code> folder</li>
+                    <li>4. Come back here and click &quot;Try Again&quot;</li>
+                  </ol>
                 </div>
-                {token && (
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={token}
-                      className="font-mono text-xs"
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyToken}
-                      className="shrink-0"
-                    >
-                      {copied ? (
-                        <IconCheck className="size-4" />
-                      ) : (
-                        <IconCopy className="size-4" />
-                      )}
-                    </Button>
-                  </div>
-                )}
-                {tokenError && (
-                  <p className="text-sm text-destructive">{tokenError}</p>
-                )}
-              </li>
+              </div>
 
-              <li className="flex flex-col gap-1">
-                <span className="font-medium">3. Paste the token into the extension popup</span>
-                <span className="text-muted-foreground">
-                  Open the Emdash extension popup and paste the token to link it to your
-                  account.
-                </span>
-              </li>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+                Once installed, all future connections are automatic — just click Connect and log in.
+              </div>
+            </div>
 
-              <li className="flex flex-col gap-1">
-                <span className="font-medium">
-                  4. Log in to {providerName} in your browser
-                </span>
-                <span className="text-muted-foreground">
-                  The extension will detect your login and sync the session automatically.
-                </span>
-              </li>
-            </ol>
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleContinue}>Continue</Button>
+              <Button onClick={() => setStep("detecting")}>Try Again</Button>
             </DialogFooter>
+          </>
+        )}
+
+        {step === "connecting" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Connecting {providerName}...</DialogTitle>
+              <DialogDescription>
+                Setting up automatically.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-4 py-6">
+              <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
+            </div>
+            {error && (
+              <DialogFooter className="flex-col gap-2">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            )}
           </>
         )}
 
         {step === "waiting" && (
           <>
             <DialogHeader>
-              <DialogTitle>Waiting for {providerName} session...</DialogTitle>
+              <DialogTitle>Log in to {providerName}</DialogTitle>
               <DialogDescription>
-                The extension will automatically detect your login.
+                The extension is ready. Now just log in to sync your session.
               </DialogDescription>
             </DialogHeader>
 
@@ -237,9 +301,29 @@ export function ExtensionConnectDialog({
                 <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
               </div>
               <p className="text-center text-sm text-muted-foreground">
-                Log in to {providerName} in your browser tab. Once detected, this dialog
-                will close automatically.
+                If you&apos;re already logged in to {providerName}, click Sync below.
+                Otherwise, log in and this dialog closes automatically.
               </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(PROVIDER_LOGIN_URLS[provider], "_blank")}
+                >
+                  <IconExternalLink className="size-4" />
+                  Open {providerName}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    sendToExtension({ type: "sync", provider })
+                    pollForIntegration()
+                  }}
+                >
+                  Sync Now
+                </Button>
+              </div>
             </div>
 
             <DialogFooter>

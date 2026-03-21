@@ -228,3 +228,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true
   }
 })
+
+// ---------------------------------------------------------------------------
+// External messages from the portal webpage (via externally_connectable)
+// ---------------------------------------------------------------------------
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  // "configure" — portal sends token + URL so user doesn't have to copy/paste
+  if (message.type === "configure" && message.token && message.portalUrl) {
+    chrome.storage.local.set(
+      { portalUrl: message.portalUrl, token: message.token },
+      () => sendResponse({ ok: true })
+    )
+    return true
+  }
+
+  // "sync" — portal asks extension to sync a specific provider right now
+  if (message.type === "sync" && message.provider && PROVIDERS[message.provider]) {
+    syncProvider(message.provider)
+      .then(() => sendResponse({ ok: true, status: "synced" }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
+  // "ping" — portal checks if extension is installed and reachable
+  if (message.type === "ping") {
+    sendResponse({ ok: true, version: chrome.runtime.getManifest().version })
+    return false
+  }
+
+  // "status" — portal asks for current sync status
+  if (message.type === "status") {
+    chrome.storage.local.get("syncStatus", ({ syncStatus }) => {
+      sendResponse({ ok: true, syncStatus: syncStatus ?? {} })
+    })
+    return true
+  }
+})

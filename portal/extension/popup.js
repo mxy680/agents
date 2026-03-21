@@ -1,12 +1,12 @@
 /**
  * Emdash Integrations — Popup Script
+ *
+ * Shows sync status for each provider. Configuration (portal URL + token)
+ * is handled automatically by the portal webpage via externally_connectable,
+ * so users never need to paste anything manually.
  */
 
 "use strict"
-
-// ---------------------------------------------------------------------------
-// Provider display metadata
-// ---------------------------------------------------------------------------
 
 const PROVIDER_META = {
   instagram: { label: "Instagram", icon: "📸" },
@@ -15,20 +15,16 @@ const PROVIDER_META = {
 }
 
 // ---------------------------------------------------------------------------
-// Debounce helper
-// ---------------------------------------------------------------------------
-
-function debounce(fn, ms) {
-  let timer
-  return (...args) => {
-    clearTimeout(timer)
-    timer = setTimeout(() => fn(...args), ms)
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Status rendering
 // ---------------------------------------------------------------------------
+
+function formatTime(isoString) {
+  const diff = Date.now() - new Date(isoString).getTime()
+  if (diff < 60_000) return "just now"
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  return new Date(isoString).toLocaleDateString()
+}
 
 function renderStatus(providerKey, statusData) {
   const el = document.getElementById(`status-${providerKey}`)
@@ -36,45 +32,33 @@ function renderStatus(providerKey, statusData) {
 
   if (!statusData) {
     el.className = "provider-status status-muted"
-    el.textContent = "Never synced"
+    el.textContent = "Not synced yet"
     return
   }
 
   const { status, message, syncedAt } = statusData
 
   if (status === "synced" && syncedAt) {
-    const when = new Date(syncedAt)
-    const diff = Date.now() - when.getTime()
-    let timeStr
-    if (diff < 60_000) {
-      timeStr = "just now"
-    } else if (diff < 3_600_000) {
-      timeStr = `${Math.floor(diff / 60_000)}m ago`
-    } else if (diff < 86_400_000) {
-      timeStr = `${Math.floor(diff / 3_600_000)}h ago`
-    } else {
-      timeStr = when.toLocaleDateString()
-    }
     el.className = "provider-status status-synced"
-    el.textContent = `Synced ${timeStr}`
+    el.textContent = `Synced ${formatTime(syncedAt)}`
   } else if (status === "not_logged_in") {
     el.className = "provider-status status-warning"
     el.textContent = "Not logged in"
   } else if (status === "error") {
     el.className = "provider-status status-error"
-    el.textContent = `Error: ${message ?? "Unknown error"}`
+    el.textContent = message ?? "Error"
   } else {
     el.className = "provider-status status-muted"
-    el.textContent = "Never synced"
+    el.textContent = "Not synced yet"
   }
 }
 
 // ---------------------------------------------------------------------------
-// Provider card rendering
+// Provider cards
 // ---------------------------------------------------------------------------
 
 function renderProviders(syncStatus) {
-  const container = document.getElementById("providers")
+  const container = document.getElementById("content")
   container.innerHTML = ""
 
   for (const [key, meta] of Object.entries(PROVIDER_META)) {
@@ -83,34 +67,50 @@ function renderProviders(syncStatus) {
     card.innerHTML = `
       <div class="provider-left">
         <span class="provider-icon">${meta.icon}</span>
-        <div class="provider-info">
+        <div>
           <div class="provider-name">${meta.label}</div>
-          <div class="provider-status status-muted" id="status-${key}">Never synced</div>
+          <div class="provider-status status-muted" id="status-${key}">Not synced yet</div>
         </div>
       </div>
-      <button class="sync-btn" id="sync-btn-${key}">Sync Now</button>
+      <button class="sync-btn" id="sync-btn-${key}">Sync</button>
     `
     container.appendChild(card)
-
-    // Render initial status
     renderStatus(key, syncStatus?.[key])
 
-    // Sync Now button handler
     document.getElementById(`sync-btn-${key}`).addEventListener("click", () => {
-      setSyncing(key, true)
+      const btn = document.getElementById(`sync-btn-${key}`)
+      btn.disabled = true
+      btn.textContent = "..."
       chrome.runtime.sendMessage({ type: "sync", provider: key }, () => {
-        setSyncing(key, false)
-        // Status will update via storage listener
+        btn.disabled = false
+        btn.textContent = "Sync"
       })
     })
   }
+
+  // Portal link
+  chrome.storage.local.get("portalUrl", ({ portalUrl }) => {
+    if (portalUrl) {
+      const link = document.createElement("a")
+      link.className = "portal-link"
+      link.textContent = "Open Portal"
+      link.addEventListener("click", (e) => {
+        e.preventDefault()
+        chrome.tabs.create({ url: `${portalUrl}/integrations` })
+      })
+      container.appendChild(link)
+    }
+  })
 }
 
-function setSyncing(providerKey, isSyncing) {
-  const btn = document.getElementById(`sync-btn-${providerKey}`)
-  if (!btn) return
-  btn.disabled = isSyncing
-  btn.textContent = isSyncing ? "Syncing…" : "Sync Now"
+function renderNotConfigured() {
+  const container = document.getElementById("content")
+  container.innerHTML = `
+    <div class="not-configured">
+      <strong>Not connected to a portal yet</strong>
+      Click "Connect" on any integration in your Emdash portal to set up automatically.
+    </div>
+  `
 }
 
 // ---------------------------------------------------------------------------
@@ -124,64 +124,36 @@ async function init() {
     "syncStatus",
   ])
 
-  // Populate inputs
-  const portalInput = document.getElementById("portal-url")
-  const tokenInput = document.getElementById("auth-token")
-  portalInput.value = portalUrl ?? ""
-  tokenInput.value = token ?? ""
+  const statusEl = document.getElementById("connection-status")
 
-  // Render provider cards
-  renderProviders(syncStatus)
+  if (!portalUrl || !token) {
+    statusEl.textContent = "Not connected to a portal"
+    renderNotConfigured()
+  } else {
+    // Show truncated portal URL
+    try {
+      const url = new URL(portalUrl)
+      statusEl.textContent = `Connected to ${url.hostname}`
+    } catch {
+      statusEl.textContent = `Connected to ${portalUrl}`
+    }
+    renderProviders(syncStatus)
+  }
 
-  // Save portal URL on change (debounced)
-  portalInput.addEventListener(
-    "input",
-    debounce(async () => {
-      await chrome.storage.local.set({ portalUrl: portalInput.value.trim() })
-    }, 600)
-  )
-
-  // Save token on change (debounced)
-  tokenInput.addEventListener(
-    "input",
-    debounce(async () => {
-      await chrome.storage.local.set({ token: tokenInput.value.trim() })
-    }, 600)
-  )
-
-  // Open portal link
-  document.getElementById("open-portal").addEventListener("click", () => {
-    const url = portalInput.value.trim()
-    if (!url) return
-    const dest = url.endsWith("/") ? `${url}integrations` : `${url}/integrations`
-    chrome.tabs.create({ url: dest })
-  })
-
-  // Sync All button
-  const syncAllBtn = document.getElementById("sync-all")
-  syncAllBtn.addEventListener("click", () => {
-    syncAllBtn.disabled = true
-    syncAllBtn.textContent = "Syncing…"
-    chrome.runtime.sendMessage({ type: "sync-all" }, () => {
-      syncAllBtn.disabled = false
-      syncAllBtn.textContent = "Sync All"
-    })
-  })
-
-  // Listen for storage changes to update status in real-time
+  // Live updates
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return
+
     if (changes.syncStatus) {
       const newStatus = changes.syncStatus.newValue ?? {}
       for (const key of Object.keys(PROVIDER_META)) {
         renderStatus(key, newStatus[key])
       }
     }
-    if (changes.portalUrl) {
-      portalInput.value = changes.portalUrl.newValue ?? ""
-    }
-    if (changes.token) {
-      tokenInput.value = changes.token.newValue ?? ""
+
+    // If portal URL or token changes, re-render everything
+    if (changes.portalUrl || changes.token) {
+      init()
     }
   })
 }

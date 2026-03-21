@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Emdash Integrations",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Automatically sync login sessions to your Emdash agent marketplace",
   "permissions": ["cookies", "storage"],
   "host_permissions": [
@@ -9,6 +9,20 @@
     "*://*.linkedin.com/*",
     "*://*.x.com/*",
     "*://*.twitter.com/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "https://*.emdash.io/*",
+      "https://*.emdash.dev/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:*/*", "https://*.emdash.io/*", "https://*.emdash.dev/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
   ],
   "background": {
     "service_worker": "background.js"
