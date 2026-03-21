@@ -85,6 +85,7 @@ export function ExtensionConnectDialog({
   const [incognitoAllowed, setIncognitoAllowed] = useState(false)
   const [label, setLabel] = useState("")
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [initialCount, setInitialCount] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function stopPolling() {
@@ -111,6 +112,19 @@ export function ExtensionConnectDialog({
     if (!open || step !== "connect") return
 
     async function tryConnect() {
+      // Snapshot current integration count so we can detect new ones
+      try {
+        const res = await fetch("/api/integrations")
+        if (res.ok) {
+          const data = await res.json()
+          const count = (data.integrations ?? []).filter(
+            (i: { provider: string; status: string }) =>
+              i.provider === provider && i.status === "active"
+          ).length
+          setInitialCount(count)
+        }
+      } catch {}
+
       // Ping extension directly — no content script needed
       const ping = await sendToExtension({ type: "ping" })
       if (!ping?.ok) {
@@ -158,24 +172,24 @@ export function ExtensionConnectDialog({
     tryConnect()
   }, [open, step, provider])
 
-  // Poll for integration (used in "waiting" step — sync-current-session flow)
+  // Poll for integration — detect when count increases from initial snapshot
   const pollForIntegration = useCallback(async () => {
     try {
       const res = await fetch("/api/integrations")
       if (!res.ok) return
       const data = await res.json()
-      const found = (data.integrations ?? []).some(
+      const count = (data.integrations ?? []).filter(
         (i: { provider: string; status: string }) =>
           i.provider === provider && i.status === "active"
-      )
-      if (found) {
+      ).length
+      if (count > initialCount) {
         stopPolling()
         setStep("success")
       }
     } catch {
       // ignore
     }
-  }, [provider])
+  }, [provider, initialCount])
 
   useEffect(() => {
     if (step !== "waiting") return
