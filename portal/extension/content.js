@@ -1,42 +1,34 @@
 /**
  * Emdash Integrations — Content Script
  *
- * Injected into portal pages to announce the extension's presence and relay
- * messages between the portal page and the background service worker.
- *
- * Communication uses CustomEvents on the document, which work across the
- * content script / page context boundary without needing inline script
- * injection (which can be blocked by CSP).
+ * Injected into portal pages to:
+ * 1. Announce the extension's presence via a DOM attribute (shared across worlds)
+ * 2. Relay messages between page and background via window.postMessage
+ *    (the only mechanism that crosses the content script isolation boundary)
  */
 
 "use strict"
 
-// Announce presence by setting a data attribute on the document element.
-// The portal page can check for this synchronously.
+// Announce presence via shared DOM — page reads this to detect the extension
 document.documentElement.setAttribute("data-emdash-extension", chrome.runtime.id)
 
-// Also dispatch an event for pages that are already loaded
-document.dispatchEvent(
-  new CustomEvent("emdash-extension-ready", {
-    detail: { id: chrome.runtime.id },
-  })
-)
+// Relay: page → content script → background → content script → page
+// Uses window.postMessage which crosses the isolation boundary (unlike CustomEvent)
+window.addEventListener("message", (event) => {
+  if (event.source !== window) return
+  if (event.data?.direction !== "emdash-to-extension") return
 
-// Relay messages from the page to the background service worker.
-// The page dispatches "emdash-to-extension" events on the document,
-// and we respond with "emdash-from-extension" events.
-document.addEventListener("emdash-to-extension", (event) => {
-  const { id, payload } = event.detail
+  const { id, payload } = event.data
 
   chrome.runtime.sendMessage(payload, (response) => {
-    document.dispatchEvent(
-      new CustomEvent("emdash-from-extension", {
-        detail: {
-          id,
-          response: response ?? null,
-          error: chrome.runtime.lastError?.message ?? null,
-        },
-      })
+    window.postMessage(
+      {
+        direction: "emdash-from-extension",
+        id,
+        response: response ?? null,
+        error: chrome.runtime.lastError?.message ?? null,
+      },
+      "*"
     )
   })
 })

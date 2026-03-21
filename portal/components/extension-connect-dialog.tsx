@@ -22,7 +22,7 @@ interface ExtensionConnectDialogProps {
 }
 
 // ---------------------------------------------------------------------------
-// Extension communication via content script relay
+// Extension communication via window.postMessage (crosses isolation boundary)
 // ---------------------------------------------------------------------------
 
 let messageCounter = 0
@@ -32,22 +32,22 @@ function sendToExtension(payload: Record<string, unknown>): Promise<Record<strin
     const id = ++messageCounter
 
     const timeout = setTimeout(() => {
-      document.removeEventListener("emdash-from-extension", handler)
+      window.removeEventListener("message", handler)
       resolve(null)
     }, 2000)
 
-    function handler(event: Event) {
-      const detail = (event as CustomEvent).detail
-      if (detail?.id !== id) return
+    function handler(event: MessageEvent) {
+      if (event.source !== window) return
+      if (event.data?.direction !== "emdash-from-extension") return
+      if (event.data?.id !== id) return
+
       clearTimeout(timeout)
-      document.removeEventListener("emdash-from-extension", handler)
-      resolve(detail.error ? null : detail.response)
+      window.removeEventListener("message", handler)
+      resolve(event.data.error ? null : event.data.response)
     }
 
-    document.addEventListener("emdash-from-extension", handler)
-    document.dispatchEvent(
-      new CustomEvent("emdash-to-extension", { detail: { id, payload } })
-    )
+    window.addEventListener("message", handler)
+    window.postMessage({ direction: "emdash-to-extension", id, payload }, "*")
   })
 }
 
@@ -92,13 +92,12 @@ export function ExtensionConnectDialog({
     if (!open || step !== "connect") return
 
     async function tryConnect() {
-      // Check if extension is present
       if (!isExtensionInstalled()) {
         setStep("install")
         return
       }
 
-      // Verify it responds
+      // Verify extension responds via window.postMessage relay
       const ping = await sendToExtension({ type: "ping" })
       if (!ping?.ok) {
         setStep("install")
@@ -141,7 +140,7 @@ export function ExtensionConnectDialog({
     tryConnect()
   }, [open, step, provider])
 
-  // Poll for integration to appear
+  // Poll for integration
   const pollForIntegration = useCallback(async () => {
     try {
       const res = await fetch("/api/integrations")
