@@ -14,6 +14,20 @@ const PROVIDER_REQUIRED_COOKIES: Record<string, string[]> = {
   x: ["auth_token", "csrf_token"],
 }
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+}
+
+/**
+ * OPTIONS /api/integrations/extension/cookies
+ * CORS preflight for Chrome extension service worker requests.
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 /**
  * POST /api/integrations/extension/cookies
  *
@@ -26,11 +40,15 @@ const PROVIDER_REQUIRED_COOKIES: Record<string, string[]> = {
  *
  * Body: { provider: string, cookies: Record<string, string>, label?: string }
  */
+function corsJson(data: unknown, init?: { status?: number }) {
+  return NextResponse.json(data, { ...init, headers: CORS_HEADERS })
+}
+
 export async function POST(request: NextRequest) {
   // Auth via Bearer token
   const authHeader = request.headers.get("authorization")
   if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "Missing authorization header" }, { status: 401 })
+    return corsJson({ error: "Missing authorization header" }, { status: 401 })
   }
 
   let userId: string
@@ -38,7 +56,7 @@ export async function POST(request: NextRequest) {
     const result = verifyExtensionToken(authHeader.slice(7))
     userId = result.userId
   } catch {
-    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
+    return corsJson({ error: "Invalid or expired token" }, { status: 401 })
   }
 
   const body = await request.json().catch(() => null)
@@ -49,7 +67,7 @@ export async function POST(request: NextRequest) {
     body.cookies === null ||
     Array.isArray(body.cookies)
   ) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    return corsJson({ error: "Invalid request body" }, { status: 400 })
   }
 
   const { provider, cookies, label } = body as {
@@ -60,13 +78,13 @@ export async function POST(request: NextRequest) {
 
   const requiredCookies = PROVIDER_REQUIRED_COOKIES[provider]
   if (!requiredCookies) {
-    return NextResponse.json({ error: `Unknown provider: ${provider}` }, { status: 400 })
+    return corsJson({ error: `Unknown provider: ${provider}` }, { status: 400 })
   }
 
   // Validate required cookies are present and non-empty
   for (const key of requiredCookies) {
     if (typeof cookies[key] !== "string" || !cookies[key]) {
-      return NextResponse.json({ error: `Missing required cookie: ${key}` }, { status: 400 })
+      return corsJson({ error: `Missing required cookie: ${key}` }, { status: 400 })
     }
   }
 
@@ -94,8 +112,8 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[extension/cookies] DB error:", error)
-    return NextResponse.json({ error: "Failed to save credentials" }, { status: 500 })
+    return corsJson({ error: "Failed to save credentials" }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true, provider })
+  return corsJson({ success: true, provider })
 }
