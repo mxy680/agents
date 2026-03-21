@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, LinkedIn, Framer, and Supabase. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, and Supabase. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -275,6 +275,37 @@ internal/providers/drive/
   drive_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
 ```
 
+## Commands — Google Places (Scraper)
+```
+# Search — find businesses and places by query (no API key needed)
+integrations places search --query="coffee shops in Cleveland" [--geo=LAT,LNG] [--zoom=N] [--depth=N] [--email] [--concurrency=N] [--lang=CODE] [--limit=N] [--json]
+
+# Lookup — get full details for a specific Google Maps URL
+integrations places lookup --url=MAPS_URL [--email] [--json]
+```
+
+`places` has alias `place`. `search` has alias `find`.
+
+Powered by [gosom/google-maps-scraper](https://github.com/gosom/google-maps-scraper) — scrapes Google Maps directly, no API key or billing required. Returns 34+ data fields per place including address, phone, hours, reviews, ratings, emails, images, and more.
+
+Requires the `google-maps-scraper` binary in PATH or set `GOOGLE_MAPS_SCRAPER_BIN` env var. The agent Docker image includes the binary + Chromium.
+
+## Architecture — Places Package Layout
+```
+internal/providers/places/
+  places.go              # Provider struct with ScraperFunc, RegisterCommands (search, lookup)
+  scraper.go             # ScraperFunc type, ScraperOptions, exec-based implementation
+  helpers.go             # Entry struct (34+ fields from scraper), PlaceSummary, formatters
+  search.go              # places search command
+  lookup.go              # places lookup command
+  helpers_test.go        # Unit tests for helpers (truncate, parseLatLng, toPlaceSummary, etc.)
+  search_test.go         # Tests for search command with mock ScraperFunc
+  lookup_test.go         # Tests for lookup command with mock ScraperFunc
+  scraper_test.go        # Tests for scraper binary resolution, output parsing
+  mock_scraper_test.go   # Mock ScraperFunc factory, captureStdout, newTestRootCmd
+  places_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Commands — Instagram
 ```
 # Profile
@@ -427,7 +458,7 @@ internal/providers/instagram/
 ## Testing
 - All providers use `ServiceFactory`/`ClientFactory` for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, places: 94.6%, instagram: 85.0%)
 
 ## Architecture — GitHub Package Layout
 ```
@@ -1004,6 +1035,9 @@ agents/email-assistant/
 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 GOOGLE_ACCESS_TOKEN (fallback: GMAIL_ACCESS_TOKEN)
 GOOGLE_REFRESH_TOKEN (fallback: GMAIL_REFRESH_TOKEN)
+
+# Google Places (scraper-based, no API key needed)
+GOOGLE_MAPS_SCRAPER_BIN   # path to google-maps-scraper binary (optional, falls back to PATH)
 
 # Instagram (cookie-based session auth)
 INSTAGRAM_SESSION_ID       # sessionid cookie (required)

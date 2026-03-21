@@ -11,6 +11,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/gmail"
 	"github.com/emdash-projects/agents/internal/providers/instagram"
 	"github.com/emdash-projects/agents/internal/providers/linkedin"
+	"github.com/emdash-projects/agents/internal/providers/places"
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
 )
@@ -40,6 +41,9 @@ func main() {
 
 	framerProvider := framer.New()
 	framerProvider.RegisterCommands(cli.RootCmd())
+
+	placesProvider := places.New()
+	placesProvider.RegisterCommands(cli.RootCmd())
 
 	supabaseProvider := supabaseprovider.New()
 	supabaseProvider.RegisterCommands(cli.RootCmd())
