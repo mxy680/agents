@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
 import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
+import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -29,6 +30,7 @@ import {
   IconLayout,
   IconBrandSupabase,
   IconMapPin,
+  IconMessage,
   IconPlus,
   IconCheck,
 } from "@tabler/icons-react"
@@ -69,6 +71,12 @@ const providers = [
     name: "Supabase",
     description: "Projects, Branches, Auth, Database",
     icon: IconBrandSupabase,
+  },
+  {
+    id: "bluebubbles",
+    name: "iMessage",
+    description: "Chats, Messages, Attachments, FaceTime",
+    icon: IconMessage,
   },
   {
     id: "places",
@@ -197,6 +205,15 @@ export default async function IntegrationsPage() {
                             : "Connect"}
                         </Button>
                       </FramerConnectDialog>
+                    ) : provider.id === "bluebubbles" ? (
+                      <BlueBubblesConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </BlueBubblesConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}
