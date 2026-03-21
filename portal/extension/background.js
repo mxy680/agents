@@ -11,6 +11,12 @@
 // Provider definitions
 // ---------------------------------------------------------------------------
 
+const PROVIDER_LOGIN_URLS = {
+  instagram: "https://www.instagram.com/accounts/login/",
+  linkedin: "https://www.linkedin.com/login",
+  x: "https://x.com/i/flow/login",
+}
+
 const PROVIDERS = {
   instagram: {
     domain: ".instagram.com",
@@ -228,6 +234,23 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   if (!provider.cookies.includes(cookie.name)) return
 
   scheduleSyncProvider(providerKey)
+
+  // Also check if this cookie change matches a pending incognito login
+  chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
+    for (const [sessionId, session] of Object.entries(pendingLogins)) {
+      if (session.provider === providerKey && session.status === "waiting") {
+        // Login cookie detected for a pending session — capture!
+        if (cookie.name === provider.loginCookie) {
+          session.status = "capturing"
+          await chrome.storage.session.set({ pendingLogins })
+
+          // Debounce the capture (cookies come in bursts during login)
+          setTimeout(() => captureIncognitoCookies(sessionId), 1000)
+        }
+        break
+      }
+    }
+  })
 })
 
 // Handle messages from the popup
@@ -282,4 +305,181 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     })
     return true
   }
+
+  // "check-incognito" — check if extension has incognito access
+  if (message.type === "check-incognito") {
+    chrome.extension.isAllowedIncognitoAccess((allowed) => {
+      sendResponse({ ok: true, allowed })
+    })
+    return true
+  }
+
+  // "login" — open incognito window for login
+  if (message.type === "login" && message.provider && PROVIDERS[message.provider]) {
+    const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36)
+    const loginUrl = PROVIDER_LOGIN_URLS[message.provider]
+
+    chrome.extension.isAllowedIncognitoAccess(async (allowed) => {
+      if (!allowed) {
+        sendResponse({ ok: false, error: "Incognito access not enabled" })
+        return
+      }
+
+      try {
+        const win = await chrome.windows.create({ incognito: true, url: loginUrl })
+
+        const session = {
+          sessionId,
+          provider: message.provider,
+          label: message.label || `${message.provider} Account`,
+          windowId: win.id,
+          status: "waiting",
+          error: null,
+          createdAt: Date.now(),
+        }
+
+        const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
+        pendingLogins[sessionId] = session
+        await chrome.storage.session.set({ pendingLogins })
+
+        sendResponse({ ok: true, sessionId })
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message })
+      }
+    })
+    return true
+  }
+
+  // "login-status" — check status of a login session
+  if (message.type === "login-status" && message.sessionId) {
+    chrome.storage.session.get("pendingLogins", ({ pendingLogins = {} }) => {
+      const session = pendingLogins[message.sessionId]
+      if (!session) {
+        sendResponse({ ok: false, error: "Session not found" })
+      } else {
+        sendResponse({ ok: true, status: session.status, error: session.error })
+      }
+    })
+    return true
+  }
+
+  // "cancel-login" — cancel and cleanup
+  if (message.type === "cancel-login" && message.sessionId) {
+    chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
+      const session = pendingLogins[message.sessionId]
+      if (session?.windowId) {
+        try { await chrome.windows.remove(session.windowId) } catch {}
+      }
+      delete pendingLogins[message.sessionId]
+      await chrome.storage.session.set({ pendingLogins })
+      sendResponse({ ok: true })
+    })
+    return true
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Incognito login helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Captures cookies from the incognito session and posts them to the portal.
+ */
+async function captureIncognitoCookies(sessionId) {
+  const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
+  const session = pendingLogins[sessionId]
+  if (!session || session.status === "complete") return
+
+  const provider = PROVIDERS[session.provider]
+  const { portalUrl, token } = await chrome.storage.local.get(["portalUrl", "token"])
+
+  if (!portalUrl || !token) {
+    session.status = "error"
+    session.error = "Portal not configured"
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  // Get cookies — in the incognito worker, getAll returns incognito cookies by default
+  const url = `https://${provider.domain.replace(/^\./, "www.")}`
+  let allCookies
+  try {
+    allCookies = await chrome.cookies.getAll({ url })
+  } catch (err) {
+    session.status = "error"
+    session.error = `Failed to read cookies: ${err.message}`
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  // Build credential map
+  const cookieMap = {}
+  for (const c of allCookies) {
+    if (provider.cookies.includes(c.name)) {
+      cookieMap[c.name] = c.value
+    }
+  }
+
+  if (!cookieMap[provider.loginCookie]) {
+    session.status = "error"
+    session.error = "Login cookie not found"
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  const credentials = {}
+  for (const [rawName, credKey] of Object.entries(provider.credentialKeys)) {
+    if (cookieMap[rawName]) {
+      credentials[credKey] = cookieMap[rawName]
+    }
+  }
+
+  // POST to portal
+  try {
+    const response = await fetch(`${portalUrl}/api/integrations/extension/cookies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        provider: session.provider,
+        cookies: credentials,
+        label: session.label,
+      }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      session.status = "error"
+      session.error = data.error || `HTTP ${response.status}`
+    } else {
+      session.status = "complete"
+      session.error = null
+
+      // Close the incognito window
+      if (session.windowId) {
+        try { await chrome.windows.remove(session.windowId) } catch {}
+      }
+    }
+  } catch (err) {
+    session.status = "error"
+    session.error = `Network error: ${err.message}`
+  }
+
+  await chrome.storage.session.set({ pendingLogins })
+}
+
+// Detect when user closes the incognito window manually
+chrome.windows.onRemoved.addListener((windowId) => {
+  chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
+    for (const [, session] of Object.entries(pendingLogins)) {
+      if (session.windowId === windowId && session.status === "waiting") {
+        session.status = "cancelled"
+        session.error = "Window closed"
+        await chrome.storage.session.set({ pendingLogins })
+        break
+      }
+    }
+  })
 })

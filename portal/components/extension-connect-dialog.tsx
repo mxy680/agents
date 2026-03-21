@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -11,9 +12,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { IconCheck, IconLoader2, IconDownload, IconExternalLink } from "@tabler/icons-react"
+import {
+  IconCheck,
+  IconLoader2,
+  IconDownload,
+  IconExternalLink,
+  IconRefresh,
+} from "@tabler/icons-react"
 
-type Step = "connect" | "install" | "waiting" | "success"
+type Step =
+  | "connect"
+  | "install"
+  | "choose-mode"
+  | "label-input"
+  | "enable-incognito"
+  | "incognito-waiting"
+  | "waiting"
+  | "success"
 
 interface ExtensionConnectDialogProps {
   provider: string
@@ -59,12 +74,6 @@ function sendToExtension(payload: Record<string, unknown>): Promise<Record<strin
   })
 }
 
-const PROVIDER_LOGIN_URLS: Record<string, string> = {
-  instagram: "https://www.instagram.com/",
-  linkedin: "https://www.linkedin.com/",
-  x: "https://x.com/",
-}
-
 export function ExtensionConnectDialog({
   provider,
   providerName,
@@ -73,6 +82,9 @@ export function ExtensionConnectDialog({
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>("connect")
   const [error, setError] = useState<string | null>(null)
+  const [incognitoAllowed, setIncognitoAllowed] = useState(false)
+  const [label, setLabel] = useState("")
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function stopPolling() {
@@ -88,6 +100,9 @@ export function ExtensionConnectDialog({
       stopPolling()
       setStep("connect")
       setError(null)
+      setLabel("")
+      setSessionId(null)
+      setIncognitoAllowed(false)
     }
   }
 
@@ -127,9 +142,10 @@ export function ExtensionConnectDialog({
           return
         }
 
-        // Trigger sync and move to waiting
-        sendToExtension({ type: "sync", provider })
-        setStep("waiting")
+        // Check incognito access and move to mode selection
+        const incognitoResp = await sendToExtension({ type: "check-incognito" })
+        setIncognitoAllowed(incognitoResp?.allowed === true)
+        setStep("choose-mode")
       } catch {
         setError("Connection failed")
         setStep("install")
@@ -139,7 +155,7 @@ export function ExtensionConnectDialog({
     tryConnect()
   }, [open, step, provider])
 
-  // Poll for integration
+  // Poll for integration (used in "waiting" step — sync-current-session flow)
   const pollForIntegration = useCallback(async () => {
     try {
       const res = await fetch("/api/integrations")
@@ -165,6 +181,36 @@ export function ExtensionConnectDialog({
     return () => stopPolling()
   }, [step, pollForIntegration])
 
+  // Poll for incognito login session status
+  const pollForLoginStatus = useCallback(async () => {
+    if (!sessionId) return
+    try {
+      const resp = await sendToExtension({ type: "login-status", sessionId })
+      if (!resp?.ok) return
+
+      if (resp.status === "complete") {
+        stopPolling()
+        setStep("success")
+      } else if (resp.status === "cancelled") {
+        stopPolling()
+        setError("Window was closed")
+        setStep("label-input")
+      } else if (resp.status === "error") {
+        stopPolling()
+        setError((resp.error as string) || "Login failed")
+        setStep("label-input")
+      }
+    } catch {
+      // ignore transient errors
+    }
+  }, [sessionId])
+
+  useEffect(() => {
+    if (step !== "incognito-waiting" || !sessionId) return
+    intervalRef.current = setInterval(pollForLoginStatus, 2000)
+    return () => stopPolling()
+  }, [step, sessionId, pollForLoginStatus])
+
   // Auto-close on success
   useEffect(() => {
     if (step !== "success") return
@@ -174,6 +220,53 @@ export function ExtensionConnectDialog({
     }, 1500)
     return () => clearTimeout(timer)
   }, [step])
+
+  // Handlers
+  function handleSyncCurrentSession() {
+    sendToExtension({ type: "sync", provider })
+    setStep("waiting")
+  }
+
+  function handleChooseIncognito() {
+    if (incognitoAllowed) {
+      setStep("label-input")
+    } else {
+      setStep("enable-incognito")
+    }
+  }
+
+  async function handleStartLogin() {
+    setError(null)
+    const resp = await sendToExtension({
+      type: "login",
+      provider,
+      label: label.trim() || `${providerName} Account`,
+    })
+    if (!resp?.ok) {
+      setError((resp?.error as string) || "Failed to open incognito window")
+      return
+    }
+    setSessionId(resp.sessionId as string)
+    setStep("incognito-waiting")
+  }
+
+  async function handleIncognitoAccessDone() {
+    setError(null)
+    const resp = await sendToExtension({ type: "check-incognito" })
+    if (resp?.allowed) {
+      setIncognitoAllowed(true)
+      setStep("label-input")
+    } else {
+      setError("Incognito access is still not enabled. Please follow the steps above.")
+    }
+  }
+
+  async function handleCancelLogin() {
+    if (sessionId) {
+      await sendToExtension({ type: "cancel-login", sessionId })
+    }
+    setOpen(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -230,6 +323,137 @@ export function ExtensionConnectDialog({
           </>
         )}
 
+        {step === "choose-mode" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Connect {providerName}</DialogTitle>
+              <DialogDescription>
+                How would you like to connect your account?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-3 py-2">
+              <button
+                className="flex items-start gap-3 rounded-lg border bg-primary p-4 text-left text-primary-foreground transition-opacity hover:opacity-90"
+                onClick={handleSyncCurrentSession}
+              >
+                <IconRefresh className="mt-0.5 size-5 shrink-0" />
+                <div>
+                  <p className="font-medium">Sync current session</p>
+                  <p className="text-sm opacity-80">
+                    Use the {providerName} account you&apos;re currently logged into
+                  </p>
+                </div>
+              </button>
+
+              <button
+                className="flex items-start gap-3 rounded-lg border p-4 text-left transition-colors hover:bg-muted"
+                onClick={handleChooseIncognito}
+              >
+                <IconExternalLink className="mt-0.5 size-5 shrink-0" />
+                <div>
+                  <p className="font-medium">Log in to another account</p>
+                  <p className="text-sm text-muted-foreground">
+                    Open a private window to log into a different account
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === "label-input" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Name this account</DialogTitle>
+              <DialogDescription>
+                Give this {providerName} account a label so you can tell them apart.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-3 py-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium" htmlFor="account-label">
+                  Account name
+                </label>
+                <Input
+                  id="account-label"
+                  placeholder="e.g. Work, Personal"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleStartLogin()}
+                  autoFocus
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep("choose-mode")}>
+                Back
+              </Button>
+              <Button onClick={handleStartLogin}>Start Login</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === "enable-incognito" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Enable incognito access</DialogTitle>
+              <DialogDescription>
+                To log into a different account, enable incognito access for the extension:
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-3 py-2">
+              <ol className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+                <li>1. Right-click the Emdash extension icon in the Chrome toolbar</li>
+                <li>2. Click &quot;Manage extension&quot;</li>
+                <li>3. Toggle &quot;Allow in Incognito&quot;</li>
+              </ol>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep("choose-mode")}>
+                Back
+              </Button>
+              <Button onClick={handleIncognitoAccessDone}>Done</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === "incognito-waiting" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Log in to {providerName}</DialogTitle>
+              <DialogDescription>
+                An incognito window has opened. Log in and this dialog will close automatically.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col items-center gap-4 py-6">
+              <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
+              <p className="text-center text-sm text-muted-foreground">
+                Log in to {providerName} in the incognito window...
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelLogin}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
         {step === "waiting" && (
           <>
             <DialogHeader>
@@ -244,26 +468,17 @@ export function ExtensionConnectDialog({
               <p className="text-center text-sm text-muted-foreground">
                 Already logged in? Click sync. Otherwise, log in and this closes automatically.
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open(PROVIDER_LOGIN_URLS[provider], "_blank")}
-                >
-                  <IconExternalLink className="size-4" />
-                  Open {providerName}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    sendToExtension({ type: "sync", provider })
-                    pollForIntegration()
-                  }}
-                >
-                  Sync Now
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  sendToExtension({ type: "sync", provider })
+                  pollForIntegration()
+                }}
+              >
+                <IconRefresh className="size-4" />
+                Sync Now
+              </Button>
             </div>
 
             <DialogFooter>
