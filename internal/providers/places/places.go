@@ -1,27 +1,20 @@
 package places
 
 import (
-	"context"
-
-	"github.com/emdash-projects/agents/internal/auth"
 	"github.com/spf13/cobra"
-	api "google.golang.org/api/places/v1"
 )
 
-// ServiceFactory is a function that creates a Places API service.
-type ServiceFactory func(ctx context.Context) (*api.Service, error)
-
-// Provider implements the Google Places integration.
+// Provider implements the Google Places integration using google-maps-scraper.
 type Provider struct {
-	// ServiceFactory creates the Places API service. Defaults to auth.NewPlacesService.
-	// Override in tests to inject a mock service pointing at a test server.
-	ServiceFactory ServiceFactory
+	// ScraperFunc runs the scraper. Defaults to shelling out to the
+	// google-maps-scraper binary. Override in tests with a mock.
+	ScraperFunc ScraperFunc
 }
 
-// New creates a new Places provider using the real Places API.
+// New creates a new Places provider using the real scraper binary.
 func New() *Provider {
 	return &Provider{
-		ServiceFactory: auth.NewPlacesService,
+		ScraperFunc: defaultScraperFunc(defaultScraperBinary()),
 	}
 }
 
@@ -34,31 +27,13 @@ func (p *Provider) Name() string {
 func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	placesCmd := &cobra.Command{
 		Use:     "places",
-		Short:   "Interact with Google Places",
-		Long:    "Search for places, get details, autocomplete, and download photos via the Google Places API (New).",
+		Short:   "Search Google Maps for businesses and places",
+		Long:    "Search Google Maps by scraping — no API key needed. Returns rich data including address, phone, hours, reviews, ratings, and optionally emails.",
 		Aliases: []string{"place"},
 	}
 
-	searchCmd := &cobra.Command{
-		Use:     "search",
-		Short:   "Search for places",
-		Aliases: []string{"find"},
-	}
-	searchCmd.AddCommand(newSearchTextCmd(p.ServiceFactory))
-	searchCmd.AddCommand(newSearchNearbyCmd(p.ServiceFactory))
-	placesCmd.AddCommand(searchCmd)
-
-	placesCmd.AddCommand(newGetCmd(p.ServiceFactory))
-	placesCmd.AddCommand(newAutocompleteCmd(p.ServiceFactory))
-
-	photosCmd := &cobra.Command{
-		Use:     "photos",
-		Short:   "Manage place photos",
-		Aliases: []string{"photo"},
-	}
-	photosCmd.AddCommand(newPhotosListCmd(p.ServiceFactory))
-	photosCmd.AddCommand(newPhotosGetCmd(p.ServiceFactory))
-	placesCmd.AddCommand(photosCmd)
+	placesCmd.AddCommand(newSearchCmd(p.ScraperFunc))
+	placesCmd.AddCommand(newLookupCmd(p.ScraperFunc))
 
 	parent.AddCommand(placesCmd)
 }

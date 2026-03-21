@@ -6,83 +6,97 @@ import (
 	"testing"
 )
 
-func TestSearchTextJSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchJSON(t *testing.T) {
+	scraper := mockScraper(testEntries(), nil)
 
 	root := newTestRootCmd()
-	searchCmd := newSearchTextCmd(factory)
+	searchCmd := newSearchCmd(scraper)
 	root.AddCommand(searchCmd)
 
 	out := captureStdout(t, func() {
-		root.SetArgs([]string{"text", "--query=coffee", "--json"})
+		root.SetArgs([]string{"search", "--query=coffee in cleveland", "--json"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
 	})
 
-	var result map[string]any
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
+	var entries []Entry
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out)
 	}
-	places, ok := result["places"].([]any)
-	if !ok || len(places) != 2 {
-		t.Fatalf("expected 2 places, got %v", result["places"])
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
 	}
-	if result["nextPageToken"] != "token123" {
-		t.Errorf("expected nextPageToken=token123, got %v", result["nextPageToken"])
+	if entries[0].Title != "Coffee Corner" {
+		t.Errorf("first entry title = %q", entries[0].Title)
 	}
 }
 
-func TestSearchTextText(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchText(t *testing.T) {
+	scraper := mockScraper(testEntries(), nil)
 
 	root := newTestRootCmd()
-	searchCmd := newSearchTextCmd(factory)
+	searchCmd := newSearchCmd(scraper)
 	root.AddCommand(searchCmd)
 
 	out := captureStdout(t, func() {
-		root.SetArgs([]string{"text", "--query=coffee"})
+		root.SetArgs([]string{"search", "--query=coffee in cleveland"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
 	})
 
 	if !strings.Contains(out, "Coffee Corner") {
-		t.Errorf("expected output to contain 'Coffee Corner', got: %s", out)
+		t.Errorf("expected 'Coffee Corner' in output, got: %s", out)
 	}
 	if !strings.Contains(out, "Bean & Leaf") {
-		t.Errorf("expected output to contain 'Bean & Leaf', got: %s", out)
+		t.Errorf("expected 'Bean & Leaf' in output, got: %s", out)
 	}
-	if !strings.Contains(out, "Next page") {
-		t.Errorf("expected output to contain pagination info, got: %s", out)
+	if !strings.Contains(out, "216-555-0100") {
+		t.Errorf("expected phone in output, got: %s", out)
 	}
 }
 
-func TestSearchTextWithOptions(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchWithLimit(t *testing.T) {
+	scraper := mockScraper(testEntries(), nil)
 
 	root := newTestRootCmd()
-	searchCmd := newSearchTextCmd(factory)
+	searchCmd := newSearchCmd(scraper)
 	root.AddCommand(searchCmd)
 
 	out := captureStdout(t, func() {
-		root.SetArgs([]string{"text", "--query=coffee",
-			"--type=cafe",
-			"--location-bias=41.4993,-81.6944,5000",
-			"--min-rating=4.0",
-			"--open-now",
-			"--price-levels=1,2",
-			"--rank=DISTANCE",
-			"--region=us",
+		root.SetArgs([]string{"search", "--query=coffee", "--limit=1", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	var entries []Entry
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry (limit=1), got %d", len(entries))
+	}
+}
+
+func TestSearchPassesOptions(t *testing.T) {
+	scraper, captured := mockScraperWithCapture(testEntries())
+
+	root := newTestRootCmd()
+	searchCmd := newSearchCmd(scraper)
+	root.AddCommand(searchCmd)
+
+	captureStdout(t, func() {
+		root.SetArgs([]string{"search",
+			"--query=dentists in cleveland",
+			"--geo=41.499,-81.694",
+			"--zoom=14",
+			"--depth=2",
+			"--email",
+			"--concurrency=4",
 			"--lang=en",
 			"--limit=10",
-			"--fields=basic",
 			"--json",
 		})
 		if err := root.Execute(); err != nil {
@@ -90,129 +104,92 @@ func TestSearchTextWithOptions(t *testing.T) {
 		}
 	})
 
-	var result map[string]any
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	if len(captured.Queries) != 1 || captured.Queries[0] != "dentists in cleveland" {
+		t.Errorf("Queries = %v", captured.Queries)
+	}
+	if captured.Geo != "41.499,-81.694" {
+		t.Errorf("Geo = %q", captured.Geo)
+	}
+	if captured.Zoom != 14 {
+		t.Errorf("Zoom = %d", captured.Zoom)
+	}
+	if captured.Depth != 2 {
+		t.Errorf("Depth = %d", captured.Depth)
+	}
+	if !captured.Email {
+		t.Error("Email should be true")
+	}
+	if captured.Concurrency != 4 {
+		t.Errorf("Concurrency = %d", captured.Concurrency)
+	}
+	if captured.Lang != "en" {
+		t.Errorf("Lang = %q", captured.Lang)
+	}
+	if captured.Limit != 10 {
+		t.Errorf("Limit = %d", captured.Limit)
 	}
 }
 
-func TestSearchTextWithLocationRestrict(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchInvalidGeo(t *testing.T) {
+	scraper := mockScraper(testEntries(), nil)
 
 	root := newTestRootCmd()
-	searchCmd := newSearchTextCmd(factory)
+	searchCmd := newSearchCmd(scraper)
 	root.AddCommand(searchCmd)
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"text", "--query=coffee",
-			"--location-restrict=41.0,-82.0,42.0,-81.0",
-			"--json",
-		})
-		if err := root.Execute(); err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	var result map[string]any
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	root.SetArgs([]string{"search", "--query=coffee", "--geo=invalid"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --geo")
 	}
 }
 
-func TestSearchTextMissingQuery(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchMissingQuery(t *testing.T) {
+	scraper := mockScraper(testEntries(), nil)
 
 	root := newTestRootCmd()
-	searchCmd := newSearchTextCmd(factory)
+	searchCmd := newSearchCmd(scraper)
 	root.AddCommand(searchCmd)
 
-	root.SetArgs([]string{"text"})
+	root.SetArgs([]string{"search"})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected error for missing --query")
 	}
 }
 
-func TestSearchNearbyJSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchScraperError(t *testing.T) {
+	scraper := errScraper("connection refused")
 
 	root := newTestRootCmd()
-	nearbyCmd := newSearchNearbyCmd(factory)
-	root.AddCommand(nearbyCmd)
+	searchCmd := newSearchCmd(scraper)
+	root.AddCommand(searchCmd)
 
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"nearby", "--lat=41.4993", "--lng=-81.6944", "--json"})
-		if err := root.Execute(); err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	var places []any
-	if err := json.Unmarshal([]byte(out), &places); err != nil {
-		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	root.SetArgs([]string{"search", "--query=coffee"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error from scraper")
 	}
-	if len(places) != 1 {
-		t.Fatalf("expected 1 place, got %d", len(places))
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("error = %q, expected 'connection refused'", err.Error())
 	}
 }
 
-func TestSearchNearbyText(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
+func TestSearchNoResults(t *testing.T) {
+	scraper := mockScraper([]Entry{}, nil)
 
 	root := newTestRootCmd()
-	nearbyCmd := newSearchNearbyCmd(factory)
-	root.AddCommand(nearbyCmd)
+	searchCmd := newSearchCmd(scraper)
+	root.AddCommand(searchCmd)
 
 	out := captureStdout(t, func() {
-		root.SetArgs([]string{"nearby", "--lat=41.4993", "--lng=-81.6944"})
+		root.SetArgs([]string{"search", "--query=nonexistent"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
 	})
 
-	if !strings.Contains(out, "Nearby Diner") {
-		t.Errorf("expected 'Nearby Diner' in output, got: %s", out)
-	}
-}
-
-func TestSearchNearbyWithOptions(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestServiceFactory(server)
-
-	root := newTestRootCmd()
-	nearbyCmd := newSearchNearbyCmd(factory)
-	root.AddCommand(nearbyCmd)
-
-	out := captureStdout(t, func() {
-		root.SetArgs([]string{"nearby",
-			"--lat=41.4993", "--lng=-81.6944",
-			"--radius=10000",
-			"--types=restaurant,cafe",
-			"--exclude-types=gas_station",
-			"--primary-types=restaurant",
-			"--rank=DISTANCE",
-			"--region=us",
-			"--lang=en",
-			"--limit=5",
-			"--fields=preferred",
-			"--json",
-		})
-		if err := root.Execute(); err != nil {
-			t.Fatal(err)
-		}
-	})
-
-	var places []any
-	if err := json.Unmarshal([]byte(out), &places); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	if !strings.Contains(out, "No places found") {
+		t.Errorf("expected 'No places found' in output, got: %s", out)
 	}
 }

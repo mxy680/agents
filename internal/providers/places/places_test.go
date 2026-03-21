@@ -2,8 +2,6 @@ package places
 
 import (
 	"testing"
-
-	"github.com/emdash-projects/agents/internal/auth"
 )
 
 func TestProviderNew(t *testing.T) {
@@ -11,8 +9,8 @@ func TestProviderNew(t *testing.T) {
 	if p == nil {
 		t.Fatal("New() returned nil")
 	}
-	if p.ServiceFactory == nil {
-		t.Fatal("ServiceFactory is nil")
+	if p.ScraperFunc == nil {
+		t.Fatal("ScraperFunc is nil")
 	}
 }
 
@@ -25,20 +23,18 @@ func TestProviderName(t *testing.T) {
 
 func TestProviderRegisterCommands(t *testing.T) {
 	root := newTestRootCmd()
-	p := New()
+	p := &Provider{ScraperFunc: mockScraper(nil, nil)}
 	p.RegisterCommands(root)
 
-	// Verify the "places" command was added
 	found := false
 	for _, cmd := range root.Commands() {
 		if cmd.Name() == "places" {
 			found = true
-			// Verify subcommands
 			subNames := make(map[string]bool)
 			for _, sub := range cmd.Commands() {
 				subNames[sub.Name()] = true
 			}
-			expected := []string{"search", "get", "autocomplete", "photos"}
+			expected := []string{"search", "lookup"}
 			for _, name := range expected {
 				if !subNames[name] {
 					t.Errorf("missing subcommand %q", name)
@@ -52,9 +48,45 @@ func TestProviderRegisterCommands(t *testing.T) {
 	}
 }
 
-func TestDefaultServiceFactory(t *testing.T) {
-	p := New()
-	// Verify it points to auth.NewPlacesService (compare by calling with missing env vars)
-	_ = p.ServiceFactory
-	_ = auth.NewPlacesService
+func TestProviderAliases(t *testing.T) {
+	root := newTestRootCmd()
+	p := &Provider{ScraperFunc: mockScraper(nil, nil)}
+	p.RegisterCommands(root)
+
+	for _, cmd := range root.Commands() {
+		if cmd.Name() == "places" {
+			hasAlias := false
+			for _, a := range cmd.Aliases {
+				if a == "place" {
+					hasAlias = true
+				}
+			}
+			if !hasAlias {
+				t.Error("places command missing 'place' alias")
+			}
+
+			for _, sub := range cmd.Commands() {
+				if sub.Name() == "search" {
+					hasFindAlias := false
+					for _, a := range sub.Aliases {
+						if a == "find" {
+							hasFindAlias = true
+						}
+					}
+					if !hasFindAlias {
+						t.Error("search command missing 'find' alias")
+					}
+				}
+			}
+			break
+		}
+	}
+}
+
+func TestDefaultScraperBinary(t *testing.T) {
+	// Should return something (either from env, PATH, or the default name)
+	bin := defaultScraperBinary()
+	if bin == "" {
+		t.Error("defaultScraperBinary returned empty string")
+	}
 }
