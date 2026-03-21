@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	xBaseURL = "https://x.com"
+	xBaseURL      = "https://x.com"
+	uploadBaseURL = "https://upload.x.com"
+	capsBaseURL   = "https://caps.x.com"
 
 	// xBearerToken is the static public bearer token used by X's web client.
 	xBearerToken = "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
@@ -76,9 +78,11 @@ func (e *AccountLockedError) Error() string {
 
 // Client is an HTTP client wrapper for X's internal GraphQL and v1.1 APIs.
 type Client struct {
-	http    *http.Client
-	session *auth.XSession
-	baseURL string
+	http      *http.Client
+	session   *auth.XSession
+	baseURL   string
+	uploadURL string // base URL for upload.x.com (defaults to uploadBaseURL; overridable in tests)
+	capsURL   string // base URL for caps.x.com (defaults to capsBaseURL; overridable in tests)
 
 	mu   sync.Mutex
 	csrf string // ct0 cookie value, also sent as X-CSRF-Token header
@@ -96,21 +100,26 @@ func DefaultClientFactory() ClientFactory {
 			return nil, fmt.Errorf("x auth: %w", err)
 		}
 		return &Client{
-			http:    &http.Client{Timeout: 30 * time.Second},
-			session: session,
-			baseURL: xBaseURL,
-			csrf:    session.CSRFToken,
+			http:      &http.Client{Timeout: 30 * time.Second},
+			session:   session,
+			baseURL:   xBaseURL,
+			uploadURL: uploadBaseURL,
+			capsURL:   capsBaseURL,
+			csrf:      session.CSRFToken,
 		}, nil
 	}
 }
 
 // newClientWithBase creates a Client targeting a custom base URL (used in tests).
+// uploadURL and capsURL also point to the same base URL so tests can mock all endpoints.
 func newClientWithBase(session *auth.XSession, httpClient *http.Client, base string) *Client {
 	return &Client{
-		http:    httpClient,
-		session: session,
-		baseURL: base,
-		csrf:    session.CSRFToken,
+		http:      httpClient,
+		session:   session,
+		baseURL:   base,
+		uploadURL: base,
+		capsURL:   base,
+		csrf:      session.CSRFToken,
 	}
 }
 

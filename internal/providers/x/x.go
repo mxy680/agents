@@ -40,6 +40,13 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	xCmd.AddCommand(newBookmarksCmd(p.ClientFactory))
 	xCmd.AddCommand(newDMCmd(p.ClientFactory))
 	xCmd.AddCommand(newListsCmd(p.ClientFactory))
+	xCmd.AddCommand(newCommunitiesCmd(p.ClientFactory))
+	xCmd.AddCommand(newNotificationsCmd(p.ClientFactory))
+	xCmd.AddCommand(newMediaCmd(p.ClientFactory))
+	xCmd.AddCommand(newScheduledCmd(p.ClientFactory))
+	xCmd.AddCommand(newTrendsCmd(p.ClientFactory))
+	xCmd.AddCommand(newPollsCmd(p.ClientFactory))
+	xCmd.AddCommand(newGeoCmd(p.ClientFactory))
 
 	parent.AddCommand(xCmd)
 }

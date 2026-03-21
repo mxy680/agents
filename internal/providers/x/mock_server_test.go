@@ -823,6 +823,340 @@ func withListsMock(mux *http.ServeMux) {
 	})
 }
 
+// withCommunitiesMock registers mock handlers for community GraphQL operations.
+func withCommunitiesMock(mux *http.ServeMux) {
+	tweetRaw := mockTweetResult("123456789", "Community tweet!", "999", "Test User", "testuser")
+	userRaw := mockUserResult("111", "member1", "Member One")
+
+	communityData := map[string]any{
+		"id_str":       "111",
+		"name":         "Test Community",
+		"description":  "A test community",
+		"member_count": 42,
+		"created_at":   "2024-01-01",
+	}
+
+	// CommunityQuery — communities get
+	mux.HandleFunc("/i/api/graphql/"+hashCommunityQuery+"/CommunityQuery", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"community_by_id": communityData}))
+	})
+
+	// CommunitiesSearchQuery — communities search
+	mux.HandleFunc("/i/api/graphql/"+hashCommunitiesSearchQuery+"/CommunitiesSearchQuery", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"communities_search_by_query": []any{communityData}}))
+	})
+
+	// CommunityTweetsTimeline — communities tweets
+	mux.HandleFunc("/i/api/graphql/"+hashCommunityTweetsTimeline+"/CommunityTweetsTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "community-tweets-cursor"))
+	})
+
+	// CommunityMediaTimeline — communities media
+	mux.HandleFunc("/i/api/graphql/"+hashCommunityMediaTimeline+"/CommunityMediaTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "community-media-cursor"))
+	})
+
+	// membersSliceTimeline_Query — communities members
+	mux.HandleFunc("/i/api/graphql/"+hashMembersSliceTimeline+"/membersSliceTimeline_Query", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// moderatorsSliceTimeline_Query — communities moderators
+	mux.HandleFunc("/i/api/graphql/"+hashModeratorsSliceTimeline+"/moderatorsSliceTimeline_Query", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// CommunitiesMainPageTimeline — communities timeline
+	mux.HandleFunc("/i/api/graphql/"+hashCommunitiesMainPageTimeline+"/CommunitiesMainPageTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "communities-main-cursor"))
+	})
+
+	// JoinCommunity — communities join
+	mux.HandleFunc("/i/api/graphql/"+hashJoinCommunity+"/JoinCommunity", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"join_community": map[string]any{}}))
+	})
+
+	// LeaveCommunity — communities leave
+	mux.HandleFunc("/i/api/graphql/"+hashLeaveCommunity+"/LeaveCommunity", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"leave_community": map[string]any{}}))
+	})
+
+	// RequestToJoinCommunity — communities request-join
+	mux.HandleFunc("/i/api/graphql/"+hashRequestToJoinCommunity+"/RequestToJoinCommunity", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{"request_to_join_community": map[string]any{}}))
+	})
+
+	// CommunityTweetSearchModuleQuery — communities search-tweets
+	mux.HandleFunc("/i/api/graphql/"+hashCommunityTweetSearch+"/CommunityTweetSearchModuleQuery", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "community-search-cursor"))
+	})
+}
+
+// withNotificationsMock registers mock handlers for notification v2 endpoints.
+func withNotificationsMock(mux *http.ServeMux) {
+	notifResponse := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"globalObjects": map[string]any{
+				"notifications": map[string]any{
+					"notif-001": map[string]any{
+						"type":        "like",
+						"timestampMs": "1700000000000",
+						"message": map[string]any{
+							"text": "Someone liked your tweet",
+						},
+					},
+				},
+				"tweets": map[string]any{},
+				"users":  map[string]any{},
+			},
+			"timeline": map[string]any{
+				"instructions": []any{},
+			},
+		})
+		w.Write(raw)
+	}
+
+	mux.HandleFunc("/i/api/2/notifications/all.json", notifResponse)
+	mux.HandleFunc("/i/api/2/notifications/mentions.json", notifResponse)
+	mux.HandleFunc("/i/api/2/notifications/verified.json", notifResponse)
+}
+
+// withMediaMock registers mock handlers for media upload and metadata endpoints.
+func withMediaMock(mux *http.ServeMux) {
+	// Upload INIT, APPEND, FINALIZE, STATUS — /i/media/upload.json (handled by the test client's base URL)
+	mux.HandleFunc("/i/media/upload.json", func(w http.ResponseWriter, r *http.Request) {
+		// APPEND is multipart; try FormValue first (works for url-encoded) then fallback.
+		cmd := r.FormValue("command")
+		switch cmd {
+		case "INIT":
+			w.Header().Set("Content-Type", "application/json")
+			raw, _ := json.Marshal(map[string]any{
+				"media_id":        999,
+				"media_id_string": "999",
+			})
+			w.Write(raw)
+		case "APPEND":
+			// APPEND returns 204 No Content.
+			w.WriteHeader(http.StatusNoContent)
+		case "FINALIZE":
+			w.Header().Set("Content-Type", "application/json")
+			raw, _ := json.Marshal(map[string]any{
+				"media_id":        999,
+				"media_id_string": "999",
+				"processing_info": map[string]any{"state": "succeeded"},
+			})
+			w.Write(raw)
+		case "STATUS":
+			w.Header().Set("Content-Type", "application/json")
+			raw, _ := json.Marshal(map[string]any{
+				"media_id":        999,
+				"media_id_string": "999",
+				"processing_info": map[string]any{"state": "succeeded"},
+			})
+			w.Write(raw)
+		default:
+			// Unknown command or multipart without readable command field — treat as APPEND (204).
+			w.WriteHeader(http.StatusNoContent)
+		}
+	})
+
+	// Alt text — api.x.com/1.1/media/metadata/create.json
+	mux.HandleFunc("/1.1/media/metadata/create.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+	})
+}
+
+// withScheduledMock registers mock handlers for scheduled tweet GraphQL operations.
+func withScheduledMock(mux *http.ServeMux) {
+	scheduledItem := map[string]any{
+		"rest_id":          "sched-123",
+		"scheduled_status": "scheduled",
+		"execute_at":       1800000000,
+		"tweet_create_request": map[string]any{
+			"status": "My scheduled tweet",
+		},
+	}
+
+	// FetchScheduledTweets — scheduled list
+	mux.HandleFunc("/i/api/graphql/"+hashFetchScheduledTweets+"/FetchScheduledTweets", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"scheduled_tweet_list": []any{scheduledItem},
+		}))
+	})
+
+	// CreateScheduledTweet — scheduled create
+	mux.HandleFunc("/i/api/graphql/"+hashCreateScheduledTweet+"/CreateScheduledTweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"create_scheduled_tweet": scheduledItem,
+		}))
+	})
+
+	// DeleteScheduledTweet — scheduled delete
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteScheduledTweet+"/DeleteScheduledTweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"delete_scheduled_tweet": map[string]any{},
+		}))
+	})
+}
+
+// withTrendsMock registers mock handlers for trends v2 and v1.1 endpoints.
+func withTrendsMock(mux *http.ServeMux) {
+	// /i/api/2/guide.json — trends list
+	mux.HandleFunc("/i/api/2/guide.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"timeline": map[string]any{
+				"instructions": []any{
+					map[string]any{
+						"type": "TimelineAddEntries",
+						"entries": []any{
+							map[string]any{
+								"entryId": "trends-module",
+								"content": map[string]any{
+									"timelineModule": map[string]any{
+										"items": []any{
+											map[string]any{
+												"item": map[string]any{
+													"content": map[string]any{
+														"trend": map[string]any{
+															"name":     "#GoLang",
+															"trendUrl": "https://x.com/search?q=%23GoLang",
+															"domainContext": map[string]any{
+																"entityCount": 5000,
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+		w.Write(raw)
+	})
+
+	// /i/api/1.1/trends/available.json — trends locations
+	mux.HandleFunc("/i/api/1.1/trends/available.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal([]any{
+			map[string]any{
+				"name":    "Worldwide",
+				"woeid":   1,
+				"country": "",
+			},
+			map[string]any{
+				"name":    "United States",
+				"woeid":   23424977,
+				"country": "United States",
+			},
+		})
+		w.Write(raw)
+	})
+
+	// /i/api/1.1/trends/place.json — trends by-place
+	mux.HandleFunc("/i/api/1.1/trends/place.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		tweetVolume := 12345
+		raw, _ := json.Marshal([]any{
+			map[string]any{
+				"trends": []any{
+					map[string]any{
+						"name":         "#Testing",
+						"url":          "https://x.com/search?q=%23Testing",
+						"tweet_volume": tweetVolume,
+					},
+				},
+			},
+		})
+		w.Write(raw)
+	})
+}
+
+// withPollsMock registers mock handlers for polls (caps.x.com routed through base URL).
+func withPollsMock(mux *http.ServeMux) {
+	// Polls use caps.x.com full URLs, handled directly by the client.
+	// In tests, the base URL is the test server, so register under the path portion.
+	mux.HandleFunc("/v2/cards/create.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"card_uri": "card://1234567890",
+		})
+		w.Write(raw)
+	})
+
+	mux.HandleFunc("/v2/capi/passthrough/1", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"card": map[string]any{
+				"name": "poll2choice_text_only",
+			},
+		})
+		w.Write(raw)
+	})
+}
+
+// withGeoMock registers mock handlers for geo v1.1 endpoints.
+func withGeoMock(mux *http.ServeMux) {
+	placeRaw := map[string]any{
+		"id":           "place-001",
+		"name":         "New York",
+		"full_name":    "New York, NY",
+		"place_type":   "city",
+		"country":      "United States",
+		"country_code": "US",
+	}
+
+	// /i/api/1.1/geo/reverse_geocode.json
+	mux.HandleFunc("/i/api/1.1/geo/reverse_geocode.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"result": map[string]any{
+				"places": []any{placeRaw},
+			},
+		})
+		w.Write(raw)
+	})
+
+	// /i/api/1.1/geo/search.json
+	mux.HandleFunc("/i/api/1.1/geo/search.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(map[string]any{
+			"result": map[string]any{
+				"places": []any{placeRaw},
+			},
+		})
+		w.Write(raw)
+	})
+
+	// /i/api/1.1/geo/id/{place_id}.json — catch-all for geo get
+	mux.HandleFunc("/i/api/1.1/geo/id/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		raw, _ := json.Marshal(placeRaw)
+		w.Write(raw)
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all mock handlers registered.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
@@ -837,5 +1171,12 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 	withBookmarksMock(mux)
 	withDMMock(mux)
 	withListsMock(mux)
+	withCommunitiesMock(mux)
+	withNotificationsMock(mux)
+	withMediaMock(mux)
+	withScheduledMock(mux)
+	withTrendsMock(mux)
+	withPollsMock(mux)
+	withGeoMock(mux)
 	return httptest.NewServer(mux)
 }
