@@ -346,11 +346,235 @@ func withUsersMock(mux *http.ServeMux) {
 	})
 }
 
+// mockFriendshipResponse returns a minimal v1.1 user object used by friendship endpoints.
+func mockFriendshipResponse(userID string) []byte {
+	raw, _ := json.Marshal(map[string]any{
+		"id_str":          userID,
+		"screen_name":     "testuser",
+		"name":            "Test User",
+		"followers_count": 1000,
+		"friends_count":   500,
+	})
+	return raw
+}
+
+// withFollowsMock registers mock handlers for follower/following GraphQL and friendship v1.1 endpoints.
+func withFollowsMock(mux *http.ServeMux) {
+	userRaw := mockUserResult("111", "follower1", "Follower One")
+
+	// Followers — follows followers
+	mux.HandleFunc("/i/api/graphql/"+hashFollowers+"/Followers", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// Following — follows following
+	mux.HandleFunc("/i/api/graphql/"+hashFollowing+"/Following", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// BlueVerifiedFollowers — follows verified-followers
+	mux.HandleFunc("/i/api/graphql/"+hashVerifiedFollowers+"/BlueVerifiedFollowers", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// FollowersYouKnow — follows followers-you-know
+	mux.HandleFunc("/i/api/graphql/"+hashFollowersYouKnow+"/FollowersYouKnow", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockUserListResponse(userRaw))
+	})
+
+	// friendships/create — follows follow
+	mux.HandleFunc("/i/api/1.1/friendships/create.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("111"))
+	})
+
+	// friendships/destroy — follows unfollow
+	mux.HandleFunc("/i/api/1.1/friendships/destroy.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("111"))
+	})
+}
+
+// withBlocksMock registers mock handlers for block v1.1 endpoints.
+func withBlocksMock(mux *http.ServeMux) {
+	// blocks/create — blocks block
+	mux.HandleFunc("/i/api/1.1/blocks/create.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("222"))
+	})
+
+	// blocks/destroy — blocks unblock
+	mux.HandleFunc("/i/api/1.1/blocks/destroy.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("222"))
+	})
+}
+
+// withMutesMock registers mock handlers for mute v1.1 endpoints.
+func withMutesMock(mux *http.ServeMux) {
+	// mutes/users/create — mutes mute
+	mux.HandleFunc("/i/api/1.1/mutes/users/create.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("333"))
+	})
+
+	// mutes/users/destroy — mutes unmute
+	mux.HandleFunc("/i/api/1.1/mutes/users/destroy.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockFriendshipResponse("333"))
+	})
+}
+
+// withLikesMock registers mock handlers for likes GraphQL operations.
+func withLikesMock(mux *http.ServeMux) {
+	tweetRaw := mockTweetResult("123456789", "Hello X world!", "999", "Test User", "testuser")
+
+	// Likes — likes list
+	mux.HandleFunc("/i/api/graphql/"+hashLikes+"/Likes", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "likes-cursor-abc"))
+	})
+
+	// FavoriteTweet — likes like
+	mux.HandleFunc("/i/api/graphql/"+hashFavoriteTweet+"/FavoriteTweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"favorite_tweet": map[string]any{
+				"tweet_results": tweetRaw,
+			},
+		}))
+	})
+
+	// UnfavoriteTweet — likes unlike
+	mux.HandleFunc("/i/api/graphql/"+hashUnfavoriteTweet+"/UnfavoriteTweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"unfavorite_tweet": "Done",
+		}))
+	})
+}
+
+// withRetweetsMock registers mock handlers for retweet GraphQL operations.
+func withRetweetsMock(mux *http.ServeMux) {
+	// CreateRetweet — retweets retweet
+	mux.HandleFunc("/i/api/graphql/"+hashCreateRetweet+"/CreateRetweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"create_retweet": map[string]any{},
+		}))
+	})
+
+	// DeleteRetweet — retweets undo
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteRetweet+"/DeleteRetweet", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"delete_retweet": map[string]any{},
+		}))
+	})
+}
+
+// withBookmarksMock registers mock handlers for bookmark GraphQL operations.
+func withBookmarksMock(mux *http.ServeMux) {
+	tweetRaw := mockTweetResult("123456789", "Hello X world!", "999", "Test User", "testuser")
+
+	// Bookmarks — bookmarks list
+	mux.HandleFunc("/i/api/graphql/"+hashBookmarks+"/Bookmarks", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "bookmarks-cursor-abc"))
+	})
+
+	// CreateBookmark — bookmarks add (no folder)
+	mux.HandleFunc("/i/api/graphql/"+hashCreateBookmark+"/CreateBookmark", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"tweet_bookmark_put": "Done",
+		}))
+	})
+
+	// BookmarkToFolder — bookmarks add (with folder)
+	mux.HandleFunc("/i/api/graphql/"+hashBookmarkToFolder+"/BookmarkToFolder", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"tweet_bookmark_put": "Done",
+		}))
+	})
+
+	// DeleteBookmark — bookmarks remove
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteBookmark+"/DeleteBookmark", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"tweet_bookmark_delete": "Done",
+		}))
+	})
+
+	// BookmarksAllDelete — bookmarks clear
+	mux.HandleFunc("/i/api/graphql/"+hashBookmarksAllDelete+"/BookmarksAllDelete", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"bookmarks_all_delete": "Done",
+		}))
+	})
+
+	// BookmarkFoldersSlice — bookmarks folders
+	mux.HandleFunc("/i/api/graphql/"+hashBookmarkFoldersSlice+"/BookmarkFoldersSlice", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"bookmark_collections_slice": []any{
+				map[string]any{"id": "folder-001", "name": "My Reading List"},
+				map[string]any{"id": "folder-002", "name": "Inspiration"},
+			},
+		}))
+	})
+
+	// BookmarkFolderTimeline — bookmarks folder-tweets
+	mux.HandleFunc("/i/api/graphql/"+hashBookmarkFolderTimeline+"/BookmarkFolderTimeline", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(mockTimelineResponse(tweetRaw, "folder-tweets-cursor"))
+	})
+
+	// CreateBookmarkFolder — bookmarks create-folder
+	mux.HandleFunc("/i/api/graphql/"+hashCreateBookmarkFolder+"/CreateBookmarkFolder", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"create_bookmark_collection": map[string]any{
+				"id":   "folder-new-001",
+				"name": "Test Folder",
+			},
+		}))
+	})
+
+	// EditBookmarkFolder — bookmarks edit-folder
+	mux.HandleFunc("/i/api/graphql/"+hashEditBookmarkFolder+"/EditBookmarkFolder", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"edit_bookmark_collection": map[string]any{},
+		}))
+	})
+
+	// DeleteBookmarkFolder — bookmarks delete-folder
+	mux.HandleFunc("/i/api/graphql/"+hashDeleteBookmarkFolder+"/DeleteBookmarkFolder", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(graphqlResponse(map[string]any{
+			"delete_bookmark_collection": map[string]any{},
+		}))
+	})
+}
+
 // newFullMockServer creates a test HTTP server with all mock handlers registered.
 func newFullMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	withPostsMock(mux)
 	withUsersMock(mux)
+	withFollowsMock(mux)
+	withBlocksMock(mux)
+	withMutesMock(mux)
+	withLikesMock(mux)
+	withRetweetsMock(mux)
+	withBookmarksMock(mux)
 	return httptest.NewServer(mux)
 }
