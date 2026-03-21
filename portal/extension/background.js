@@ -196,6 +196,24 @@ function scheduleSyncProvider(providerKey) {
 // Event listeners
 // ---------------------------------------------------------------------------
 
+// On install/update, reload any open portal tabs so the content script injects
+// and the user doesn't need to manually refresh.
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) {
+      if (!tab.url) continue
+      // Match the same origins as our content_scripts.matches
+      if (
+        tab.url.startsWith("http://localhost") ||
+        tab.url.includes(".emdash.io") ||
+        tab.url.includes(".emdash.dev")
+      ) {
+        chrome.tabs.reload(tab.id)
+      }
+    }
+  })
+})
+
 // Watch for cookie changes on target domains
 chrome.cookies.onChanged.addListener((changeInfo) => {
   const { cookie, removed } = changeInfo
