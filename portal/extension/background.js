@@ -329,6 +329,11 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 
         const win = await chrome.windows.create({ incognito: true, url: loginUrl })
 
+        if (!win || !win.id) {
+          sendResponse({ ok: false, error: "Failed to create incognito window. Check that incognito mode is enabled." })
+          return
+        }
+
         const session = {
           sessionId,
           provider: message.provider,
