@@ -14,6 +14,7 @@ import (
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
+	"google.golang.org/api/places/v1"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -76,6 +77,7 @@ func NewOAuthConfig() (*oauth2.Config, error) {
 			drive.DriveFileScope,
 			calendar.CalendarScope,
 			drive.DriveScope,
+			places.MapsPlatformPlacesScope,
 		},
 	}, nil
 }
@@ -195,5 +197,14 @@ func NewCalendarService(ctx context.Context) (*calendar.Service, error) {
 		return nil, err
 	}
 	return calendar.NewService(ctx, option.WithHTTPClient(client))
+}
+
+// NewPlacesService creates an authenticated Places API (New) service from environment variables.
+func NewPlacesService(ctx context.Context) (*places.Service, error) {
+	client, err := newAuthenticatedClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return places.NewService(ctx, option.WithHTTPClient(client))
 }
 

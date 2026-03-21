@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/calendar",
       "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/maps-platform.places",
     ].join(" "),
     access_type: "offline",
     prompt: "consent",

@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, GitHub, Instagram, LinkedIn, Framer, and Supabase. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, and Supabase. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -275,6 +275,51 @@ internal/providers/drive/
   drive_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
 ```
 
+## Commands — Google Places
+```
+# Text Search — find places by query string
+integrations places search text --query="coffee shops in Cleveland" [--type=cafe] [--location-bias=LAT,LNG,RADIUS_M] [--location-restrict=S,W,N,E] [--min-rating=4.0] [--open-now] [--price-levels=1,2] [--rank=RELEVANCE|DISTANCE] [--region=us] [--lang=en] [--fields=basic|advanced|preferred|all] [--limit=20] [--page-token=TOKEN] [--json]
+
+# Nearby Search — find places within a radius
+integrations places search nearby --lat=LAT --lng=LNG [--radius=5000] [--types=restaurant,cafe] [--exclude-types=gas_station] [--primary-types=restaurant] [--rank=POPULARITY|DISTANCE] [--region=us] [--lang=en] [--fields=basic|advanced|preferred|all] [--limit=20] [--json]
+
+# Place Details — get full info for a single place
+integrations places get --place-id=PLACE_ID [--lang=en] [--region=us] [--fields=basic|advanced|preferred|all] [--session-token=UUID] [--json]
+
+# Autocomplete — get place predictions while typing
+integrations places autocomplete --input=TEXT [--input-offset=N] [--types=cafe,restaurant] [--regions=us,ca] [--location-bias=LAT,LNG,RADIUS_M] [--location-restrict=LAT,LNG,RADIUS_M] [--origin=LAT,LNG] [--lang=en] [--region=us] [--include-queries] [--session-token=UUID] [--json]
+
+# Photos — list and download place photos
+integrations places photos list --place-id=PLACE_ID [--json]
+integrations places photos get --photo-name=PHOTO_NAME [--max-width=800] [--max-height=600] [--output=PATH] [--url-only] [--json]
+```
+
+`places` has alias `place`. `search` has alias `find`. `photos` has alias `photo`.
+
+Field tier controls billing cost:
+- `basic` — Free fields: id, displayName, types, address, location, businessStatus, googleMapsUri, photos
+- `advanced` (default) — +rating, reviews, hours, phone, website, priceLevel, delivery/dineIn/takeout
+- `preferred` — +addressComponents, amenities (parking, payment, dogs, outdoor seating, etc.)
+- `all` — Everything (most expensive)
+
+## Architecture — Places Package Layout
+```
+internal/providers/places/
+  places.go              # Provider struct, RegisterCommands (search, get, autocomplete, photos)
+  helpers.go             # Shared types (PlaceSummary, PlaceDetail, etc.), field masks, parsers
+  search.go              # search text, search nearby commands
+  get.go                 # get (place details) command
+  autocomplete.go        # autocomplete command
+  photos.go              # photos list, photos get commands
+  helpers_test.go        # Unit tests for helpers (extractPlaceID, parseLatLng, fieldMaskForTier, etc.)
+  search_test.go         # Tests for search text and nearby commands
+  get_test.go            # Tests for get command
+  autocomplete_test.go   # Tests for autocomplete command
+  photos_test.go         # Tests for photos commands
+  mock_server_test.go    # httptest mock server helpers, captureStdout, newTestRootCmd
+  places_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Commands — Instagram
 ```
 # Profile
@@ -427,7 +472,7 @@ internal/providers/instagram/
 ## Testing
 - All providers use `ServiceFactory`/`ClientFactory` for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, places: 85.4%, instagram: 85.0%)
 
 ## Architecture — GitHub Package Layout
 ```
@@ -1000,7 +1045,7 @@ agents/email-assistant/
 
 ## Environment Variables
 ```
-# Google (Gmail, Sheets, Calendar, Drive)
+# Google (Gmail, Sheets, Calendar, Drive, Places)
 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 GOOGLE_ACCESS_TOKEN (fallback: GMAIL_ACCESS_TOKEN)
 GOOGLE_REFRESH_TOKEN (fallback: GMAIL_REFRESH_TOKEN)
