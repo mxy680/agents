@@ -42,6 +42,10 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (process.env.SUPABASE_INTEGRATION_CLIENT_ID) env.SUPABASE_INTEGRATION_CLIENT_ID = process.env.SUPABASE_INTEGRATION_CLIENT_ID
       if (process.env.SUPABASE_INTEGRATION_CLIENT_SECRET) env.SUPABASE_INTEGRATION_CLIENT_SECRET = process.env.SUPABASE_INTEGRATION_CLIENT_SECRET
       break
+    case "x":
+      if (credJson.auth_token) env.X_AUTH_TOKEN = credJson.auth_token
+      if (credJson.csrf_token) env.X_CSRF_TOKEN = credJson.csrf_token
+      break
   }
   return env
 }

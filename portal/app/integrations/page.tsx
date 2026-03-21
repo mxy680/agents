@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
 import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
 import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
+import { XConnectDialog } from "@/components/x-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
@@ -26,6 +27,7 @@ import {
   IconBrandGithub,
   IconBrandInstagram,
   IconBrandLinkedin,
+  IconBrandX,
   IconLayout,
   IconBrandSupabase,
   IconMapPin,
@@ -57,6 +59,12 @@ const providers = [
     name: "LinkedIn",
     description: "Posts, Connections, Messages, Jobs",
     icon: IconBrandLinkedin,
+  },
+  {
+    id: "x",
+    name: "X",
+    description: "Posts, Likes, DMs, Lists, Communities",
+    icon: IconBrandX,
   },
   {
     id: "framer",
@@ -179,6 +187,15 @@ export default async function IntegrationsPage() {
                             : "Connect"}
                         </Button>
                       </InstagramConnectDialog>
+                    ) : provider.id === "x" ? (
+                      <XConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </XConnectDialog>
                     ) : provider.id === "linkedin" ? (
                       <LinkedinConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
