@@ -242,9 +242,14 @@ func extractTimelineEntries(raw json.RawMessage) ([]json.RawMessage, string, err
 	return tweetEntries, cursor, nil
 }
 
-// findInstructions walks a nested map looking for a "instructions" key inside
-// a "timeline" object (or directly at the top level).
+// findInstructions walks a nested map looking for an "instructions" key inside
+// a "timeline" object (or directly at the top level). Depth is bounded to
+// prevent stack overflow from malformed responses.
 func findInstructions(data map[string]json.RawMessage) (json.RawMessage, error) {
+	return findInstructionsDepth(data, 4)
+}
+
+func findInstructionsDepth(data map[string]json.RawMessage, maxDepth int) (json.RawMessage, error) {
 	// Try direct key "instructions".
 	if raw, ok := data["instructions"]; ok {
 		return raw, nil
@@ -260,13 +265,17 @@ func findInstructions(data map[string]json.RawMessage) (json.RawMessage, error) 
 		}
 	}
 
+	if maxDepth <= 0 {
+		return nil, fmt.Errorf("timeline instructions not found in response")
+	}
+
 	// Walk one level deeper into any nested object.
 	for _, v := range data {
 		var nested map[string]json.RawMessage
 		if err := json.Unmarshal(v, &nested); err != nil {
 			continue
 		}
-		if found, err := findInstructions(nested); err == nil {
+		if found, err := findInstructionsDepth(nested, maxDepth-1); err == nil {
 			return found, nil
 		}
 	}

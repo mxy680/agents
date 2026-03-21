@@ -15,8 +15,8 @@
   "externally_connectable": {
     "matches": [
       "http://localhost:*/*",
-      "https://*.emdash.io/*",
-      "https://*.emdash.dev/*"
+      "https://app.emdash.io/*",
+      "https://agents.emdash.io/*"
     ]
   },
   "background": {

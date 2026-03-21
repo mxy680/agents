@@ -283,9 +283,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 // External messages from the portal webpage (via externally_connectable)
 // ---------------------------------------------------------------------------
 
+// Validate that a portal URL is from a trusted origin.
+function isAllowedPortalUrl(url) {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") return true
+    if (parsed.hostname === "app.emdash.io" || parsed.hostname === "agents.emdash.io") return true
+    if (parsed.hostname.endsWith(".emdash.dev")) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   // "configure" — portal sends token + URL so user doesn't have to copy/paste
   if (message.type === "configure" && message.token && message.portalUrl) {
+    if (!isAllowedPortalUrl(message.portalUrl)) {
+      sendResponse({ ok: false, error: "Untrusted portal URL" })
+      return true
+    }
     chrome.storage.local.set(
       { portalUrl: message.portalUrl, token: message.token },
       () => sendResponse({ ok: true })

@@ -14,18 +14,31 @@ const PROVIDER_REQUIRED_COOKIES: Record<string, string[]> = {
   x: ["auth_token", "csrf_token"],
 }
 
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+// Chrome extensions send Origin: chrome-extension://<id>
+// Only allow our known extension ID and portal origins.
+const ALLOWED_ORIGINS = [
+  "chrome-extension://pkkpglobhebcecahhomkiniapgdpfico",
+  "http://localhost:3000",
+  "https://app.emdash.io",
+  "https://agents.emdash.io",
+]
+
+function corsHeaders(request: NextRequest) {
+  const origin = request.headers.get("origin") ?? ""
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  }
 }
 
 /**
  * OPTIONS /api/integrations/extension/cookies
  * CORS preflight for Chrome extension service worker requests.
  */
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) })
 }
 
 /**
@@ -40,11 +53,13 @@ export async function OPTIONS() {
  *
  * Body: { provider: string, cookies: Record<string, string>, label?: string }
  */
-function corsJson(data: unknown, init?: { status?: number }) {
-  return NextResponse.json(data, { ...init, headers: CORS_HEADERS })
-}
-
 export async function POST(request: NextRequest) {
+  const headers = corsHeaders(request)
+
+  function corsJson(data: unknown, init?: { status?: number }) {
+    return NextResponse.json(data, { ...init, headers })
+  }
+
   // Auth via Bearer token
   const authHeader = request.headers.get("authorization")
   if (!authHeader?.startsWith("Bearer ")) {

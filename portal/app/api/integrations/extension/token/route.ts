@@ -27,7 +27,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  if (!checkRateLimit(`ext-token:${user.id}`, 30, 3_600_000)) {
+  // In-process rate limit — effective for single-instance deployments (Hetzner/systemd).
+  // For multi-instance/serverless deployments, replace with a DB-backed counter.
+  if (!checkRateLimit(`ext-token:${user.id}`, 10, 3_600_000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
 
