@@ -14,6 +14,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/places"
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
+	xprovider "github.com/emdash-projects/agents/internal/providers/x"
 )
 
 func main() {
@@ -47,6 +48,9 @@ func main() {
 
 	supabaseProvider := supabaseprovider.New()
 	supabaseProvider.RegisterCommands(cli.RootCmd())
+
+	xProvider := xprovider.New()
+	xProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
