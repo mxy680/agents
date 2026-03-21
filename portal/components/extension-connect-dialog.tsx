@@ -47,7 +47,7 @@ const EXTENSION_ID = "pkkpglobhebcecahhomkiniapgdpfico"
 
 function sendToExtension(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(null), 2000)
+    const timeout = setTimeout(() => resolve(null), 10000)
 
     try {
       // chrome.runtime.sendMessage is available on pages matching externally_connectable
@@ -259,7 +259,7 @@ export function ExtensionConnectDialog({
       provider,
       label: label.trim() || `${providerName} Account`,
     })
-    if (!resp?.ok) {
+    if (!resp?.ok || !resp?.sessionId) {
       setError((resp?.error as string) || "Failed to open incognito window")
       return
     }
