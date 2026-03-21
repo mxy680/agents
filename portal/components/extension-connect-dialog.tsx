@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { IconCheck, IconLoader2, IconPuzzle, IconExternalLink } from "@tabler/icons-react"
+import { IconCheck, IconLoader2, IconPuzzle, IconExternalLink, IconDownload } from "@tabler/icons-react"
 
 type Step = "detecting" | "not-installed" | "connecting" | "waiting" | "success"
 
@@ -241,13 +241,23 @@ export function ExtensionConnectDialog({
                 <div className="flex flex-col gap-2 text-sm">
                   <p className="font-medium">One-time setup (30 seconds)</p>
                   <ol className="flex flex-col gap-1.5 text-muted-foreground">
-                    <li>1. Open <code className="rounded bg-muted px-1 py-0.5 text-xs">chrome://extensions</code></li>
-                    <li>2. Enable &quot;Developer mode&quot; (top right)</li>
-                    <li>3. Click &quot;Load unpacked&quot; → select the <code className="rounded bg-muted px-1 py-0.5 text-xs">portal/extension</code> folder</li>
-                    <li>4. Come back here and click &quot;Try Again&quot;</li>
+                    <li>1. Download and unzip the extension (button below)</li>
+                    <li>2. Open <code className="rounded bg-muted px-1 py-0.5 text-xs">chrome://extensions</code></li>
+                    <li>3. Enable &quot;Developer mode&quot; (top right)</li>
+                    <li>4. Click &quot;Load unpacked&quot; → select the unzipped folder</li>
+                    <li>5. Come back here and click &quot;Try Again&quot;</li>
                   </ol>
                 </div>
               </div>
+
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => window.open("/api/extension/download", "_blank")}
+              >
+                <IconDownload className="size-4" />
+                Download Extension
+              </Button>
 
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
                 Once installed, all future connections are automatic — just click Connect and log in.
