@@ -233,7 +233,16 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
   // Only trigger on a tracked cookie name for this provider
   if (!provider.cookies.includes(cookie.name)) return
 
-  scheduleSyncProvider(providerKey)
+  // Don't auto-sync the normal session while an incognito login is in progress
+  // for this provider — it would create a duplicate with the default label.
+  chrome.storage.session.get("pendingLogins", ({ pendingLogins = {} }) => {
+    const hasPending = Object.values(pendingLogins).some(
+      (s) => s.provider === providerKey && (s.status === "waiting" || s.status === "capturing")
+    )
+    if (hasPending) return
+
+    scheduleSyncProvider(providerKey)
+  })
 
   // Also check if this cookie change matches a pending incognito login
   chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
