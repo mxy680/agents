@@ -308,9 +308,9 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
 
   // "check-incognito" — check if extension has incognito access
   if (message.type === "check-incognito") {
-    chrome.extension.isAllowedIncognitoAccess((allowed) => {
-      sendResponse({ ok: true, allowed })
-    })
+    chrome.extension.isAllowedIncognitoAccess()
+      .then((allowed) => sendResponse({ ok: true, allowed }))
+      .catch(() => sendResponse({ ok: true, allowed: false }))
     return true
   }
 
@@ -319,13 +319,14 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36)
     const loginUrl = PROVIDER_LOGIN_URLS[message.provider]
 
-    chrome.extension.isAllowedIncognitoAccess(async (allowed) => {
-      if (!allowed) {
-        sendResponse({ ok: false, error: "Incognito access not enabled" })
-        return
-      }
-
+    ;(async () => {
       try {
+        const allowed = await chrome.extension.isAllowedIncognitoAccess()
+        if (!allowed) {
+          sendResponse({ ok: false, error: "Incognito access not enabled" })
+          return
+        }
+
         const win = await chrome.windows.create({ incognito: true, url: loginUrl })
 
         const session = {
@@ -346,7 +347,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
       } catch (err) {
         sendResponse({ ok: false, error: err.message })
       }
-    })
+    })()
     return true
   }
 
