@@ -9,6 +9,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/framer"
 	githubprovider "github.com/emdash-projects/agents/internal/providers/github"
 	"github.com/emdash-projects/agents/internal/providers/gmail"
+	"github.com/emdash-projects/agents/internal/providers/imessage"
 	"github.com/emdash-projects/agents/internal/providers/instagram"
 	"github.com/emdash-projects/agents/internal/providers/linkedin"
 	"github.com/emdash-projects/agents/internal/providers/places"
@@ -47,6 +48,9 @@ func main() {
 
 	supabaseProvider := supabaseprovider.New()
 	supabaseProvider.RegisterCommands(cli.RootCmd())
+
+	imessageProvider := imessage.New()
+	imessageProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
