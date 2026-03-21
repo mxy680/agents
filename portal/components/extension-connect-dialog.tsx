@@ -270,7 +270,7 @@ export function ExtensionConnectDialog({
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => setStep("detecting")}>Try Again</Button>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </DialogFooter>
           </>
         )}
