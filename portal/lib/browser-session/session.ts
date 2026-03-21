@@ -44,6 +44,16 @@ export const PROVIDER_CONFIGS: Record<string, ProviderSessionConfig> = {
       li_mc: "li_mc",
     },
   },
+  x: {
+    loginUrl: "https://x.com/i/flow/login",
+    cookieDomain: "https://x.com",
+    loginCookieName: "auth_token",
+    cookieNames: ["auth_token", "ct0"],
+    cookieToCredKey: {
+      auth_token: "auth_token",
+      ct0: "csrf_token",
+    },
+  },
 }
 
 export class BrowserSession {
