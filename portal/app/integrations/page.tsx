@@ -17,9 +17,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
-import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
-import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
-import { XConnectDialog } from "@/components/x-connect-dialog"
+import { ExtensionConnectDialog } from "@/components/extension-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
@@ -178,33 +176,16 @@ export default async function IntegrationsPage() {
                         <IconCheck className="size-4" />
                         <span>No setup required — ready to use</span>
                       </div>
-                    ) : provider.id === "instagram" ? (
-                      <InstagramConnectDialog>
+                    ) : ["instagram", "linkedin", "x"].includes(provider.id) ? (
+                      <ExtensionConnectDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
+                          {accounts.length > 0 ? "Add another account" : "Connect"}
                         </Button>
-                      </InstagramConnectDialog>
-                    ) : provider.id === "x" ? (
-                      <XConnectDialog>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
-                        </Button>
-                      </XConnectDialog>
-                    ) : provider.id === "linkedin" ? (
-                      <LinkedinConnectDialog>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
-                        </Button>
-                      </LinkedinConnectDialog>
+                      </ExtensionConnectDialog>
                     ) : provider.id === "framer" ? (
                       <FramerConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
