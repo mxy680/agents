@@ -334,6 +334,11 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
           return
         }
 
+        // Store portalUrl and token in the session so the incognito worker
+        // can access them (chrome.storage.local is NOT shared in split mode,
+        // but chrome.storage.session IS shared)
+        const { portalUrl: pUrl, token: pToken } = await chrome.storage.local.get(["portalUrl", "token"])
+
         const session = {
           sessionId,
           provider: message.provider,
@@ -342,6 +347,8 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
           status: "waiting",
           error: null,
           createdAt: Date.now(),
+          portalUrl: pUrl,
+          token: pToken,
         }
 
         const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
@@ -397,7 +404,17 @@ async function captureIncognitoCookies(sessionId) {
   if (!session || session.status === "complete") return
 
   const provider = PROVIDERS[session.provider]
-  const { portalUrl, token } = await chrome.storage.local.get(["portalUrl", "token"])
+
+  // Read portalUrl/token from session (copied there at login start) since
+  // chrome.storage.local is NOT shared in incognito split mode.
+  // Fallback to chrome.storage.local if not in session (normal worker).
+  let portalUrl = session.portalUrl
+  let token = session.token
+  if (!portalUrl || !token) {
+    const local = await chrome.storage.local.get(["portalUrl", "token"])
+    portalUrl = portalUrl || local.portalUrl
+    token = token || local.token
+  }
 
   if (!portalUrl || !token) {
     session.status = "error"
