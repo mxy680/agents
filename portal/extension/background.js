@@ -327,6 +327,21 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
           return
         }
 
+        // Clear existing cookies for this provider in the incognito store
+        // so the user starts with a fresh login, even if they have other
+        // incognito windows open with an active session.
+        const stores = await chrome.cookies.getAllCookieStores()
+        const incognitoStore = stores.find((s) => s.id !== "0")
+        if (incognitoStore) {
+          const providerConfig = PROVIDERS[message.provider]
+          const clearUrl = `https://${providerConfig.domain.replace(/^\./, "www.")}`
+          const existing = await chrome.cookies.getAll({ url: clearUrl, storeId: incognitoStore.id })
+          for (const c of existing) {
+            const cookieUrl = `http${c.secure ? "s" : ""}://${c.domain.replace(/^\./, "")}${c.path}`
+            await chrome.cookies.remove({ url: cookieUrl, name: c.name, storeId: incognitoStore.id })
+          }
+        }
+
         const win = await chrome.windows.create({ incognito: true, url: loginUrl })
 
         if (!win || !win.id) {
