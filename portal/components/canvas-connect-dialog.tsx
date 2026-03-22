@@ -14,31 +14,25 @@ import {
 } from "@/components/ui/dialog"
 import { IconCheck, IconLoader2 } from "@tabler/icons-react"
 
-type Step = "setup" | "ready" | "waiting" | "success" | "error"
+type Step = "setup" | "waiting" | "success"
 
 interface CanvasConnectDialogProps {
   children: React.ReactNode
 }
 
 /**
- * Builds the bookmarklet JavaScript that:
- * 1. Reads document.cookie on the Canvas page
- * 2. POSTs cookies directly to the portal API via fetch (CORS-enabled)
- * 3. Shows an alert on success/failure
+ * Builds a bookmarklet that reads document.cookie on the Canvas page
+ * and opens a portal callback page (same-origin) with cookies in the
+ * URL fragment. The callback page handles auth via session cookie.
  */
-function buildBookmarkletHref(portalOrigin: string, token: string, label: string) {
+function buildBookmarkletHref(portalOrigin: string) {
   const code = `
     (function(){
       var c={},d=document.cookie.split(';');
       for(var i=0;i<d.length;i++){var p=d[i].trim().split('=');if(p.length>=2)c[p[0]]=p.slice(1).join('=');}
-      fetch('${portalOrigin}/api/integrations/canvas/bookmarklet',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer ${token}'},
-        body:JSON.stringify({base_url:location.origin,cookies:c,label:'${label.replace(/'/g, "\\'") || "Canvas LMS"}'})
-      }).then(function(r){return r.json()}).then(function(d){
-        if(d.success){alert('Canvas connected! You can close this tab.');}
-        else{alert('Error: '+(d.error||'Unknown error'));}
-      }).catch(function(e){alert('Connection failed: '+e.message);});
+      var u=encodeURIComponent(location.origin);
+      var k=encodeURIComponent(JSON.stringify(c));
+      window.open('${portalOrigin}/integrations/canvas/callback#base_url='+u+'&cookies='+k,'emdash_canvas','width=480,height=360,popup=1');
     })();
   `.replace(/\s+/g, " ").trim()
 
@@ -48,7 +42,6 @@ function buildBookmarkletHref(portalOrigin: string, token: string, label: string
 export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState<Step>("setup")
-  const [errorMsg, setErrorMsg] = useState("")
   const [label, setLabel] = useState("")
   const [bookmarkletHref, setBookmarkletHref] = useState("")
   const [initialCount, setInitialCount] = useState(0)
@@ -66,11 +59,29 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
     if (!v) {
       stopPolling()
       setStep("setup")
-      setErrorMsg("")
       setLabel("")
       setBookmarkletHref("")
     }
   }
+
+  // Build bookmarklet when dialog opens + snapshot count
+  useEffect(() => {
+    if (!open) return
+    setBookmarkletHref(buildBookmarkletHref(window.location.origin))
+    ;(async () => {
+      try {
+        const res = await fetch("/api/integrations")
+        if (res.ok) {
+          const data = await res.json()
+          const count = (data.integrations ?? []).filter(
+            (i: { provider: string; status: string }) =>
+              i.provider === "canvas" && i.status === "active"
+          ).length
+          setInitialCount(count)
+        }
+      } catch {}
+    })()
+  }, [open])
 
   // Poll for new integration
   const pollForIntegration = useCallback(async () => {
@@ -106,48 +117,6 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
     return () => clearTimeout(timer)
   }, [step])
 
-  async function handleGenerateBookmarklet() {
-    setErrorMsg("")
-
-    // Snapshot integration count
-    try {
-      const res = await fetch("/api/integrations")
-      if (res.ok) {
-        const data = await res.json()
-        const count = (data.integrations ?? []).filter(
-          (i: { provider: string; status: string }) =>
-            i.provider === "canvas" && i.status === "active"
-        ).length
-        setInitialCount(count)
-      }
-    } catch {}
-
-    // Generate auth token
-    try {
-      const tokenRes = await fetch("/api/integrations/extension/token", {
-        method: "POST",
-      })
-      if (!tokenRes.ok) {
-        const data = await tokenRes.json().catch(() => ({}))
-        setErrorMsg(data.error ?? "Failed to generate auth token")
-        setStep("error")
-        return
-      }
-      const { token } = await tokenRes.json()
-
-      const href = buildBookmarkletHref(
-        window.location.origin,
-        token,
-        label.trim()
-      )
-      setBookmarkletHref(href)
-      setStep("ready")
-    } catch {
-      setErrorMsg("Network error generating token")
-      setStep("error")
-    }
-  }
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{children}</DialogTrigger>
@@ -157,43 +126,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
             <DialogHeader>
               <DialogTitle>Connect Canvas LMS</DialogTitle>
               <DialogDescription>
-                No extension needed. We&apos;ll create a bookmarklet you can click while on Canvas.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col gap-3 py-2">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium" htmlFor="canvas-label">
-                  Account name (optional)
-                </label>
-                <Input
-                  id="canvas-label"
-                  placeholder="e.g. CWRU Canvas"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleGenerateBookmarklet()}
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleGenerateBookmarklet}>
-                Next
-              </Button>
-            </DialogFooter>
-          </>
-        )}
-
-        {step === "ready" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Connect Canvas LMS</DialogTitle>
-              <DialogDescription>
-                Drag the button below to your bookmarks bar, then use it on Canvas.
+                No extension needed. Use a bookmarklet to connect in one click.
               </DialogDescription>
             </DialogHeader>
 
@@ -224,14 +157,14 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
                 <ol className="flex flex-col gap-1.5 text-sm text-muted-foreground">
                   <li>1. Go to your Canvas site and log in</li>
                   <li>2. Click the <strong>&quot;Connect Canvas&quot;</strong> bookmark</li>
-                  <li>3. You&apos;ll see an alert confirming the connection</li>
+                  <li>3. A popup will confirm the connection</li>
                 </ol>
               </div>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep("setup")}>
-                Back
+              <Button variant="outline" onClick={() => setOpen(false)}>
+                Cancel
               </Button>
               <Button onClick={() => setStep("waiting")}>
                 I&apos;ve clicked the bookmarklet
@@ -245,7 +178,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
             <DialogHeader>
               <DialogTitle>Waiting for connection...</DialogTitle>
               <DialogDescription>
-                Click the &quot;Connect Canvas&quot; bookmarklet while logged into your Canvas site.
+                Click the &quot;Connect Canvas&quot; bookmarklet while logged into Canvas.
               </DialogDescription>
             </DialogHeader>
 
@@ -257,7 +190,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStep("ready")}>
+              <Button variant="outline" onClick={() => setStep("setup")}>
                 Back
               </Button>
             </DialogFooter>
@@ -271,23 +204,6 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
             </div>
             <p className="text-lg font-medium">Canvas LMS connected!</p>
           </div>
-        )}
-
-        {step === "error" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Connection failed</DialogTitle>
-            </DialogHeader>
-            <p className="py-4 text-sm text-destructive">{errorMsg}</p>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => { setStep("setup"); setErrorMsg("") }}>
-                Try again
-              </Button>
-            </DialogFooter>
-          </>
         )}
       </DialogContent>
     </Dialog>

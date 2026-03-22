@@ -6,11 +6,12 @@ import { IconCheck, IconLoader2, IconX } from "@tabler/icons-react"
 /**
  * /integrations/canvas/callback
  *
- * The bookmarklet opens this page with Canvas cookies in the URL fragment:
- *   /integrations/canvas/callback#base_url=...&cookies=...&label=...
+ * The bookmarklet opens this page (same-origin popup) with Canvas cookies
+ * in the URL fragment:
+ *   /integrations/canvas/callback#base_url=...&cookies=...
  *
- * This page reads the fragment, posts cookies to the API, shows success/error,
- * then auto-closes.
+ * This page reads the fragment and POSTs to /api/integrations/canvas/save
+ * which uses the portal session cookie for auth (same origin = cookies sent).
  */
 export default function CanvasCallbackPage() {
   const [status, setStatus] = useState<"saving" | "success" | "error">("saving")
@@ -28,7 +29,6 @@ export default function CanvasCallbackPage() {
       const params = new URLSearchParams(fragment)
       const baseUrl = params.get("base_url")
       const cookiesJson = params.get("cookies")
-      const label = params.get("label") || "Canvas LMS"
 
       if (!baseUrl || !cookiesJson) {
         setError("Missing Canvas URL or cookies")
@@ -45,11 +45,32 @@ export default function CanvasCallbackPage() {
         return
       }
 
+      // Find session cookie
+      const sessionCookie =
+        cookies["_normandy_session"] ||
+        cookies["canvas_session"] ||
+        cookies["_legacy_normandy_session"]
+
+      if (!sessionCookie) {
+        setError("No Canvas session cookie found. Make sure you are logged in.")
+        setStatus("error")
+        return
+      }
+
+      // Build credential payload for the save route
+      const payload: Record<string, string | undefined> = {
+        base_url: decodeURIComponent(baseUrl),
+        session_cookie: sessionCookie,
+        csrf_token: cookies["_csrf_token"] || undefined,
+        log_session_id: cookies["log_session_id"] || undefined,
+        label: "Canvas LMS",
+      }
+
       try {
-        const res = await fetch("/api/integrations/canvas/bookmarklet", {
+        const res = await fetch("/api/integrations/canvas/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base_url: baseUrl, cookies, label }),
+          body: JSON.stringify(payload),
         })
 
         const data = await res.json()
@@ -60,13 +81,9 @@ export default function CanvasCallbackPage() {
         }
 
         setStatus("success")
-
-        // Auto-close after 2s
-        setTimeout(() => {
-          window.close()
-        }, 2000)
+        setTimeout(() => window.close(), 2000)
       } catch {
-        setError("Network error")
+        setError("Network error. Make sure you're logged into the portal.")
         setStatus("error")
       }
     }
