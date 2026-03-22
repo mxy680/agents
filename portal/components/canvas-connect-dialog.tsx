@@ -16,14 +16,14 @@ import {
   IconCheck,
   IconLoader2,
   IconDownload,
-  IconRefresh,
 } from "@tabler/icons-react"
 
 type Step =
   | "url-input"
   | "connecting"
   | "install"
-  | "syncing"
+  | "enable-incognito"
+  | "incognito-waiting"
   | "success"
 
 interface CanvasConnectDialogProps {
@@ -35,7 +35,6 @@ const EXTENSION_ID = "pkkpglobhebcecahhomkiniapgdpfico"
 function sendToExtension(payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
   return new Promise((resolve) => {
     const timeout = setTimeout(() => resolve(null), 10000)
-
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const chrome = (window as any).chrome
@@ -44,7 +43,6 @@ function sendToExtension(payload: Record<string, unknown>): Promise<Record<strin
         resolve(null)
         return
       }
-
       chrome.runtime.sendMessage(EXTENSION_ID, payload, (response: Record<string, unknown> | undefined) => {
         clearTimeout(timeout)
         if (chrome.runtime.lastError) {
@@ -66,7 +64,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
   const [error, setError] = useState<string | null>(null)
   const [canvasUrl, setCanvasUrl] = useState("")
   const [label, setLabel] = useState("")
-  const [initialCount, setInitialCount] = useState(0)
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   function stopPolling() {
@@ -84,34 +82,39 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
       setError(null)
       setCanvasUrl("")
       setLabel("")
+      setSessionId(null)
     }
   }
 
-  // Poll for integration
-  const pollForIntegration = useCallback(async () => {
+  // Poll for incognito login session status
+  const pollForLoginStatus = useCallback(async () => {
+    if (!sessionId) return
     try {
-      const res = await fetch("/api/integrations")
-      if (!res.ok) return
-      const data = await res.json()
-      const count = (data.integrations ?? []).filter(
-        (i: { provider: string; status: string }) =>
-          i.provider === "canvas" && i.status === "active"
-      ).length
-      if (count > initialCount) {
+      const resp = await sendToExtension({ type: "login-status", sessionId })
+      if (!resp?.ok) return
+
+      if (resp.status === "complete") {
         stopPolling()
         setStep("success")
+      } else if (resp.status === "cancelled") {
+        stopPolling()
+        setError("Window was closed before login completed")
+        setStep("url-input")
+      } else if (resp.status === "error") {
+        stopPolling()
+        setError((resp.error as string) || "Login failed")
+        setStep("url-input")
       }
     } catch {
-      // ignore
+      // ignore transient errors
     }
-  }, [initialCount])
+  }, [sessionId])
 
   useEffect(() => {
-    if (step !== "syncing") return
-    pollForIntegration()
-    intervalRef.current = setInterval(pollForIntegration, 3000)
+    if (step !== "incognito-waiting" || !sessionId) return
+    intervalRef.current = setInterval(pollForLoginStatus, 2000)
     return () => stopPolling()
-  }, [step, pollForIntegration])
+  }, [step, sessionId, pollForLoginStatus])
 
   // Auto-close on success
   useEffect(() => {
@@ -140,19 +143,6 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
     }
 
     setStep("connecting")
-
-    // Snapshot current integration count
-    try {
-      const res = await fetch("/api/integrations")
-      if (res.ok) {
-        const data = await res.json()
-        const count = (data.integrations ?? []).filter(
-          (i: { provider: string; status: string }) =>
-            i.provider === "canvas" && i.status === "active"
-        ).length
-        setInitialCount(count)
-      }
-    } catch {}
 
     // Ping extension
     const ping = await sendToExtension({ type: "ping" })
@@ -185,20 +175,51 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
       return
     }
 
-    // Ask extension to sync Canvas cookies from the provided URL
-    const syncResp = await sendToExtension({
-      type: "sync-canvas",
-      canvasUrl: url.replace(/\/+$/, ""),
-      label: label.trim() || "Canvas LMS",
-    })
-
-    if (!syncResp?.ok) {
-      setError((syncResp?.error as string) || "Failed to sync Canvas session. Make sure you are logged into Canvas in this browser.")
-      setStep("url-input")
+    // Check incognito access
+    const incognitoResp = await sendToExtension({ type: "check-incognito" })
+    if (!incognitoResp?.allowed) {
+      setStep("enable-incognito")
       return
     }
 
-    setStep("syncing")
+    // Start incognito login
+    await startLogin(url)
+  }
+
+  async function startLogin(url: string) {
+    setError(null)
+    const loginUrl = url.replace(/\/+$/, "") + "/login"
+    const resp = await sendToExtension({
+      type: "login",
+      provider: "canvas",
+      loginUrl,
+      canvasUrl: url.replace(/\/+$/, ""),
+      label: label.trim() || "Canvas LMS",
+    })
+    if (!resp?.ok || !resp?.sessionId) {
+      setError((resp?.error as string) || "Failed to open incognito window")
+      setStep("url-input")
+      return
+    }
+    setSessionId(resp.sessionId as string)
+    setStep("incognito-waiting")
+  }
+
+  async function handleIncognitoAccessDone() {
+    setError(null)
+    const resp = await sendToExtension({ type: "check-incognito" })
+    if (resp?.allowed) {
+      await startLogin(canvasUrl.trim())
+    } else {
+      setError("Incognito access is still not enabled. Please follow the steps above.")
+    }
+  }
+
+  async function handleCancelLogin() {
+    if (sessionId) {
+      await sendToExtension({ type: "cancel-login", sessionId })
+    }
+    setOpen(false)
   }
 
   return (
@@ -210,7 +231,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
             <DialogHeader>
               <DialogTitle>Connect Canvas LMS</DialogTitle>
               <DialogDescription>
-                Enter your school&apos;s Canvas URL. Make sure you&apos;re logged into Canvas in this browser first.
+                Enter your school&apos;s Canvas URL. An incognito window will open for you to log in.
               </DialogDescription>
             </DialogHeader>
 
@@ -303,39 +324,51 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
           </>
         )}
 
-        {step === "syncing" && (
+        {step === "enable-incognito" && (
           <>
             <DialogHeader>
-              <DialogTitle>Syncing Canvas session...</DialogTitle>
+              <DialogTitle>Enable incognito access</DialogTitle>
               <DialogDescription>
-                Verifying your Canvas credentials.
+                To log into Canvas, enable incognito access for the extension:
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex flex-col gap-3 py-2">
+              <ol className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+                <li>1. Right-click the Emdash extension icon in the Chrome toolbar</li>
+                <li>2. Click &quot;Manage extension&quot;</li>
+                <li>3. Toggle &quot;Allow in Incognito&quot;</li>
+              </ol>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStep("url-input")}>
+                Back
+              </Button>
+              <Button onClick={handleIncognitoAccessDone}>Done</Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === "incognito-waiting" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Log in to Canvas</DialogTitle>
+              <DialogDescription>
+                An incognito window has opened. Log into Canvas and this dialog will close automatically.
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col items-center gap-4 py-6">
               <IconLoader2 className="size-8 animate-spin text-muted-foreground" />
               <p className="text-center text-sm text-muted-foreground">
-                Waiting for confirmation...
+                Waiting for you to log in...
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  sendToExtension({
-                    type: "sync-canvas",
-                    canvasUrl: canvasUrl.trim().replace(/\/+$/, ""),
-                    label: label.trim() || "Canvas LMS",
-                  })
-                  pollForIntegration()
-                }}
-              >
-                <IconRefresh className="size-4" />
-                Retry Sync
-              </Button>
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>
+              <Button variant="outline" onClick={handleCancelLogin}>
                 Cancel
               </Button>
             </DialogFooter>

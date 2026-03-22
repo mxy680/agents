@@ -272,6 +272,33 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
       }
     }
   })
+
+  // For Canvas (dynamic domain): check if any pending canvas login matches
+  // this cookie by domain, since findProviderForCookie won't match Canvas
+  if (!providerKey) {
+    const canvasProvider = PROVIDERS.canvas
+    if (canvasProvider.cookies.includes(cookie.name)) {
+      chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
+        for (const [sessionId, session] of Object.entries(pendingLogins)) {
+          if (session.provider === "canvas" && session.status === "waiting" && session.canvasUrl) {
+            // Check if cookie domain matches the canvas URL's domain
+            try {
+              const canvasDomain = new URL(session.canvasUrl).hostname
+              const cookieDomain = cookie.domain.replace(/^\./, "")
+              if (canvasDomain === cookieDomain || canvasDomain.endsWith(cookieDomain)) {
+                if (cookie.name === canvasProvider.loginCookie) {
+                  session.status = "capturing"
+                  await chrome.storage.session.set({ pendingLogins })
+                  setTimeout(() => captureIncognitoCookies(sessionId), 1000)
+                }
+                break
+              }
+            } catch {}
+          }
+        }
+      })
+    }
+  }
 })
 
 // Handle messages from the popup
@@ -363,10 +390,16 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   // "login" — open incognito window for login
   if (message.type === "login" && message.provider && PROVIDERS[message.provider]) {
     const sessionId = Math.random().toString(36).slice(2) + Date.now().toString(36)
-    const loginUrl = PROVIDER_LOGIN_URLS[message.provider]
+    // Canvas has dynamic URLs — use message.loginUrl; others use the static map
+    const loginUrl = message.loginUrl || PROVIDER_LOGIN_URLS[message.provider]
 
     ;(async () => {
       try {
+        if (!loginUrl) {
+          sendResponse({ ok: false, error: "Login URL is required for this provider" })
+          return
+        }
+
         const allowed = await chrome.extension.isAllowedIncognitoAccess()
         if (!allowed) {
           sendResponse({ ok: false, error: "Incognito access not enabled" })
@@ -374,13 +407,14 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         }
 
         // Clear existing cookies for this provider in the incognito store
-        // so the user starts with a fresh login, even if they have other
-        // incognito windows open with an active session.
         const stores = await chrome.cookies.getAllCookieStores()
         const incognitoStore = stores.find((s) => s.id !== "0")
         if (incognitoStore) {
           const providerConfig = PROVIDERS[message.provider]
-          const clearUrl = `https://${providerConfig.domain.replace(/^\./, "www.")}`
+          // For Canvas, use the dynamic URL; for others, use the fixed domain
+          const clearUrl = providerConfig.domain
+            ? `https://${providerConfig.domain.replace(/^\./, "www.")}`
+            : loginUrl
           const existing = await chrome.cookies.getAll({ url: clearUrl, storeId: incognitoStore.id })
           for (const c of existing) {
             const cookieUrl = `http${c.secure ? "s" : ""}://${c.domain.replace(/^\./, "")}${c.path}`
@@ -404,6 +438,7 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
           sessionId,
           provider: message.provider,
           label: message.label || `${message.provider} Account`,
+          canvasUrl: message.canvasUrl || null, // dynamic domain for Canvas
           windowId: win.id,
           status: "waiting",
           error: null,
@@ -557,7 +592,10 @@ async function captureIncognitoCookies(sessionId) {
 
   // Get cookies from the incognito cookie store.
   // In spanning mode, we need to find the incognito storeId explicitly.
-  const url = `https://${provider.domain.replace(/^\./, "www.")}`
+  // For Canvas, use the dynamic canvasUrl stored in the session.
+  const url = session.canvasUrl
+    ? session.canvasUrl
+    : `https://${provider.domain.replace(/^\./, "www.")}`
   let allCookies
   try {
     const stores = await chrome.cookies.getAllCookieStores()
@@ -591,6 +629,11 @@ async function captureIncognitoCookies(sessionId) {
     if (cookieMap[rawName]) {
       credentials[credKey] = cookieMap[rawName]
     }
+  }
+
+  // For Canvas, include the base_url so the CLI knows which instance to hit
+  if (session.provider === "canvas" && session.canvasUrl) {
+    credentials.base_url = session.canvasUrl.replace(/\/+$/, "")
   }
 
   // POST to portal
