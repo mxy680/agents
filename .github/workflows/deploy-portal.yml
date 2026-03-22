@@ -1,0 +1,29 @@
+name: Deploy Portal
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Hetzner
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 178.156.139.74
+          username: deploy
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/agents
+            git pull origin main
+            cd portal
+            npm install --production
+            doppler run -p agents -c prd -- npm run build
+            pkill -f 'next-server' || true
+            sleep 1
+            nohup doppler run -p agents -c prd -- npm start > /tmp/agents-portal.log 2>&1 &
+            sleep 5
+            curl -sf https://agents.markshteyn.com > /dev/null && echo "Deploy successful" || echo "WARNING: health check failed"
