@@ -26,8 +26,14 @@ function getBaseUrl(): string {
   return baseUrl.replace(/\/+$/, "")
 }
 
-function authHeaders(authToken?: string): Record<string, string> {
-  return authToken ? { Authorization: `Bearer ${authToken}` } : {}
+function authHeaders(_authToken?: string): Record<string, string> {
+  // Use static API key for internal admin tool (more reliable than Supabase JWT)
+  const apiKey = process.env.ORCHESTRATOR_API_KEY
+  if (apiKey) {
+    return { Authorization: `Bearer ${apiKey}` }
+  }
+  // Fallback to passed token (Supabase JWT)
+  return _authToken ? { Authorization: `Bearer ${_authToken}` } : {}
 }
 
 /**

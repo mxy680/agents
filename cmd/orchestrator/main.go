@@ -43,6 +43,8 @@ func main() {
 		cfg.ClaudeSessionSecretRef = v
 	}
 	cfg.AllowedOrigin = os.Getenv("CORS_ALLOWED_ORIGIN")
+	cfg.APIKey = os.Getenv("ORCHESTRATOR_API_KEY")
+	cfg.AdminUserID = os.Getenv("ADMIN_USER_ID")
 
 	if v := os.Getenv("RUNTIME"); v != "" {
 		cfg.Runtime = v

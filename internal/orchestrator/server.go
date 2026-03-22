@@ -78,7 +78,7 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 
-// authMiddleware validates Supabase JWT and extracts user ID.
+// authMiddleware validates either a static API key or Supabase JWT and extracts user ID.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
@@ -93,6 +93,14 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Check static API key first (internal admin tool — single user)
+		if s.cfg.APIKey != "" && tokenStr == s.cfg.APIKey {
+			ctx := context.WithValue(r.Context(), userIDKey, s.cfg.AdminUserID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// Fall back to Supabase JWT
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])

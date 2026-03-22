@@ -28,6 +28,10 @@ type Config struct {
 	// Supabase JWT
 	SupabaseJWTSecret string
 
+	// Static API key auth (alternative to JWT for internal admin tool)
+	APIKey      string // If set, Bearer <APIKey> is accepted as auth
+	AdminUserID string // User ID to use when authenticating with API key
+
 	// CORS
 	AllowedOrigin string // If empty, defaults to "*" (development only)
 }
