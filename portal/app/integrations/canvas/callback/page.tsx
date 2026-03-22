@@ -81,7 +81,9 @@ export default function CanvasCallbackPage() {
         }
 
         setStatus("success")
-        setTimeout(() => window.close(), 2000)
+        setTimeout(() => {
+          window.location.href = "/integrations"
+        }, 2000)
       } catch {
         setError("Network error. Make sure you're logged into the portal.")
         setStatus("error")
