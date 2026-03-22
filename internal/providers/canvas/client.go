@@ -86,6 +86,7 @@ func (c *Client) applyHeaders(req *http.Request) {
 
 	req.Header.Set("Cookie", c.session.CookieString())
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
 	req.Header.Set("User-Agent", c.session.UserAgent)
 	// CSRF token needed for mutating requests
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
