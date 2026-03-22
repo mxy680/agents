@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, and iMessage (via BlueBubbles). Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), and iMessage (via BlueBubbles). Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -498,7 +498,7 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, imessage: 83.9%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%)
 
 ## Commands — Framer
 ```
@@ -928,6 +928,168 @@ internal/providers/supabase/
   mock_server_test.go   # httptest mock server helpers for all endpoints
 ```
 
+## Commands — X (Twitter)
+```
+# Posts [alias: post, tweet]
+integrations x posts get --tweet-id=ID [--json]
+integrations x posts lookup --ids=ID,ID [--json]
+integrations x posts similar --tweet-id=ID [--limit=N] [--json]
+integrations x posts create --text=TEXT [--reply-to=TWEET_ID] [--quote-url=URL] [--media-ids=ID,ID] [--sensitive] [--dry-run] [--json]
+integrations x posts delete --tweet-id=ID [--confirm] [--dry-run] [--json]
+integrations x posts search --query=Q [--type=top|latest|users|photos|videos] [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts timeline [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts latest-timeline [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts user-tweets --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts user-replies --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts retweeters --tweet-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x posts favoriters --tweet-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+
+# Scheduled Tweets [alias: sched]
+integrations x scheduled list [--json]
+integrations x scheduled create --text=TEXT --date=RFC3339 [--media-ids=ID,ID] [--dry-run] [--json]
+integrations x scheduled delete --tweet-id=ID [--confirm] [--dry-run] [--json]
+
+# Likes [alias: like]
+integrations x likes list --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x likes like --tweet-id=ID [--dry-run] [--json]
+integrations x likes unlike --tweet-id=ID [--dry-run] [--json]
+
+# Retweets [alias: retweet, rt]
+integrations x retweets retweet --tweet-id=ID [--dry-run] [--json]
+integrations x retweets undo --tweet-id=ID [--dry-run] [--json]
+
+# Bookmarks [alias: bookmark, bm]
+integrations x bookmarks list [--limit=N] [--cursor=TOKEN] [--json]
+integrations x bookmarks add --tweet-id=ID [--folder-id=ID] [--dry-run] [--json]
+integrations x bookmarks remove --tweet-id=ID [--dry-run] [--json]
+integrations x bookmarks clear [--confirm] [--dry-run] [--json]
+integrations x bookmarks folders [--json]
+integrations x bookmarks folder-tweets --folder-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x bookmarks create-folder --name=NAME [--dry-run] [--json]
+integrations x bookmarks edit-folder --folder-id=ID --name=NAME [--dry-run] [--json]
+integrations x bookmarks delete-folder --folder-id=ID [--confirm] [--dry-run] [--json]
+
+# Users [alias: user]
+integrations x users get --username=USER [--json]
+integrations x users get-by-id --user-id=ID [--json]
+integrations x users search --query=Q [--limit=N] [--cursor=TOKEN] [--json]
+integrations x users highlights --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x users media --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x users subscriptions --user-id=ID [--json]
+
+# Follows [alias: follow]
+integrations x follows followers --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x follows following --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x follows verified-followers --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x follows followers-you-know --user-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x follows follow --user-id=ID [--dry-run] [--json]
+integrations x follows unfollow --user-id=ID [--dry-run] [--json]
+
+# Blocks [alias: block]
+integrations x blocks block --user-id=ID [--dry-run] [--json]
+integrations x blocks unblock --user-id=ID [--dry-run] [--json]
+
+# Mutes [alias: mute]
+integrations x mutes mute --user-id=ID [--dry-run] [--json]
+integrations x mutes unmute --user-id=ID [--dry-run] [--json]
+
+# Direct Messages [alias: dm]
+integrations x dm inbox [--json]
+integrations x dm conversation --conversation-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x dm send --user-id=ID --text=TEXT [--media-id=ID] [--dry-run] [--json]
+integrations x dm send-group --conversation-id=ID --text=TEXT [--media-id=ID] [--dry-run] [--json]
+integrations x dm delete --message-id=ID [--confirm] [--dry-run] [--json]
+integrations x dm react --message-id=ID --emoji=EMOJI [--dry-run] [--json]
+integrations x dm unreact --message-id=ID --emoji=EMOJI [--dry-run] [--json]
+integrations x dm add-members --conversation-id=ID --user-ids=ID,ID [--dry-run] [--json]
+integrations x dm rename-group --conversation-id=ID --name=NAME [--dry-run] [--json]
+
+# Lists [alias: list]
+integrations x lists get --list-id=ID [--json]
+integrations x lists owned [--limit=N] [--cursor=TOKEN] [--json]
+integrations x lists search --query=Q [--limit=N] [--cursor=TOKEN] [--json]
+integrations x lists tweets --list-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x lists members --list-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x lists subscribers --list-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x lists create --name=NAME [--description=TEXT] [--private] [--dry-run] [--json]
+integrations x lists update --list-id=ID [--name=NAME] [--description=TEXT] [--private] [--dry-run] [--json]
+integrations x lists delete --list-id=ID [--confirm] [--dry-run] [--json]
+integrations x lists add-member --list-id=ID --user-id=ID [--dry-run] [--json]
+integrations x lists remove-member --list-id=ID --user-id=ID [--dry-run] [--json]
+integrations x lists set-banner --list-id=ID --path=PATH [--dry-run] [--json]
+integrations x lists remove-banner --list-id=ID [--dry-run] [--json]
+
+# Communities [alias: community]
+integrations x communities get --community-id=ID [--json]
+integrations x communities search --query=Q [--limit=N] [--json]
+integrations x communities tweets --community-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x communities media --community-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x communities members --community-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x communities moderators --community-id=ID [--limit=N] [--cursor=TOKEN] [--json]
+integrations x communities timeline [--limit=N] [--cursor=TOKEN] [--json]
+integrations x communities join --community-id=ID [--dry-run] [--json]
+integrations x communities leave --community-id=ID [--dry-run] [--json]
+integrations x communities request-join --community-id=ID [--dry-run] [--json]
+integrations x communities search-tweets --community-id=ID --query=Q [--limit=N] [--json]
+
+# Notifications [alias: notif]
+integrations x notifications all [--limit=N] [--cursor=TOKEN] [--json]
+integrations x notifications mentions [--limit=N] [--cursor=TOKEN] [--json]
+integrations x notifications verified [--limit=N] [--cursor=TOKEN] [--json]
+
+# Media [alias: upload]
+integrations x media upload --path=PATH [--alt-text=TEXT] [--json]
+integrations x media status --media-id=ID [--json]
+integrations x media set-alt-text --media-id=ID --alt-text=TEXT [--dry-run] [--json]
+
+# Trends [alias: trend]
+integrations x trends list [--json]
+integrations x trends locations [--json]
+integrations x trends by-place --woeid=ID [--json]
+
+# Polls [alias: poll]
+integrations x polls create --options=O1,O2,O3 --duration=MINUTES [--json]
+integrations x polls vote --tweet-id=ID --choice=N [--dry-run] [--json]
+
+# Geo [alias: location]
+integrations x geo reverse --lat=LAT --lng=LNG [--json]
+integrations x geo search --query=Q [--lat=LAT] [--lng=LNG] [--json]
+integrations x geo get --place-id=ID [--json]
+```
+
+`x` has alias `twitter`. `posts` has aliases `post`, `tweet`. `scheduled` has alias `sched`. `likes` has alias `like`. `retweets` has aliases `retweet`, `rt`. `bookmarks` has aliases `bookmark`, `bm`. `users` has alias `user`. `follows` has alias `follow`. `blocks` has alias `block`. `mutes` has alias `mute`. `lists` has alias `list`. `communities` has alias `community`. `notifications` has alias `notif`. `media` has alias `upload`. `trends` has alias `trend`. `polls` has alias `poll`. `geo` has alias `location`.
+
+Powered by X's internal GraphQL and v1.1 APIs — no API key or billing required. Uses cookie-based session auth (auth_token + ct0).
+
+## Architecture — X Package Layout
+```
+internal/providers/x/
+  x.go                    # Provider struct, RegisterCommands (19 resource subcommand groups)
+  client.go               # HTTP client: GraphQL + v1.1 + upload + caps helpers, CSRF rotation, static bearer token
+  helpers.go              # Shared types (TweetSummary, UserSummary, ListSummary, etc.) and helpers
+  posts.go                # 12 post commands (GraphQL)
+  scheduled.go            # 3 scheduled tweet commands (GraphQL)
+  likes.go                # 3 like commands (GraphQL)
+  retweets.go             # 2 retweet commands (GraphQL)
+  bookmarks.go            # 9 bookmark commands (GraphQL)
+  users.go                # 6 user commands (GraphQL)
+  follows.go              # 6 follow commands (GraphQL + v1.1)
+  blocks.go               # 2 block commands (v1.1)
+  mutes.go                # 2 mute commands (v1.1)
+  dm.go                   # 9 DM commands (v1.1 + GraphQL)
+  lists.go                # 13 list commands (GraphQL)
+  communities.go          # 11 community commands (GraphQL)
+  notifications.go        # 3 notification commands (v2 internal)
+  media.go                # 3 media commands (upload.x.com + v1.1)
+  trends.go               # 3 trend commands (v1.1 + v2)
+  polls.go                # 2 poll commands (caps.x.com)
+  geo.go                  # 3 geo commands (v1.1)
+  helpers_test.go          # Unit tests for helpers
+  client_test.go           # Unit tests for client
+  *_test.go                # Tests for each command file + provider
+  mock_server_test.go      # httptest mock server helpers for all endpoints
+```
+
 ## Commands — iMessage (via BlueBubbles)
 ```
 # Chats [alias: chat]
@@ -1200,6 +1362,11 @@ BLUEBUBBLES_PASSWORD      # Server password (required)
 SUPABASE_INTEGRATION_CLIENT_ID, SUPABASE_INTEGRATION_CLIENT_SECRET
 SUPABASE_ACCESS_TOKEN, SUPABASE_REFRESH_TOKEN
 SUPABASE_API_BASE_URL (optional, defaults to https://api.supabase.com)
+
+# X (Twitter) (cookie-based session auth, no API key needed)
+X_AUTH_TOKEN              # auth_token cookie (required)
+X_CSRF_TOKEN              # ct0 cookie (required)
+X_USER_AGENT              # User-Agent override (optional)
 
 # Orchestrator
 SUPABASE_DB_URL, ENCRYPTION_MASTER_KEY, SUPABASE_JWT_SECRET

@@ -17,8 +17,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
-import { InstagramConnectDialog } from "@/components/instagram-connect-dialog"
-import { LinkedinConnectDialog } from "@/components/linkedin-connect-dialog"
+import { ExtensionConnectDialog } from "@/components/extension-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { AccountItem } from "@/components/account-item"
@@ -27,12 +26,11 @@ import {
   IconBrandGithub,
   IconBrandInstagram,
   IconBrandLinkedin,
+  IconBrandX,
   IconLayout,
   IconBrandSupabase,
-  IconMapPin,
   IconMessage,
   IconPlus,
-  IconCheck,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -61,6 +59,12 @@ const providers = [
     icon: IconBrandLinkedin,
   },
   {
+    id: "x",
+    name: "X",
+    description: "Posts, Likes, DMs, Lists, Communities",
+    icon: IconBrandX,
+  },
+  {
     id: "framer",
     name: "Framer",
     description: "Pages, Collections, Styles, Deployments",
@@ -77,13 +81,6 @@ const providers = [
     name: "iMessage",
     description: "Chats, Messages, Attachments, FaceTime",
     icon: IconMessage,
-  },
-  {
-    id: "places",
-    name: "Google Places",
-    description: "Business search, reviews, hours, contact info",
-    icon: IconMapPin,
-    noAuth: true,
   },
 ]
 
@@ -173,29 +170,16 @@ export default async function IntegrationsPage() {
                         ))}
                       </div>
                     )}
-                    {"noAuth" in provider && provider.noAuth ? (
-                      <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-                        <IconCheck className="size-4" />
-                        <span>No setup required — ready to use</span>
-                      </div>
-                    ) : provider.id === "instagram" ? (
-                      <InstagramConnectDialog>
+                    {["instagram", "linkedin", "x"].includes(provider.id) ? (
+                      <ExtensionConnectDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
+                          {accounts.length > 0 ? "Add another account" : "Connect"}
                         </Button>
-                      </InstagramConnectDialog>
-                    ) : provider.id === "linkedin" ? (
-                      <LinkedinConnectDialog>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
-                        </Button>
-                      </LinkedinConnectDialog>
+                      </ExtensionConnectDialog>
                     ) : provider.id === "framer" ? (
                       <FramerConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
