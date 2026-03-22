@@ -1,7 +1,9 @@
-# Agent Marketplace - Integration CLI
+# Emdash Agents — Internal Integration Platform
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), iMessage (via BlueBubbles), and Canvas LMS. Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Internal admin tool for managing AI agent integrations. Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), iMessage (via BlueBubbles), and Canvas LMS. Includes an admin-only Next.js portal for centralized credential management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+
+Mark owns all integrations centrally. Clients get specialized agents configured via the admin dashboard. Session-bound integrations (Instagram, LinkedIn, X, Canvas) use Playwright browser automation for cookie capture — no manual cookie pasting or Chrome extensions.
 
 ## Quick Start
 ```bash
@@ -20,10 +22,11 @@ make docker-agent-base    # build agent base image
 make docker-export-creds  # build export-creds image
 
 # Portal
-make portal-install # npm install
-make portal-dev     # npm run dev (localhost:3000)
-make portal-build   # npm run build
-make portal-lint    # npm run lint
+make portal-install             # npm install
+make portal-dev                 # npm run dev (localhost:3000)
+make portal-build               # npm run build
+make portal-lint                # npm run lint
+make portal-playwright-install  # install Playwright chromium for session capture
 ```
 
 ## Commands — Gmail
@@ -1475,39 +1478,61 @@ internal/providers/canvas/
   mock_server_test.go     # httptest mock server helpers for all endpoints
 ```
 
-## Web Portal (Next.js 15 + Supabase)
+## Web Portal (Next.js 15 + Supabase) — Admin Only
 
 ### Architecture
 - `portal/` — Next.js 15 App Router, TypeScript, Tailwind CSS
-- Auth: Supabase Auth with Google OAuth (narrow scopes for login)
+- Auth: Supabase Auth with Google OAuth (narrow scopes for login), admin-only access enforced in proxy.ts
 - Database: Supabase PostgreSQL with RLS policies
-- Integration tokens: AES-256-GCM encrypted, stored in `integrations` table
-- Two Google OAuth flows: (1) login via Supabase Auth, (2) full-scope connect via custom API route
+- Integration tokens: AES-256-GCM encrypted, stored in `user_integrations` table (single admin owner)
+- Session-bound auth: Playwright browser automation captures cookies for Instagram, LinkedIn, X, Canvas
+- OAuth providers: Google, GitHub, Supabase use standard OAuth connect flows
+- Manual config: Framer (API key), iMessage/BlueBubbles (server URL + password)
 
 ### Portal Directory Layout
 ```
 portal/
-  supabase/migrations/00001_create_tables.sql  # integrations table + RLS
-  src/
-    app/
-      page.tsx                     # Landing page
-      login/page.tsx               # Google sign-in via Supabase Auth
-      integrations/page.tsx        # Dashboard with provider cards
-      auth/callback/route.ts       # Supabase Auth code exchange
-      api/integrations/
-        route.ts                   # GET: list user integrations
-        google/connect|callback|disconnect/route.ts
-        github/connect|callback|disconnect/route.ts
-        instagram/save|disconnect/route.ts
-        bluebubbles/save|disconnect/route.ts
-        supabase/connect|callback/route.ts
-    lib/
-      supabase/server.ts|client.ts|middleware.ts
-      crypto.ts                    # AES-256-GCM (Go-compatible wire format)
-      providers.ts                 # Provider metadata and scopes
-    components/
-      navbar.tsx, provider-card.tsx, instagram-form.tsx, sign-out-button.tsx
-    middleware.ts                   # Protects /integrations route
+  supabase/migrations/
+    00001_create_tables.sql        # integrations table + RLS
+    00008_single_tenant_pivot.sql  # clients table, drop user_agents/marketplace columns
+  app/
+    page.tsx                       # Redirect to /login
+    login/page.tsx                 # Admin sign-in (Emdash Admin branding)
+    integrations/page.tsx          # Admin integration dashboard with provider cards
+    admin/
+      page.tsx                     # Admin overview dashboard (stats)
+      clients/page.tsx             # Client management CRUD
+    chat/[agentName]/              # Agent chat interface
+    jobs/                          # Job management pages
+    auth/callback|sign-out/        # Supabase Auth flows
+    api/
+      integrations/
+        playwright/connect|status/ # Playwright session capture API
+        google/connect|callback/   # Google OAuth
+        github/connect|callback/   # GitHub OAuth
+        supabase/connect|callback/ # Supabase OAuth
+        bluebubbles/save|disconnect/
+        framer/save|disconnect/
+        canvas/disconnect/
+      admin/clients/               # Client CRUD API
+      chat/[agentName]/            # Agent chat API (admin credentials)
+      jobs/cron|trigger/           # Job scheduling (admin credentials)
+  lib/
+    playwright/                    # Playwright session automation
+      session-capture.ts           # Core: launch browser, poll cookies, capture
+      providers/                   # Per-provider cookie configs + mappers
+        instagram.ts, linkedin.ts, x.ts, canvas.ts
+    supabase/server.ts|client.ts|admin.ts
+    crypto.ts                      # AES-256-GCM (Go-compatible wire format)
+    credentials.ts                 # resolveAdminCredentials() — single-tenant
+    job-runner.ts                  # Job execution with admin credentials
+  components/
+    app-sidebar.tsx                # Admin nav: Dashboard, Agents, Jobs, Clients
+    playwright-connect-dialog.tsx  # Browser launch + status polling UI
+    connect-dialog.tsx             # OAuth connect flow
+    framer-connect-dialog.tsx      # Framer API key form
+    bluebubbles-connect-dialog.tsx # BlueBubbles config form
+  proxy.ts                         # Admin-only middleware (ADMIN_EMAILS check)
 ```
 
 ### Token Bridge (Go)
