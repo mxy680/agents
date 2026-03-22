@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { ExtensionConnectDialog } from "@/components/extension-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
+import { CanvasConnectDialog } from "@/components/canvas-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -30,6 +31,7 @@ import {
   IconLayout,
   IconBrandSupabase,
   IconMessage,
+  IconSchool,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -81,6 +83,12 @@ const providers = [
     name: "iMessage",
     description: "Chats, Messages, Attachments, FaceTime",
     icon: IconMessage,
+  },
+  {
+    id: "canvas",
+    name: "Canvas LMS",
+    description: "Courses, Assignments, Grades, Discussions",
+    icon: IconSchool,
   },
 ]
 
@@ -198,6 +206,15 @@ export default async function IntegrationsPage() {
                             : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
+                    ) : provider.id === "canvas" ? (
+                      <CanvasConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0
+                            ? "Add another account"
+                            : "Connect"}
+                        </Button>
+                      </CanvasConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}
