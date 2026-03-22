@@ -86,19 +86,40 @@ async function pollAndSave(
       const encrypted = encrypt(JSON.stringify(mapped));
 
       const admin = createAdminClient();
-      const { error: dbError } = await admin.from("user_integrations").upsert(
-        {
-          user_id: userId,
-          provider,
-          status: "active",
-          credentials: `\\x${Buffer.from(encrypted).toString("hex")}`,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id,provider" }
-      );
+      const credHex = `\\x${Buffer.from(encrypted).toString("hex")}`;
+      const now = new Date().toISOString();
 
-      if (dbError) {
-        console.error(`[playwright/connect] DB error saving ${provider}:`, dbError);
+      // Try update first (existing row for this user+provider)
+      const { data: updated, error: updateError } = await admin
+        .from("user_integrations")
+        .update({
+          credentials: credHex,
+          status: "active",
+          updated_at: now,
+        })
+        .eq("user_id", userId)
+        .eq("provider", provider)
+        .select("id");
+
+      if (updateError) {
+        console.error(`[playwright/connect] DB update error for ${provider}:`, updateError);
+      } else if (!updated || updated.length === 0) {
+        // No existing row — insert
+        const { error: insertError } = await admin
+          .from("user_integrations")
+          .insert({
+            user_id: userId,
+            provider,
+            credentials: credHex,
+            status: "active",
+            label: provider,
+            created_at: now,
+            updated_at: now,
+          });
+
+        if (insertError) {
+          console.error(`[playwright/connect] DB insert error for ${provider}:`, insertError);
+        }
       }
 
       return;
