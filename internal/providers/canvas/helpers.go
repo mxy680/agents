@@ -241,6 +241,37 @@ func dryRunResult(cmd *cobra.Command, action string, data any) error {
 	return nil
 }
 
+// GroupSummary is a condensed Canvas group representation.
+type GroupSummary struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	Description  string `json:"description,omitempty"`
+	MembersCount int    `json:"members_count,omitempty"`
+	JoinLevel    string `json:"join_level,omitempty"`
+	ContextType  string `json:"context_type,omitempty"`
+	CourseID     int    `json:"course_id,omitempty"`
+}
+
+// RubricSummary is a condensed Canvas rubric representation.
+type RubricSummary struct {
+	ID             int     `json:"id"`
+	Title          string  `json:"title"`
+	PointsPossible float64 `json:"points_possible,omitempty"`
+	RubricType     string  `json:"context_type,omitempty"`
+	ReadOnly       bool    `json:"read_only,omitempty"`
+}
+
+// SectionSummary is a condensed Canvas section representation.
+type SectionSummary struct {
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	CourseID         int    `json:"course_id,omitempty"`
+	StartAt          string `json:"start_at,omitempty"`
+	EndAt            string `json:"end_at,omitempty"`
+	TotalStudents    int    `json:"total_students,omitempty"`
+	NonxlistCourseID int    `json:"nonxlist_course_id,omitempty"`
+}
+
 // formatSize formats a file size in bytes to a human-readable string.
 func formatSize(bytes int64) string {
 	const (
