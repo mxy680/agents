@@ -84,6 +84,7 @@ const debounceTimers = {}
  */
 function findProviderForCookie(cookieDomain) {
   for (const [key, provider] of Object.entries(PROVIDERS)) {
+    if (!provider.domain) continue // Canvas has a dynamic domain — skip
     const suffix = provider.domain.startsWith(".")
       ? provider.domain.slice(1)
       : provider.domain
@@ -222,7 +223,6 @@ chrome.runtime.onInstalled.addListener(() => {
       if (!tab.url) continue
       // Match the same origins as our content_scripts.matches
       if (
-        tab.url.startsWith("http://localhost") ||
         tab.url.includes(".emdash.io") ||
         tab.url.includes(".emdash.dev")
       ) {
@@ -273,32 +273,6 @@ chrome.cookies.onChanged.addListener((changeInfo) => {
     }
   })
 
-  // For Canvas (dynamic domain): check if any pending canvas login matches
-  // this cookie by domain, since findProviderForCookie won't match Canvas
-  if (!providerKey) {
-    const canvasProvider = PROVIDERS.canvas
-    if (canvasProvider.cookies.includes(cookie.name)) {
-      chrome.storage.session.get("pendingLogins", async ({ pendingLogins = {} }) => {
-        for (const [sessionId, session] of Object.entries(pendingLogins)) {
-          if (session.provider === "canvas" && session.status === "waiting" && session.canvasUrl) {
-            // Check if cookie domain matches the canvas URL's domain
-            try {
-              const canvasDomain = new URL(session.canvasUrl).hostname
-              const cookieDomain = cookie.domain.replace(/^\./, "")
-              if (canvasDomain === cookieDomain || canvasDomain.endsWith(cookieDomain)) {
-                if (cookie.name === canvasProvider.loginCookie) {
-                  session.status = "capturing"
-                  await chrome.storage.session.set({ pendingLogins })
-                  setTimeout(() => captureIncognitoCookies(sessionId), 1000)
-                }
-                break
-              }
-            } catch {}
-          }
-        }
-      })
-    }
-  }
 })
 
 // Handle messages from the popup
@@ -407,18 +381,22 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         }
 
         // Clear existing cookies for this provider in the incognito store
+        // so the user starts with a fresh login
         const stores = await chrome.cookies.getAllCookieStores()
         const incognitoStore = stores.find((s) => s.id !== "0")
         if (incognitoStore) {
           const providerConfig = PROVIDERS[message.provider]
-          // For Canvas, use the dynamic URL; for others, use the fixed domain
           const clearUrl = providerConfig.domain
             ? `https://${providerConfig.domain.replace(/^\./, "www.")}`
             : loginUrl
-          const existing = await chrome.cookies.getAll({ url: clearUrl, storeId: incognitoStore.id })
-          for (const c of existing) {
-            const cookieUrl = `http${c.secure ? "s" : ""}://${c.domain.replace(/^\./, "")}${c.path}`
-            await chrome.cookies.remove({ url: cookieUrl, name: c.name, storeId: incognitoStore.id })
+          try {
+            const existing = await chrome.cookies.getAll({ url: clearUrl, storeId: incognitoStore.id })
+            for (const c of existing) {
+              const cookieUrl = `http${c.secure ? "s" : ""}://${c.domain.replace(/^\./, "")}${c.path}`
+              await chrome.cookies.remove({ url: cookieUrl, name: c.name, storeId: incognitoStore.id })
+            }
+          } catch {
+            // Cookie clearing is best-effort
           }
         }
 
@@ -450,6 +428,11 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
         pendingLogins[sessionId] = session
         await chrome.storage.session.set({ pendingLogins })
+
+        // Canvas uses polling instead of cookie change listener (dynamic domain)
+        if (message.provider === "canvas" && session.canvasUrl) {
+          startCanvasLoginPolling(sessionId)
+        }
 
         sendResponse({ ok: true, sessionId })
       } catch (err) {
@@ -660,6 +643,174 @@ async function captureIncognitoCookies(sessionId) {
       session.error = null
 
       // Close the incognito window
+      if (session.windowId) {
+        try { await chrome.windows.remove(session.windowId) } catch {}
+      }
+    }
+  } catch (err) {
+    session.status = "error"
+    session.error = `Network error: ${err.message}`
+  }
+
+  await chrome.storage.session.set({ pendingLogins })
+}
+
+// ---------------------------------------------------------------------------
+// Canvas login polling
+// ---------------------------------------------------------------------------
+
+// Canvas uses dynamic domains (per-school) so the cookie change listener
+// can't match them. Instead, we poll for the login cookie after opening
+// the incognito window.
+const canvasPollingTimers = {}
+
+function startCanvasLoginPolling(sessionId) {
+  if (canvasPollingTimers[sessionId]) return
+
+  canvasPollingTimers[sessionId] = setInterval(async () => {
+    const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
+    const session = pendingLogins[sessionId]
+
+    if (!session || session.status !== "waiting") {
+      clearInterval(canvasPollingTimers[sessionId])
+      delete canvasPollingTimers[sessionId]
+      return
+    }
+
+    if (!session.canvasUrl) return
+
+    // Instead of looking for a specific cookie name, try hitting the Canvas
+    // API. If the user is logged in, /api/v1/users/self returns 200.
+    // This works regardless of which cookies Canvas uses.
+    try {
+      const apiUrl = `${session.canvasUrl.replace(/\/+$/, "")}/api/v1/users/self`
+
+      // We need to use the incognito cookie store. Fetch from the background
+      // service worker uses the default (non-incognito) store, so instead
+      // we check for any session-like cookies on the Canvas domain.
+      const allCookies = await chrome.cookies.getAll({ url: session.canvasUrl })
+      const sessionCookies = allCookies.filter((c) =>
+        c.name === "_normandy_session" ||
+        c.name === "canvas_session" ||
+        c.name === "_legacy_normandy_session" ||
+        c.name.includes("session")
+      )
+
+      if (sessionCookies.length > 0) {
+        clearInterval(canvasPollingTimers[sessionId])
+        delete canvasPollingTimers[sessionId]
+
+        // Store the actual cookie names we found for capture
+        session.detectedCookies = allCookies
+          .filter((c) => c.name.includes("session") || c.name.includes("csrf") || c.name.includes("token"))
+          .map((c) => ({ name: c.name, value: c.value }))
+        session.status = "capturing"
+        await chrome.storage.session.set({ pendingLogins })
+
+        // Wait for cookies to settle
+        setTimeout(() => captureCanvasIncognitoCookies(sessionId), 1500)
+      }
+    } catch {
+      // ignore — will retry on next poll
+    }
+  }, 2000)
+}
+
+/**
+ * Canvas-specific cookie capture. Reads all cookies from the Canvas domain,
+ * auto-detects session and CSRF cookie names, and posts them to the portal.
+ */
+async function captureCanvasIncognitoCookies(sessionId) {
+  const { pendingLogins = {} } = await chrome.storage.session.get("pendingLogins")
+  const session = pendingLogins[sessionId]
+  if (!session || session.status === "complete") return
+
+  let portalUrl = session.portalUrl
+  let token = session.token
+  if (!portalUrl || !token) {
+    const local = await chrome.storage.local.get(["portalUrl", "token"])
+    portalUrl = portalUrl || local.portalUrl
+    token = token || local.token
+  }
+
+  if (!portalUrl || !token) {
+    session.status = "error"
+    session.error = "Portal not configured"
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  // Read all cookies from the Canvas domain
+  let allCookies
+  try {
+    allCookies = await chrome.cookies.getAll({ url: session.canvasUrl })
+  } catch (err) {
+    session.status = "error"
+    session.error = `Failed to read cookies: ${err.message}`
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  // Build a map of all cookies
+  const cookieMap = {}
+  for (const c of allCookies) {
+    cookieMap[c.name] = c.value
+  }
+
+  // Auto-detect the session cookie (prefer _normandy_session, fall back to others)
+  const sessionCookie =
+    cookieMap["_normandy_session"] ||
+    cookieMap["canvas_session"] ||
+    cookieMap["_legacy_normandy_session"] ||
+    null
+
+  if (!sessionCookie) {
+    session.status = "error"
+    session.error = "No Canvas session cookie found"
+    await chrome.storage.session.set({ pendingLogins })
+    return
+  }
+
+  // Auto-detect CSRF token
+  const csrfToken =
+    cookieMap["_csrf_token"] ||
+    cookieMap["csrf_token"] ||
+    null
+
+  const credentials = {
+    base_url: session.canvasUrl.replace(/\/+$/, ""),
+    session_cookie: sessionCookie,
+  }
+  if (csrfToken) {
+    credentials.csrf_token = csrfToken
+  }
+  if (cookieMap["log_session_id"]) {
+    credentials.log_session_id = cookieMap["log_session_id"]
+  }
+
+  // POST to portal
+  try {
+    const response = await fetch(`${portalUrl}/api/integrations/extension/cookies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        provider: "canvas",
+        cookies: credentials,
+        label: session.label,
+      }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      session.status = "error"
+      session.error = data.error || `HTTP ${response.status}`
+    } else {
+      session.status = "complete"
+      session.error = null
+
       if (session.windowId) {
         try { await chrome.windows.remove(session.windowId) } catch {}
       }
