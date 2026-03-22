@@ -16,20 +16,20 @@ import (
 
 // Server is the HTTP API server for the orchestrator.
 type Server struct {
-	cfg    Config
-	store  *Store
-	k8s    *K8sClient
-	creds  *CredentialResolver
-	router chi.Router
+	cfg     Config
+	store   *Store
+	runtime ContainerRuntime
+	creds   *CredentialResolver
+	router  chi.Router
 }
 
 // NewServer creates and configures a new Server.
-func NewServer(cfg Config, store *Store, k8s *K8sClient, creds *CredentialResolver) *Server {
+func NewServer(cfg Config, store *Store, runtime ContainerRuntime, creds *CredentialResolver) *Server {
 	s := &Server{
-		cfg:   cfg,
-		store: store,
-		k8s:   k8s,
-		creds: creds,
+		cfg:     cfg,
+		store:   store,
+		runtime: runtime,
+		creds:   creds,
 	}
 
 	r := chi.NewRouter()

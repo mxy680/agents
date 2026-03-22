@@ -36,26 +36,19 @@ func (s *Server) reconcile(ctx context.Context) {
 			continue
 		}
 
-		pod, err := s.k8s.GetPod(ctx, inst.K8sPodName)
+		newStatus, err := s.runtime.ContainerStatus(ctx, inst.K8sPodName)
 		if err != nil {
-			// Pod might have been deleted
-			if uerr := s.store.UpdateInstanceStatus(ctx, inst.ID, StatusFailed, "", "pod not found"); uerr != nil {
+			// Container might have been deleted externally.
+			if uerr := s.store.UpdateInstanceStatus(ctx, inst.ID, StatusFailed, "", "container not found"); uerr != nil {
 				log.Printf("reconcile: update instance %s status: %v", inst.ID, uerr)
 			}
 			continue
 		}
 
-		newStatus := PodStatus(pod)
 		if newStatus != inst.Status {
 			errMsg := ""
 			if newStatus == StatusFailed {
-				errMsg = pod.Status.Message
-				if errMsg == "" && len(pod.Status.ContainerStatuses) > 0 {
-					cs := pod.Status.ContainerStatuses[0]
-					if cs.State.Terminated != nil {
-						errMsg = cs.State.Terminated.Reason
-					}
-				}
+				errMsg = "container exited with non-zero status"
 			}
 			if uerr := s.store.UpdateInstanceStatus(ctx, inst.ID, newStatus, "", errMsg); uerr != nil {
 				log.Printf("reconcile: update instance %s status: %v", inst.ID, uerr)
