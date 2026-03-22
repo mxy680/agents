@@ -103,9 +103,10 @@ async function runCapture(
       const found = config.requiredCookies.filter(
         (n) => cookieMap.has(n) && cookieMap.get(n) !== ""
       );
-      if (found.length > 0 && elapsed % 10000 < pollIntervalMs) {
+      if (elapsed % 10000 < pollIntervalMs) {
+        const allNames = cookies.map((c) => `${c.name}@${c.domain}`);
         console.log(
-          `[playwright] ${provider}: found ${found.length}/${config.requiredCookies.length} required cookies: ${found.join(", ")}`
+          `[playwright] ${provider}: ${found.length}/${config.requiredCookies.length} required (${found.join(", ") || "none"}). All cookies: ${allNames.join(", ") || "none"}`
         );
       }
 
