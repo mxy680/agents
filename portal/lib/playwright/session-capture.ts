@@ -130,10 +130,12 @@ async function runCapture(
           message: "Cookies detected, capturing session...",
         });
 
+        // Capture ALL cookies from the context — providers may need cookies
+        // beyond the named required/optional ones (e.g. Canvas session cookies
+        // have instance-specific names)
         const result: Record<string, string> = {};
-        for (const name of allCookieNames) {
-          const val = cookieMap.get(name);
-          if (val) result[name] = val;
+        for (const cookie of cookies) {
+          if (cookie.value) result[cookie.name] = cookie.value;
         }
 
         console.log(
