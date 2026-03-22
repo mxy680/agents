@@ -97,6 +97,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"auth_token": "X_AUTH_TOKEN",
 			"csrf_token": "X_CSRF_TOKEN",
 		})
+	case "bluebubbles":
+		mapCredentials(creds, env, map[string]string{
+			"url":      "BLUEBUBBLES_URL",
+			"password": "BLUEBUBBLES_PASSWORD",
+		})
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 # Agent Marketplace - Integration CLI
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, and X (Twitter). Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), and iMessage (via BlueBubbles). Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 ## Quick Start
 ```bash
@@ -498,7 +498,7 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%)
 
 ## Commands — Framer
 ```
@@ -1090,6 +1090,136 @@ internal/providers/x/
   mock_server_test.go      # httptest mock server helpers for all endpoints
 ```
 
+## Commands — iMessage (via BlueBubbles)
+```
+# Chats [alias: chat]
+integrations imessage chats list [--limit=N] [--offset=N] [--sort=lastmessage] [--with-participants] [--with-last-message] [--query=Q] [--json]
+integrations imessage chats get --guid=GUID [--json]
+integrations imessage chats create --participants=PHONE,PHONE [--message=TEXT] [--dry-run] [--json]
+integrations imessage chats update --guid=GUID [--name=TEXT] [--dry-run] [--json]
+integrations imessage chats delete --guid=GUID [--confirm] [--dry-run] [--json]
+integrations imessage chats messages --guid=GUID [--limit=N] [--offset=N] [--after=DATETIME] [--before=DATETIME] [--json]
+integrations imessage chats read --guid=GUID [--dry-run] [--json]
+integrations imessage chats unread --guid=GUID [--dry-run] [--json]
+integrations imessage chats leave --guid=GUID [--dry-run] [--json]
+integrations imessage chats typing --guid=GUID [--stop] [--dry-run] [--json]
+integrations imessage chats count [--json]
+integrations imessage chats icon get --guid=GUID [--output=PATH] [--json]
+integrations imessage chats icon set --guid=GUID --path=PATH [--dry-run] [--json]
+integrations imessage chats icon remove --guid=GUID [--confirm] [--dry-run] [--json]
+
+# Participants [alias: participant]
+integrations imessage participants add --guid=GUID --address=PHONE_OR_EMAIL [--dry-run] [--json]
+integrations imessage participants remove --guid=GUID --address=PHONE_OR_EMAIL [--confirm] [--dry-run] [--json]
+
+# Messages [alias: msg]
+integrations imessage messages send --to=PHONE_OR_EMAIL --text=TEXT [--subject=TEXT] [--effect=TEXT] [--dry-run] [--json]
+integrations imessage messages send-group --guid=GUID --text=TEXT [--subject=TEXT] [--effect=TEXT] [--dry-run] [--json]
+integrations imessage messages send-attachment --to=PHONE_OR_EMAIL --path=PATH [--text=TEXT] [--dry-run] [--json]
+integrations imessage messages send-multipart --to=PHONE_OR_EMAIL [--parts=JSON | --parts-file=PATH] [--dry-run] [--json]
+integrations imessage messages get --guid=GUID [--json]
+integrations imessage messages query [--chat-guid=GUID] [--limit=N] [--offset=N] [--after=DATETIME] [--before=DATETIME] [--sort=ASC|DESC] [--with=chat,attachment,handle] [--json]
+integrations imessage messages edit --guid=GUID --text=TEXT [--part=N] [--dry-run] [--json]
+integrations imessage messages unsend --guid=GUID [--part=N] [--dry-run] [--json]
+integrations imessage messages react --chat-guid=GUID --message-guid=GUID --type=love|like|dislike|laugh|emphasis|question [--dry-run] [--json]
+integrations imessage messages delete --chat-guid=GUID --message-guid=GUID [--confirm] [--dry-run] [--json]
+integrations imessage messages count [--after=DATETIME] [--before=DATETIME] [--chat-guid=GUID] [--json]
+integrations imessage messages count-updated [--after=DATETIME] [--before=DATETIME] [--chat-guid=GUID] [--json]
+integrations imessage messages count-sent [--json]
+integrations imessage messages embedded-media --guid=GUID [--json]
+integrations imessage messages notify --guid=GUID [--dry-run] [--json]
+
+# Scheduled Messages [alias: sched]
+integrations imessage scheduled list [--json]
+integrations imessage scheduled get --id=ID [--json]
+integrations imessage scheduled create --chat-guid=GUID --text=TEXT --send-at=RFC3339 [--dry-run] [--json]
+integrations imessage scheduled update --id=ID [--text=TEXT] [--send-at=RFC3339] [--dry-run] [--json]
+integrations imessage scheduled delete --id=ID [--confirm] [--dry-run] [--json]
+
+# Attachments [alias: attach]
+integrations imessage attachments get --guid=GUID [--json]
+integrations imessage attachments download --guid=GUID --output=PATH
+integrations imessage attachments download-force --guid=GUID --output=PATH
+integrations imessage attachments upload --path=PATH [--dry-run] [--json]
+integrations imessage attachments live --guid=GUID --output=PATH
+integrations imessage attachments blurhash --guid=GUID [--json]
+integrations imessage attachments count [--json]
+
+# Handles [alias: handle]
+integrations imessage handles list [--limit=N] [--offset=N] [--query=Q] [--json]
+integrations imessage handles get --guid=GUID [--json]
+integrations imessage handles count [--json]
+integrations imessage handles focus --guid=GUID [--json]
+integrations imessage handles availability --address=PHONE_OR_EMAIL [--service=imessage|facetime] [--json]
+
+# Contacts [alias: contact]
+integrations imessage contacts list [--json]
+integrations imessage contacts get [--query=Q] [--json]
+integrations imessage contacts create [--data=JSON | --data-file=PATH] [--dry-run] [--json]
+
+# FaceTime [alias: ft]
+integrations imessage facetime call --addresses=PHONE,PHONE [--dry-run] [--json]
+integrations imessage facetime answer --call-uuid=UUID [--dry-run] [--json]
+integrations imessage facetime leave --call-uuid=UUID [--dry-run] [--json]
+
+# FindMy [alias: fm]
+integrations imessage findmy devices [--json]
+integrations imessage findmy devices-refresh [--json]
+integrations imessage findmy friends [--json]
+integrations imessage findmy friends-refresh [--json]
+
+# iCloud
+integrations imessage icloud account [--json]
+integrations imessage icloud change-alias --alias=EMAIL [--dry-run] [--json]
+integrations imessage icloud contact-card [--json]
+
+# Server
+integrations imessage server info [--json]
+integrations imessage server logs [--json]
+integrations imessage server restart [--soft] [--dry-run] [--json]
+integrations imessage server update-check [--json]
+integrations imessage server update-install [--dry-run] [--json]
+integrations imessage server alerts [--json]
+integrations imessage server alerts-read [--dry-run] [--json]
+integrations imessage server stats [--type=totals|media|media-by-chat] [--json]
+
+# Webhooks [alias: webhook, wh]
+integrations imessage webhooks list [--json]
+integrations imessage webhooks create --url=URL [--events=E1,E2] [--dry-run] [--json]
+integrations imessage webhooks delete --id=ID [--confirm] [--dry-run] [--json]
+
+# Mac
+integrations imessage mac lock [--dry-run] [--json]
+integrations imessage mac restart-messages [--dry-run] [--json]
+```
+
+`imessage` has alias `imsg`. `chats` has alias `chat`. `messages` has alias `msg`. `attachments` has alias `attach`. `handles` has alias `handle`. `contacts` has alias `contact`. `scheduled` has alias `sched`. `participants` has alias `participant`. `webhooks` has aliases `webhook`, `wh`. `facetime` has alias `ft`. `findmy` has alias `fm`.
+
+Powered by [BlueBubbles](https://bluebubbles.app) — self-hosted iMessage REST API running on a Mac. Requires a Mac with Messages.app signed in and BlueBubbles Server installed.
+
+## Architecture — iMessage Package Layout
+```
+internal/providers/imessage/
+  imessage.go           # Provider struct, RegisterCommands (13 resource subcommand groups)
+  client.go             # HTTP client: BlueBubbles REST API, password auth via query param
+  helpers.go            # Shared types (ChatSummary, MessageSummary, AttachmentSummary, etc.) and helpers
+  chats.go              # 14 chat commands (list, get, create, update, delete, messages, read, unread, leave, typing, count, icon get/set/remove)
+  participants.go       # 2 participant commands (add, remove)
+  messages.go           # 15 message commands (send, send-group, send-attachment, send-multipart, get, query, edit, unsend, react, delete, count, count-updated, count-sent, embedded-media, notify)
+  scheduled.go          # 5 scheduled message commands (list, get, create, update, delete)
+  attachments.go        # 7 attachment commands (get, download, download-force, upload, live, blurhash, count)
+  handles.go            # 5 handle commands (list, get, count, focus, availability)
+  contacts.go           # 3 contact commands (list, get, create)
+  facetime.go           # 3 FaceTime commands (call, answer, leave)
+  findmy.go             # 4 FindMy commands (devices, devices-refresh, friends, friends-refresh)
+  icloud.go             # 3 iCloud commands (account, change-alias, contact-card)
+  server.go             # 8 server commands (info, logs, restart, update-check, update-install, alerts, alerts-read, stats)
+  webhooks.go           # 3 webhook commands (list, create, delete)
+  mac.go                # 2 macOS commands (lock, restart-messages)
+  *_test.go             # Tests for each command file + helpers + provider + client
+  mock_server_test.go   # httptest mock server helpers for all endpoints
+```
+
 ## Web Portal (Next.js 15 + Supabase)
 
 ### Architecture
@@ -1114,6 +1244,7 @@ portal/
         google/connect|callback|disconnect/route.ts
         github/connect|callback|disconnect/route.ts
         instagram/save|disconnect/route.ts
+        bluebubbles/save|disconnect/route.ts
         supabase/connect|callback/route.ts
     lib/
       supabase/server.ts|client.ts|middleware.ts
@@ -1222,6 +1353,10 @@ FRAMER_PROJECT_URL        # Project URL like https://framer.com/projects/... (re
 GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
 GITHUB_ACCESS_TOKEN, GITHUB_REFRESH_TOKEN
 GITHUB_API_BASE_URL (optional, defaults to https://api.github.com)
+
+# iMessage (BlueBubbles self-hosted server)
+BLUEBUBBLES_URL           # BlueBubbles server URL, e.g. https://my-mac.ngrok.io (required)
+BLUEBUBBLES_PASSWORD      # Server password (required)
 
 # Supabase (OAuth 2.1 with PKCE)
 SUPABASE_INTEGRATION_CLIENT_ID, SUPABASE_INTEGRATION_CLIENT_SECRET
