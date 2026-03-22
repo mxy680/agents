@@ -1,41 +1,15 @@
 import { chromium, type BrowserContext } from "playwright";
+import {
+  getSession,
+  setSession,
+  updateSession,
+  type SessionProgress,
+  type SessionStatus,
+} from "./session-store";
 
-export type SessionStatus =
-  | "pending"
-  | "browser_open"
-  | "waiting_login"
-  | "capturing"
-  | "done"
-  | "saved"
-  | "error";
-
-export interface SessionProgress {
-  sessionId: string;
-  provider: string;
-  status: SessionStatus;
-  message: string;
-  cookies?: Record<string, string>;
-  error?: string;
-}
-
-// In-memory session state (single-process, admin-only)
-const sessions = new Map<string, SessionProgress>();
-
-export function getSession(sessionId: string): SessionProgress | undefined {
-  return sessions.get(sessionId);
-}
-
-function updateSession(sessionId: string, update: Partial<SessionProgress>) {
-  const current = sessions.get(sessionId);
-  if (current) {
-    sessions.set(sessionId, { ...current, ...update });
-  }
-}
-
-/** Allow external callers (e.g. connect route) to update session status after DB save */
-export function updateSessionExternal(sessionId: string, update: Partial<SessionProgress>) {
-  updateSession(sessionId, update);
-}
+// Re-export types and store functions for convenience
+export type { SessionProgress, SessionStatus };
+export { getSession, updateSession as updateSessionExternal };
 
 export interface ProviderConfig {
   loginUrl: string;
@@ -60,7 +34,7 @@ export async function captureSession(
   config: ProviderConfig
 ): Promise<string> {
   const sessionId = `${provider}-${Date.now()}`;
-  sessions.set(sessionId, {
+  setSession(sessionId, {
     sessionId,
     provider,
     status: "pending",

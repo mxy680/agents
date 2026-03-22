@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
-import { getSession } from "@/lib/playwright";
+import { getSession } from "@/lib/playwright/session-store";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
