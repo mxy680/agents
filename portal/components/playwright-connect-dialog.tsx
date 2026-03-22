@@ -72,15 +72,20 @@ export function PlaywrightConnectDialog({
           const data = await statusRes.json()
           setMessage(data.message)
 
-          if (data.status === "done") {
+          if (data.status === "saved") {
             setStatus("done")
+            setMessage(data.message)
             if (pollRef.current) clearInterval(pollRef.current)
-            // Auto-close after 2 seconds
+            // Auto-close and reload after brief delay
             setTimeout(() => {
               setOpen(false)
               setStatus("idle")
               window.location.reload()
-            }, 2000)
+            }, 1500)
+          } else if (data.status === "done") {
+            // Cookies captured, waiting for DB save
+            setStatus("capturing")
+            setMessage("Saving credentials...")
           } else if (data.status === "error") {
             setStatus("error")
             if (pollRef.current) clearInterval(pollRef.current)

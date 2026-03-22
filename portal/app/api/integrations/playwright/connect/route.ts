@@ -5,6 +5,7 @@ import { isAdmin } from "@/lib/admin";
 import {
   captureSession,
   getSession,
+  updateSessionExternal,
   instagramConfig,
   linkedinConfig,
   xConfig,
@@ -103,6 +104,11 @@ async function pollAndSave(
 
       if (updateError) {
         console.error(`[playwright/connect] DB update error for ${provider}:`, updateError);
+        updateSessionExternal(sessionId, {
+          status: "error",
+          message: `Failed to save ${provider} credentials.`,
+          error: updateError.message,
+        });
       } else if (!updated || updated.length === 0) {
         // No existing row — insert
         const { error: insertError } = await admin
@@ -119,7 +125,22 @@ async function pollAndSave(
 
         if (insertError) {
           console.error(`[playwright/connect] DB insert error for ${provider}:`, insertError);
+          updateSessionExternal(sessionId, {
+            status: "error",
+            message: `Failed to save ${provider} credentials.`,
+            error: insertError.message,
+          });
+        } else {
+          updateSessionExternal(sessionId, {
+            status: "saved",
+            message: `${provider} credentials saved successfully.`,
+          });
         }
+      } else {
+        updateSessionExternal(sessionId, {
+          status: "saved",
+          message: `${provider} credentials updated successfully.`,
+        });
       }
 
       return;

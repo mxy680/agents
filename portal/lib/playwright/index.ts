@@ -1,6 +1,7 @@
 export {
   captureSession,
   getSession,
+  updateSessionExternal,
   type SessionProgress,
   type SessionStatus,
   type ProviderConfig,

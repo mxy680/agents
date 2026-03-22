@@ -6,6 +6,7 @@ export type SessionStatus =
   | "waiting_login"
   | "capturing"
   | "done"
+  | "saved"
   | "error";
 
 export interface SessionProgress {
@@ -29,6 +30,11 @@ function updateSession(sessionId: string, update: Partial<SessionProgress>) {
   if (current) {
     sessions.set(sessionId, { ...current, ...update });
   }
+}
+
+/** Allow external callers (e.g. connect route) to update session status after DB save */
+export function updateSessionExternal(sessionId: string, update: Partial<SessionProgress>) {
+  updateSession(sessionId, update);
 }
 
 export interface ProviderConfig {
