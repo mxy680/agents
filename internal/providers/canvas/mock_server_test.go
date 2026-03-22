@@ -15,10 +15,9 @@ import (
 // newTestSession returns a minimal CanvasSession for use in tests.
 func newTestSession() *auth.CanvasSession {
 	return &auth.CanvasSession{
-		BaseURL:       "https://canvas.test.edu",
-		SessionCookie: "test-session-cookie",
-		CSRFToken:     "test-csrf-token",
-		UserAgent:     "TestAgent/1.0",
+		BaseURL:   "https://canvas.test.edu",
+		Cookies:   "_normandy_session=test-session-cookie; _csrf_token=test-csrf-token",
+		UserAgent: "TestAgent/1.0",
 	}
 }
 

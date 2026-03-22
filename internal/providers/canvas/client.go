@@ -52,7 +52,7 @@ func DefaultClientFactory() ClientFactory {
 			http:    &http.Client{Timeout: 30 * time.Second},
 			session: session,
 			baseURL: session.BaseURL,
-			csrf:    session.CSRFToken,
+			csrf:    extractCookieValue(session.Cookies, "_csrf_token"),
 		}, nil
 	}
 }
@@ -63,8 +63,19 @@ func newClientWithBase(session *auth.CanvasSession, httpClient *http.Client, bas
 		http:    httpClient,
 		session: session,
 		baseURL: strings.TrimRight(base, "/"),
-		csrf:    session.CSRFToken,
+		csrf:    extractCookieValue(session.Cookies, "_csrf_token"),
 	}
+}
+
+// extractCookieValue finds a cookie value by name from a raw cookie string.
+func extractCookieValue(cookieStr, name string) string {
+	for _, part := range strings.Split(cookieStr, ";") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, name+"=") {
+			return strings.TrimPrefix(part, name+"=")
+		}
+	}
+	return ""
 }
 
 // applyHeaders sets all required Canvas API request headers.

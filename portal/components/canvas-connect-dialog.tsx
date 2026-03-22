@@ -30,7 +30,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
   async function handleSave() {
     setError("")
 
-    // Parse the pasted cookie JSON
+    // Parse the pasted cookie JSON from the extension
     let parsed: Record<string, string>
     try {
       parsed = JSON.parse(cookieData.trim())
@@ -46,14 +46,14 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
       return
     }
 
-    // Find session cookie
-    const sessionCookie =
-      parsed["_normandy_session"] ||
-      parsed["canvas_session"] ||
-      parsed["_legacy_normandy_session"]
+    // Build a raw cookie string from all cookies (except our metadata key)
+    const { _site_url, ...cookiesOnly } = parsed
+    const rawCookies = Object.entries(cookiesOnly)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("; ")
 
-    if (!sessionCookie) {
-      setError("No Canvas session cookie found. Make sure you are logged into Canvas before copying.")
+    if (!rawCookies) {
+      setError("No cookies found. Make sure you are logged into Canvas before copying.")
       return
     }
 
@@ -66,9 +66,7 @@ export function CanvasConnectDialog({ children }: CanvasConnectDialogProps) {
         body: JSON.stringify({
           label: label.trim() || "Canvas LMS",
           base_url: baseUrl,
-          session_cookie: sessionCookie,
-          csrf_token: parsed["_csrf_token"] || undefined,
-          log_session_id: parsed["log_session_id"] || undefined,
+          raw_cookies: rawCookies,
         }),
       })
 
