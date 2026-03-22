@@ -72,17 +72,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Normalize base URL: ensure https:// prefix, strip trailing slashes
+  let normalizedBaseUrl = baseUrl?.trim().replace(/\/+$/, "") ?? "";
+  if (normalizedBaseUrl && !/^https?:\/\//i.test(normalizedBaseUrl)) {
+    normalizedBaseUrl = `https://${normalizedBaseUrl}`;
+  }
+
   const entry = PROVIDER_CONFIGS[provider];
   const providerConfig =
     provider === "canvas"
-      ? canvasConfig(baseUrl!.trim().replace(/\/+$/, ""))
+      ? canvasConfig(normalizedBaseUrl)
       : entry.config();
   const sessionId = await captureSession(provider, providerConfig);
 
   // Extra metadata to store alongside cookies
   const extraCreds: Record<string, string> = {};
-  if (provider === "canvas" && baseUrl) {
-    extraCreds.base_url = baseUrl.trim().replace(/\/+$/, "");
+  if (provider === "canvas" && normalizedBaseUrl) {
+    extraCreds.base_url = normalizedBaseUrl;
   }
 
   // Start background task to save cookies when done
