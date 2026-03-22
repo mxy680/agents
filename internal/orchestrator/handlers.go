@@ -120,6 +120,19 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	env["AGENT_INSTANCE_ID"] = inst.ID
 	env["AGENT_TEMPLATE"] = tmpl.Name
 
+	// Inject string-valued config_overrides with uppercase keys as env vars.
+	// This allows the portal to pass AGENT_PROMPT, AGENT_SESSION_ID, etc.
+	if len(configOverrides) > 0 {
+		var overrides map[string]any
+		if err := json.Unmarshal(configOverrides, &overrides); err == nil {
+			for k, v := range overrides {
+				if s, ok := v.(string); ok && validCredKeyRe.MatchString(k) {
+					env[k] = s
+				}
+			}
+		}
+	}
+
 	spec := ContainerSpec{
 		Name:  "agent-" + id,
 		Image: tmpl.DockerImage,
