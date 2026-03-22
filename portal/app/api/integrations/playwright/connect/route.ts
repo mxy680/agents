@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { provider } = body as { provider: string };
+  const { provider, label } = body as { provider: string; label?: string };
 
   if (!provider || !PROVIDER_CONFIGS[provider]) {
     return NextResponse.json(
@@ -58,11 +58,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const accountLabel = label?.trim() || `${provider} Account`;
   const { config } = PROVIDER_CONFIGS[provider];
   const sessionId = await captureSession(provider, config());
 
   // Start background task to save cookies when done
-  pollAndSave(sessionId, provider, user.id).catch(console.error);
+  pollAndSave(sessionId, provider, user.id, accountLabel).catch(console.error);
 
   return NextResponse.json({ sessionId, provider });
 }
@@ -70,9 +71,10 @@ export async function POST(request: NextRequest) {
 async function pollAndSave(
   sessionId: string,
   provider: string,
-  userId: string
+  userId: string,
+  label: string
 ) {
-  const maxWait = 6 * 60 * 1000; // 6 minutes (slightly longer than browser timeout)
+  const maxWait = 6 * 60 * 1000;
   const interval = 1000;
   let elapsed = 0;
 
@@ -90,57 +92,62 @@ async function pollAndSave(
       const credHex = `\\x${Buffer.from(encrypted).toString("hex")}`;
       const now = new Date().toISOString();
 
-      // Try update first (existing row for this user+provider)
-      const { data: updated, error: updateError } = await admin
+      // Upsert by (user_id, provider, label) — allows multiple accounts with different labels
+      const { data: existing } = await admin
         .from("user_integrations")
-        .update({
-          credentials: credHex,
-          status: "active",
-          updated_at: now,
-        })
+        .select("id")
         .eq("user_id", userId)
         .eq("provider", provider)
-        .select("id");
+        .eq("label", label)
+        .maybeSingle();
 
-      if (updateError) {
-        console.error(`[playwright/connect] DB update error for ${provider}:`, updateError);
-        updateSessionExternal(sessionId, {
-          status: "error",
-          message: `Failed to save ${provider} credentials.`,
-          error: updateError.message,
-        });
-      } else if (!updated || updated.length === 0) {
-        // No existing row — insert
-        const { error: insertError } = await admin
+      if (existing) {
+        // Update existing account with this label
+        const { error } = await admin
+          .from("user_integrations")
+          .update({ credentials: credHex, status: "active", updated_at: now })
+          .eq("id", existing.id);
+
+        if (error) {
+          console.error(`[playwright/connect] DB update error for ${provider}:`, error);
+          updateSessionExternal(sessionId, {
+            status: "error",
+            message: `Failed to save ${provider} credentials.`,
+            error: error.message,
+          });
+        } else {
+          updateSessionExternal(sessionId, {
+            status: "saved",
+            message: `${label} credentials updated.`,
+          });
+        }
+      } else {
+        // Insert new account
+        const { error } = await admin
           .from("user_integrations")
           .insert({
             user_id: userId,
             provider,
             credentials: credHex,
             status: "active",
-            label: provider,
+            label,
             created_at: now,
             updated_at: now,
           });
 
-        if (insertError) {
-          console.error(`[playwright/connect] DB insert error for ${provider}:`, insertError);
+        if (error) {
+          console.error(`[playwright/connect] DB insert error for ${provider}:`, error);
           updateSessionExternal(sessionId, {
             status: "error",
             message: `Failed to save ${provider} credentials.`,
-            error: insertError.message,
+            error: error.message,
           });
         } else {
           updateSessionExternal(sessionId, {
             status: "saved",
-            message: `${provider} credentials saved successfully.`,
+            message: `${label} connected successfully.`,
           });
         }
-      } else {
-        updateSessionExternal(sessionId, {
-          status: "saved",
-          message: `${provider} credentials updated successfully.`,
-        });
       }
 
       return;

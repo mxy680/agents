@@ -5,11 +5,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { IconLoader2, IconCheck, IconAlertCircle, IconBrowser } from "@tabler/icons-react"
 
 interface PlaywrightConnectDialogProps {
@@ -18,7 +21,7 @@ interface PlaywrightConnectDialogProps {
   children: React.ReactNode
 }
 
-type Status = "idle" | "launching" | "waiting_login" | "capturing" | "done" | "error"
+type Status = "label" | "launching" | "waiting_login" | "capturing" | "done" | "error"
 
 export function PlaywrightConnectDialog({
   provider,
@@ -26,9 +29,9 @@ export function PlaywrightConnectDialog({
   children,
 }: PlaywrightConnectDialogProps) {
   const [open, setOpen] = React.useState(false)
-  const [status, setStatus] = React.useState<Status>("idle")
+  const [status, setStatus] = React.useState<Status>("label")
+  const [label, setLabel] = React.useState("")
   const [message, setMessage] = React.useState("")
-  const [sessionId, setSessionId] = React.useState<string | null>(null)
 
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -39,6 +42,7 @@ export function PlaywrightConnectDialog({
   }, [])
 
   async function handleLaunch() {
+    const accountLabel = label.trim() || `${providerName} Account`
     setStatus("launching")
     setMessage(`Starting ${providerName} browser session...`)
 
@@ -46,7 +50,7 @@ export function PlaywrightConnectDialog({
       const res = await fetch("/api/integrations/playwright/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, label: accountLabel }),
       })
 
       if (!res.ok) {
@@ -57,7 +61,6 @@ export function PlaywrightConnectDialog({
       }
 
       const { sessionId: sid } = await res.json()
-      setSessionId(sid)
       setStatus("waiting_login")
       setMessage(`A browser window has opened. Log in to ${providerName} there.`)
 
@@ -76,14 +79,13 @@ export function PlaywrightConnectDialog({
             setStatus("done")
             setMessage(data.message)
             if (pollRef.current) clearInterval(pollRef.current)
-            // Auto-close and reload after brief delay
             setTimeout(() => {
               setOpen(false)
-              setStatus("idle")
+              setStatus("label")
+              setLabel("")
               window.location.reload()
             }, 1500)
           } else if (data.status === "done") {
-            // Cookies captured, waiting for DB save
             setStatus("capturing")
             setMessage("Saving credentials...")
           } else if (data.status === "error") {
@@ -107,9 +109,9 @@ export function PlaywrightConnectDialog({
       clearInterval(pollRef.current)
     }
     if (!next) {
-      setStatus("idle")
+      setStatus("label")
       setMessage("")
-      setSessionId(null)
+      setLabel("")
     }
     setOpen(next)
   }
@@ -121,21 +123,47 @@ export function PlaywrightConnectDialog({
         <DialogHeader>
           <DialogTitle>Connect {providerName}</DialogTitle>
           <DialogDescription>
-            A browser window will open for you to log in. Your session cookies
-            will be captured automatically.
+            {status === "label"
+              ? `Give this account a name, then a browser window will open for you to log in.`
+              : `Your session cookies will be captured automatically.`}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col items-center gap-4 py-4">
-          {status === "idle" && (
-            <Button onClick={handleLaunch} className="w-full">
-              <IconBrowser className="mr-2 size-4" />
-              Launch Browser
-            </Button>
+        <div className="flex flex-col gap-4 py-2">
+          {status === "label" && (
+            <>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="account-label">Account name</FieldLabel>
+                  <Input
+                    id="account-label"
+                    placeholder={`e.g. Work ${providerName}, Personal`}
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleLaunch()
+                      }
+                    }}
+                    autoFocus
+                  />
+                </Field>
+              </FieldGroup>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleLaunch}>
+                  <IconBrowser className="mr-2 size-4" />
+                  Launch Browser
+                </Button>
+              </DialogFooter>
+            </>
           )}
 
           {status === "launching" && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <IconLoader2 className="size-4 animate-spin" />
               {message}
             </div>
@@ -154,14 +182,14 @@ export function PlaywrightConnectDialog({
           )}
 
           {status === "capturing" && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <IconLoader2 className="size-4 animate-spin" />
               {message}
             </div>
           )}
 
           {status === "done" && (
-            <div className="flex items-center gap-2 text-sm text-green-500">
+            <div className="flex items-center justify-center gap-2 text-sm text-green-500">
               <IconCheck className="size-4" />
               {message}
             </div>
@@ -173,7 +201,7 @@ export function PlaywrightConnectDialog({
                 <IconAlertCircle className="size-4" />
                 {message}
               </div>
-              <Button variant="outline" size="sm" onClick={handleLaunch}>
+              <Button variant="outline" size="sm" onClick={() => setStatus("label")}>
                 Try again
               </Button>
             </div>
