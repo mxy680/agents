@@ -1661,6 +1661,9 @@ PORT (default: 8080)
 KUBE_NAMESPACE (default: agents)
 AGENT_BASE_IMAGE, EXPORT_CREDS_IMAGE
 ANTHROPIC_API_KEY_SECRET (K8s secret name, default: anthropic-api-key)
+
+# Portal (Next.js) — additional env vars
+ORCHESTRATOR_URL          # Orchestrator HTTP base URL, e.g. http://localhost:8080 or https://agents.markshteyn.com:8080 (required for chat API)
 ```
 
 # currentDate
