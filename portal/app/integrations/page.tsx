@@ -28,9 +28,7 @@ import {
   IconBrandX,
   IconLayout,
   IconBrandSupabase,
-  IconMapPin,
   IconPlus,
-  IconCheck,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -75,13 +73,6 @@ const providers = [
     name: "Supabase",
     description: "Projects, Branches, Auth, Database",
     icon: IconBrandSupabase,
-  },
-  {
-    id: "places",
-    name: "Google Places",
-    description: "Business search, reviews, hours, contact info",
-    icon: IconMapPin,
-    noAuth: true,
   },
 ]
 
@@ -171,12 +162,7 @@ export default async function IntegrationsPage() {
                         ))}
                       </div>
                     )}
-                    {"noAuth" in provider && provider.noAuth ? (
-                      <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
-                        <IconCheck className="size-4" />
-                        <span>No setup required — ready to use</span>
-                      </div>
-                    ) : ["instagram", "linkedin", "x"].includes(provider.id) ? (
+                    {["instagram", "linkedin", "x"].includes(provider.id) ? (
                       <ExtensionConnectDialog
                         provider={provider.id}
                         providerName={provider.name}
