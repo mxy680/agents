@@ -3,13 +3,8 @@ import type { ProviderConfig } from "../session-capture";
 export const instagramConfig: ProviderConfig = {
   loginUrl: "https://www.instagram.com/accounts/login/",
   domain: "https://www.instagram.com",
-  cookieNames: [
-    "sessionid",
-    "csrftoken",
-    "ds_user_id",
-    "mid",
-    "ig_did",
-  ],
+  requiredCookies: ["sessionid", "csrftoken", "ds_user_id"],
+  optionalCookies: ["mid", "ig_did"],
   displayName: "Instagram",
 };
 

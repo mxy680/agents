@@ -8,7 +8,8 @@ export function canvasConfig(baseUrl: string): ProviderConfig {
   return {
     loginUrl: `${baseUrl}/login`,
     domain: baseUrl,
-    cookieNames: ["_normandy_session", "_csrf_token"],
+    requiredCookies: ["_normandy_session", "_csrf_token"],
+    optionalCookies: ["log_session_id"],
     displayName: "Canvas LMS",
   };
 }

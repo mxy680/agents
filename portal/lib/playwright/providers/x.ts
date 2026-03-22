@@ -3,7 +3,7 @@ import type { ProviderConfig } from "../session-capture";
 export const xConfig: ProviderConfig = {
   loginUrl: "https://x.com/i/flow/login",
   domain: "https://x.com",
-  cookieNames: ["auth_token", "ct0"],
+  requiredCookies: ["auth_token", "ct0"],
   displayName: "X (Twitter)",
 };
 

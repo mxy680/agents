@@ -34,7 +34,10 @@ function updateSession(sessionId: string, update: Partial<SessionProgress>) {
 export interface ProviderConfig {
   loginUrl: string;
   domain: string;
-  cookieNames: string[];
+  /** Cookies that MUST be present to consider login successful */
+  requiredCookies: string[];
+  /** Cookies to capture if present, but not required */
+  optionalCookies?: string[];
   /** Optional function to check if user is logged in */
   isLoggedIn?: (ctx: BrowserContext) => Promise<boolean>;
   /** Human-readable provider name */
@@ -97,7 +100,7 @@ async function runCapture(
 
     updateSession(sessionId, {
       status: "waiting_login",
-      message: `Navigate to ${config.displayName} and log in. The browser will close automatically when done.`,
+      message: `Log in to ${config.displayName} in the browser window. It will close automatically when done.`,
     });
 
     await page.goto(config.loginUrl, { waitUntil: "domcontentloaded" });
@@ -106,15 +109,31 @@ async function runCapture(
     const maxWaitMs = 5 * 60 * 1000; // 5 minutes
     const pollIntervalMs = 2000;
     let elapsed = 0;
+    const allCookieNames = [
+      ...config.requiredCookies,
+      ...(config.optionalCookies ?? []),
+    ];
 
     while (elapsed < maxWaitMs) {
-      const cookies = await context.cookies(config.domain);
+      // Get cookies for all URLs the browser has visited (not just the config domain)
+      const cookies = await context.cookies();
       const cookieMap = new Map(cookies.map((c) => [c.name, c.value]));
-      const allPresent = config.cookieNames.every(
+
+      // Log what we see for debugging
+      const found = config.requiredCookies.filter(
+        (n) => cookieMap.has(n) && cookieMap.get(n) !== ""
+      );
+      if (found.length > 0 && elapsed % 10000 < pollIntervalMs) {
+        console.log(
+          `[playwright] ${provider}: found ${found.length}/${config.requiredCookies.length} required cookies: ${found.join(", ")}`
+        );
+      }
+
+      const allRequiredPresent = config.requiredCookies.every(
         (name) => cookieMap.has(name) && cookieMap.get(name) !== ""
       );
 
-      if (allPresent) {
+      if (allRequiredPresent) {
         // Optional: verify login via custom check
         if (config.isLoggedIn) {
           const loggedIn = await config.isLoggedIn(context);
@@ -131,9 +150,14 @@ async function runCapture(
         });
 
         const result: Record<string, string> = {};
-        for (const name of config.cookieNames) {
-          result[name] = cookieMap.get(name) || "";
+        for (const name of allCookieNames) {
+          const val = cookieMap.get(name);
+          if (val) result[name] = val;
         }
+
+        console.log(
+          `[playwright] ${provider}: captured ${Object.keys(result).length} cookies: ${Object.keys(result).join(", ")}`
+        );
 
         updateSession(sessionId, {
           status: "done",
