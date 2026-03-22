@@ -47,6 +47,18 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	canvasCmd.AddCommand(newRubricsCmd(p.ClientFactory))
 	canvasCmd.AddCommand(newGradesCmd(p.ClientFactory))
 	canvasCmd.AddCommand(newSectionsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newPlannerCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newBookmarksCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newFavoritesCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newSearchCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newAssignmentGroupsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newOutcomesCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newAnalyticsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newNotificationsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newExternalToolsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newPeerReviewsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newContentMigrationsCmd(p.ClientFactory))
+	canvasCmd.AddCommand(newContentExportsCmd(p.ClientFactory))
 
 	parent.AddCommand(canvasCmd)
 }

@@ -272,6 +272,77 @@ type SectionSummary struct {
 	NonxlistCourseID int    `json:"nonxlist_course_id,omitempty"`
 }
 
+// PlannerNoteSummary is a condensed Canvas planner note representation.
+type PlannerNoteSummary struct {
+	ID       int    `json:"id"`
+	Title    string `json:"title"`
+	Details  string `json:"details,omitempty"`
+	CourseID int    `json:"course_id,omitempty"`
+	TodoDate string `json:"todo_date,omitempty"`
+}
+
+// BookmarkSummary is a condensed Canvas bookmark representation.
+type BookmarkSummary struct {
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Position int    `json:"position,omitempty"`
+}
+
+// ExternalToolSummary is a condensed Canvas external tool (LTI) representation.
+type ExternalToolSummary struct {
+	ID           int    `json:"id"`
+	Name         string `json:"name"`
+	URL          string `json:"url,omitempty"`
+	Domain       string `json:"domain,omitempty"`
+	Description  string `json:"description,omitempty"`
+	PrivacyLevel string `json:"privacy_level,omitempty"`
+	ConsumerKey  string `json:"consumer_key,omitempty"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	UpdatedAt    string `json:"updated_at,omitempty"`
+}
+
+// NotificationSummary is a condensed Canvas account notification representation.
+type NotificationSummary struct {
+	ID       int    `json:"id"`
+	Subject  string `json:"subject,omitempty"`
+	Message  string `json:"message,omitempty"`
+	StartAt  string `json:"start_at,omitempty"`
+	EndAt    string `json:"end_at,omitempty"`
+	Icon     string `json:"icon,omitempty"`
+}
+
+// AssignmentGroupSummary is a condensed Canvas assignment group representation.
+type AssignmentGroupSummary struct {
+	ID              int     `json:"id"`
+	Name            string  `json:"name"`
+	Position        int     `json:"position,omitempty"`
+	GroupWeight     float64 `json:"group_weight,omitempty"`
+	AssignmentsCount int    `json:"assignments_count,omitempty"`
+}
+
+// OutcomeSummary is a condensed Canvas learning outcome representation.
+type OutcomeSummary struct {
+	ID             int     `json:"id"`
+	Title          string  `json:"title"`
+	DisplayName    string  `json:"display_name,omitempty"`
+	Description    string  `json:"description,omitempty"`
+	PointsPossible float64 `json:"points_possible,omitempty"`
+	MasteryPoints  float64 `json:"mastery_points,omitempty"`
+	ContextType    string  `json:"context_type,omitempty"`
+	ContextID      int     `json:"context_id,omitempty"`
+}
+
+// AccountNotificationSummary is a condensed Canvas account notification (banner) representation.
+type AccountNotificationSummary struct {
+	ID      int    `json:"id"`
+	Subject string `json:"subject"`
+	Message string `json:"message,omitempty"`
+	StartAt string `json:"start_at,omitempty"`
+	EndAt   string `json:"end_at,omitempty"`
+	Icon    string `json:"icon,omitempty"`
+}
+
 // formatSize formats a file size in bytes to a human-readable string.
 func formatSize(bytes int64) string {
 	const (
