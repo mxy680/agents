@@ -45,7 +45,7 @@ const navMain = [
       },
       {
         title: "Agents",
-        url: "/chat",
+        url: "/agents",
         icon: IconRobot,
       },
       {
