@@ -130,11 +130,21 @@ async function runCapture(
           message: "Cookies detected, capturing session...",
         });
 
-        // Capture ALL cookies from the context — providers may need cookies
-        // beyond the named required/optional ones (e.g. Canvas session cookies
-        // have instance-specific names)
+        // Filter cookies to the provider's domain — the browser may have cookies
+        // from SSO redirects (LinkedIn, Google, YouTube, etc.) that we don't want
+        const providerHost = new URL(config.domain).hostname;
+        const domainCookies = cookies.filter((c) => {
+          const cookieDomain = c.domain.startsWith(".")
+            ? c.domain.slice(1)
+            : c.domain;
+          return (
+            providerHost === cookieDomain ||
+            providerHost.endsWith("." + cookieDomain)
+          );
+        });
+
         const result: Record<string, string> = {};
-        for (const cookie of cookies) {
+        for (const cookie of domainCookies) {
           if (cookie.value) result[cookie.name] = cookie.value;
         }
 
