@@ -172,98 +172,82 @@ export async function POST(
         const toolIdRef = { currentToolId: null as string | null }
         // Buffer for incomplete NDJSON lines
         let ndjsonLineBuffer = ""
-        // Buffer for incomplete SSE frames from the orchestrator's log stream
-        let sseFrameBuffer = ""
 
         try {
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
 
-            // The orchestrator sends SSE-formatted chunks: `data: <raw stdout bytes>\n\n`
-            // We need to extract the raw stdout content from each SSE frame.
-            sseFrameBuffer += decoder.decode(value, { stream: true })
+            // The orchestrator sends SSE-formatted data: `data: <raw stdout bytes>\n\n`
+            // The raw stdout bytes contain multiple NDJSON lines separated by \n.
+            // Strip the `data: ` prefix from each SSE frame and feed the raw content
+            // directly to the NDJSON parser.
+            let chunk = decoder.decode(value, { stream: true })
 
-            // Split on double-newline SSE frame boundaries
-            const frames = sseFrameBuffer.split("\n\n")
-            // Last element may be an incomplete frame — keep it in the buffer
-            sseFrameBuffer = frames.pop() ?? ""
+            // Strip SSE framing — remove "data: " prefixes and double-newline delimiters
+            chunk = chunk.replace(/^data: /gm, "")
 
-            for (const frame of frames) {
-              // Extract content from "data: ..." lines, joining multi-line data
-              const dataLines: string[] = []
-              for (const line of frame.split("\n")) {
-                if (line.startsWith("data: ")) {
-                  dataLines.push(line.slice(6))
-                } else if (line.startsWith("data:")) {
-                  dataLines.push(line.slice(5))
+            const { events, remainingBuffer } = parseNDJSON(
+              chunk,
+              ndjsonLineBuffer,
+              toolInputAccum,
+              toolIdRef
+            )
+            ndjsonLineBuffer = remainingBuffer
+
+            for (const sseEvent of events) {
+              send(sseEvent.event, sseEvent.data)
+
+              // Track assistant content for persistence
+              switch (sseEvent.event) {
+                case "delta": {
+                  const last = assistantBlocks[assistantBlocks.length - 1]
+                  if (last?.type === "text") {
+                    assistantBlocks[assistantBlocks.length - 1] = { ...last, content: last.content + sseEvent.data }
+                  } else {
+                    assistantBlocks.push({ type: "text", content: sseEvent.data })
+                  }
+                  break
                 }
-              }
-              if (dataLines.length === 0) continue
-
-              const rawContent = dataLines.join("\n")
-              const { events, remainingBuffer } = parseNDJSON(
-                rawContent,
-                ndjsonLineBuffer,
-                toolInputAccum,
-                toolIdRef
-              )
-              ndjsonLineBuffer = remainingBuffer
-
-              for (const sseEvent of events) {
-                send(sseEvent.event, sseEvent.data)
-
-                // Track assistant content for persistence
-                switch (sseEvent.event) {
-                  case "delta": {
-                    const last = assistantBlocks[assistantBlocks.length - 1]
-                    if (last?.type === "text") {
-                      assistantBlocks[assistantBlocks.length - 1] = { ...last, content: last.content + sseEvent.data }
-                    } else {
-                      assistantBlocks.push({ type: "text", content: sseEvent.data })
+                case "tool_start": {
+                  try {
+                    const { name, id } = JSON.parse(sseEvent.data) as { name: string; id: string }
+                    activeToolId = id
+                    assistantBlocks.push({ type: "tool", id, name, finalInput: "" })
+                  } catch { /* ignore */ }
+                  break
+                }
+                case "tool_input": {
+                  if (activeToolId) {
+                    const toolId = activeToolId
+                    const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
+                    if (idx !== -1) {
+                      assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, finalInput: sseEvent.data }
                     }
-                    break
                   }
-                  case "tool_start": {
-                    try {
-                      const { name, id } = JSON.parse(sseEvent.data) as { name: string; id: string }
-                      activeToolId = id
-                      assistantBlocks.push({ type: "tool", id, name, finalInput: "" })
-                    } catch { /* ignore */ }
-                    break
-                  }
-                  case "tool_input": {
-                    if (activeToolId) {
-                      const toolId = activeToolId
+                  break
+                }
+                case "tool_result": {
+                  try {
+                    const parsed = JSON.parse(sseEvent.data) as { summary: string; toolUseId?: string }
+                    const toolId: string | null = parsed.toolUseId ?? activeToolId
+                    if (toolId) {
                       const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
                       if (idx !== -1) {
-                        assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, finalInput: sseEvent.data }
+                        const resultStr = typeof parsed.summary === "string" ? parsed.summary : JSON.stringify(parsed.summary)
+                        assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, result: resultStr }
                       }
+                      if (toolId === activeToolId) activeToolId = null
                     }
-                    break
+                  } catch { /* ignore */ }
+                  break
+                }
+                case "session": {
+                  // Update conversation with session_id
+                  if (conversationId) {
+                    admin.from("conversations").update({ session_id: sseEvent.data }).eq("id", conversationId).then(() => {})
                   }
-                  case "tool_result": {
-                    try {
-                      const parsed = JSON.parse(sseEvent.data) as { summary: string; toolUseId?: string }
-                      const toolId: string | null = parsed.toolUseId ?? activeToolId
-                      if (toolId) {
-                        const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
-                        if (idx !== -1) {
-                          const resultStr = typeof parsed.summary === "string" ? parsed.summary : JSON.stringify(parsed.summary)
-                          assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, result: resultStr }
-                        }
-                        if (toolId === activeToolId) activeToolId = null
-                      }
-                    } catch { /* ignore */ }
-                    break
-                  }
-                  case "session": {
-                    // Update conversation with session_id
-                    if (conversationId) {
-                      admin.from("conversations").update({ session_id: sseEvent.data }).eq("id", conversationId).then(() => {})
-                    }
-                    break
-                  }
+                  break
                 }
               }
             }
