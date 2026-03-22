@@ -12,7 +12,7 @@ const PROVIDER_REQUIRED_COOKIES: Record<string, string[]> = {
   instagram: ["session_id"],
   linkedin: ["li_at", "jsessionid"],
   x: ["auth_token", "csrf_token"],
-  canvas: ["session_cookie", "csrf_token"],
+  canvas: ["base_url", "session_cookie", "csrf_token"],
 }
 
 // Chrome extensions send Origin: chrome-extension://<id>

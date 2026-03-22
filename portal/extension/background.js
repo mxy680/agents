@@ -15,6 +15,7 @@ const PROVIDER_LOGIN_URLS = {
   instagram: "https://www.instagram.com/accounts/login/",
   linkedin: "https://www.linkedin.com/login",
   x: "https://x.com/i/flow/login",
+  // Canvas login URL is dynamic per school — set via "login" message's `loginUrl` field
 }
 
 const PROVIDERS = {
@@ -49,6 +50,17 @@ const PROVIDERS = {
     credentialKeys: {
       auth_token: "auth_token",
       ct0: "csrf_token",
+    },
+  },
+  // Canvas has a dynamic domain per school — set at sync time via message.canvasUrl
+  canvas: {
+    domain: null, // resolved dynamically
+    loginCookie: "_normandy_session",
+    cookies: ["_normandy_session", "_csrf_token", "log_session_id"],
+    credentialKeys: {
+      _normandy_session: "session_cookie",
+      _csrf_token: "csrf_token",
+      log_session_id: "log_session_id",
     },
   },
 }
@@ -318,6 +330,14 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     return true
   }
 
+  // "sync-canvas" — sync Canvas cookies from a user-provided Canvas URL
+  if (message.type === "sync-canvas" && message.canvasUrl) {
+    syncCanvasProvider(message.canvasUrl, message.label)
+      .then(() => sendResponse({ ok: true, status: "synced" }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }))
+    return true
+  }
+
   // "ping" — portal checks if extension is installed and reachable
   if (message.type === "ping") {
     sendResponse({ ok: true, version: chrome.runtime.getManifest().version })
@@ -431,6 +451,77 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     return true
   }
 })
+
+// ---------------------------------------------------------------------------
+// Canvas-specific sync (dynamic domain)
+// ---------------------------------------------------------------------------
+
+/**
+ * Syncs Canvas LMS cookies from a user-provided Canvas URL.
+ * Unlike other providers, Canvas domains vary per school so we can't use a
+ * fixed domain in the PROVIDERS config.
+ */
+async function syncCanvasProvider(canvasUrl, label) {
+  const provider = PROVIDERS.canvas
+
+  const { portalUrl, token } = await chrome.storage.local.get(["portalUrl", "token"])
+  if (!portalUrl || !token) {
+    throw new Error("Portal URL or token not configured")
+  }
+
+  // Read cookies from the Canvas instance URL
+  let allCookies
+  try {
+    allCookies = await chrome.cookies.getAll({ url: canvasUrl })
+  } catch (err) {
+    throw new Error(`Failed to read cookies from ${canvasUrl}: ${err.message}`)
+  }
+
+  // Build a name → value map for the cookies we care about
+  const cookieMap = {}
+  for (const cookie of allCookies) {
+    if (provider.cookies.includes(cookie.name)) {
+      cookieMap[cookie.name] = cookie.value
+    }
+  }
+
+  if (!cookieMap[provider.loginCookie]) {
+    throw new Error("Not logged into Canvas. Please log in first, then try again.")
+  }
+
+  // Map raw cookie names to credential keys
+  const credentials = { base_url: canvasUrl.replace(/\/+$/, "") }
+  for (const [rawName, credKey] of Object.entries(provider.credentialKeys)) {
+    if (cookieMap[rawName]) {
+      credentials[credKey] = cookieMap[rawName]
+    }
+  }
+
+  // POST to portal
+  const response = await fetch(`${portalUrl}/api/integrations/extension/cookies`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      provider: "canvas",
+      cookies: credentials,
+      label: label || "Canvas LMS",
+    }),
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || `HTTP ${response.status}`)
+  }
+
+  await setStatus("canvas", {
+    status: "synced",
+    message: null,
+    syncedAt: new Date().toISOString(),
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Incognito login helpers

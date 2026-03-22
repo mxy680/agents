@@ -12,6 +12,7 @@ const PROVIDER_META = {
   instagram: { label: "Instagram", icon: "📸" },
   linkedin: { label: "LinkedIn", icon: "💼" },
   x: { label: "X", icon: "𝕏" },
+  canvas: { label: "Canvas LMS", icon: "🎓" },
 }
 
 // ---------------------------------------------------------------------------
