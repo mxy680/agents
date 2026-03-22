@@ -101,65 +101,68 @@ export default async function AgentsPage() {
               const conversationCount = convCountMap[template.name] ?? 0
 
               return (
-                <a key={template.id} href={`/agents/${template.name}`}>
-                  <Card className="transition-colors hover:bg-muted/50 h-full">
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-10 items-center justify-center bg-muted">
-                          <IconRobot className="size-5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <CardTitle className="text-base">{template.display_name}</CardTitle>
-                            <Badge variant={template.status === "active" ? "default" : "secondary"}>
-                              {template.status}
-                            </Badge>
-                          </div>
-                          <CardDescription>{template.description}</CardDescription>
-                        </div>
+                <Card key={template.id} className="h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center bg-muted">
+                        <IconRobot className="size-5" />
                       </div>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      {requiredIntegrations.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {requiredIntegrations.map((provider) => (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-base">
+                            <a href={`/agents/${template.name}`} className="hover:underline">
+                              {template.display_name}
+                            </a>
+                          </CardTitle>
+                          <Badge variant={template.status === "active" ? "default" : "secondary"}>
+                            {template.status}
+                          </Badge>
+                        </div>
+                        <CardDescription>{template.description}</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3">
+                    {requiredIntegrations.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {requiredIntegrations.map((provider) => (
+                          <span
+                            key={provider}
+                            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                          >
                             <span
-                              key={provider}
-                              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs"
+                              className={
+                                connectedProviders.has(provider)
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                              }
                             >
-                              <span
-                                className={
-                                  connectedProviders.has(provider)
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                }
-                              >
-                                ●
-                              </span>
-                              {provider}
+                              ●
                             </span>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {clientCount} {clientCount === 1 ? "client" : "clients"} · {conversationCount}{" "}
-                        {conversationCount === 1 ? "conversation" : "conversations"}
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          asChild
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <a href={`/chat/${template.name}`}>
-                            <IconMessage className="size-4" />
-                            Chat
-                          </a>
-                        </Button>
+                            {provider}
+                          </span>
+                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
-                </a>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {clientCount} {clientCount === 1 ? "client" : "clients"} · {conversationCount}{" "}
+                      {conversationCount === 1 ? "conversation" : "conversations"}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button size="sm" asChild>
+                        <a href={`/chat/${template.name}`}>
+                          <IconMessage className="size-4" />
+                          Chat
+                        </a>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={`/agents/${template.name}`}>
+                          Details
+                        </a>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               )
             })}
             {templates.length === 0 && (
