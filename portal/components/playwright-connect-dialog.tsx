@@ -145,13 +145,24 @@ export function PlaywrightConnectDialog({
                 {needsBaseUrl && (
                   <Field>
                     <FieldLabel htmlFor="base-url">Canvas URL</FieldLabel>
-                    <Input
-                      id="base-url"
-                      placeholder="https://canvas.university.edu"
-                      value={baseUrl}
-                      onChange={(e) => setBaseUrl(e.target.value)}
-                      autoFocus
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="base-url"
+                        placeholder="https://canvas.university.edu"
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setBaseUrl("https://canvas.case.edu")}
+                      >
+                        CWRU
+                      </Button>
+                    </div>
                   </Field>
                 )}
                 <Field>
