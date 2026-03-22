@@ -1,6 +1,18 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
+  .split(",")
+  .map((e) => e.trim())
+  .filter(Boolean)
+
+function isAdminEmail(email: string | undefined): boolean {
+  return !!email && ADMIN_EMAILS.includes(email)
+}
+
+// Routes that don't require admin access
+const PUBLIC_ROUTES = ["/login", "/auth/callback", "/auth/sign-out", "/api/jobs/cron"]
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -31,22 +43,30 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Redirect / to /login or /integrations based on auth state
+  // Redirect / based on auth state
   if (pathname === "/") {
-    if (user) {
+    if (user && isAdminEmail(user.email)) {
       return NextResponse.redirect(new URL("/integrations", request.url))
     }
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Protect /integrations
-  if (pathname.startsWith("/integrations") && !user) {
+  // Allow public routes
+  if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+    // Redirect authenticated admin users away from login
+    if (pathname === "/login" && user && isAdminEmail(user.email)) {
+      return NextResponse.redirect(new URL("/integrations", request.url))
+    }
+    return supabaseResponse
+  }
+
+  // All other routes require authenticated admin
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Redirect authenticated users away from login
-  if (pathname === "/login" && user) {
-    return NextResponse.redirect(new URL("/integrations", request.url))
+  if (!isAdminEmail(user.email)) {
+    return NextResponse.redirect(new URL("/login?error=not_authorized", request.url))
   }
 
   return supabaseResponse

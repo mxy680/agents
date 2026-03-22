@@ -6,11 +6,9 @@ import {
   IconPlugConnected,
   IconSettings,
   IconLogout,
-  IconUser,
   IconRobot,
-  IconBuildingStore,
-  IconShieldCheck,
   IconCalendarEvent,
+  IconUsers,
 } from "@tabler/icons-react"
 
 import {
@@ -38,36 +36,32 @@ import { signOut } from "@/app/auth/actions"
 
 const navMain = [
   {
-    title: "Discover",
+    title: "Dashboard",
     items: [
       {
-        title: "Marketplace",
-        url: "/marketplace",
-        icon: IconBuildingStore,
-        isActive: false as const,
+        title: "Integrations",
+        url: "/integrations",
+        icon: IconPlugConnected,
       },
-    ],
-  },
-  {
-    title: "My Workspace",
-    items: [
       {
-        title: "My Agents",
-        url: "/agents",
+        title: "Agents",
+        url: "/chat",
         icon: IconRobot,
-        isActive: false as const,
       },
       {
         title: "Jobs",
         url: "/jobs",
         icon: IconCalendarEvent,
-        isActive: false as const,
       },
+    ],
+  },
+  {
+    title: "Admin",
+    items: [
       {
-        title: "Integrations",
-        url: "/integrations",
-        icon: IconPlugConnected,
-        isActive: false as const,
+        title: "Clients",
+        url: "/admin/clients",
+        icon: IconUsers,
       },
     ],
   },
@@ -75,10 +69,9 @@ const navMain = [
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user?: { email?: string; name?: string }
-  isAdmin?: boolean
 }
 
-export function AppSidebar({ user, isAdmin, ...props }: AppSidebarProps) {
+export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase()
     : user?.email?.[0]?.toUpperCase() ?? "?"
@@ -94,7 +87,7 @@ export function AppSidebar({ user, isAdmin, ...props }: AppSidebarProps) {
                   <IconApps className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Agent Marketplace</span>
+                  <span className="font-semibold">Emdash Admin</span>
                   <span className="text-xs text-muted-foreground">Integrations</span>
                 </div>
               </a>
@@ -110,7 +103,7 @@ export function AppSidebar({ user, isAdmin, ...props }: AppSidebarProps) {
               <SidebarMenu>
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.isActive}>
+                    <SidebarMenuButton asChild>
                       <a href={item.url}>
                         <item.icon />
                         {item.title}
@@ -122,23 +115,6 @@ export function AppSidebar({ user, isAdmin, ...props }: AppSidebarProps) {
             </SidebarGroupContent>
           </SidebarGroup>
         ))}
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <a href="/admin">
-                      <IconShieldCheck />
-                      Approvals
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

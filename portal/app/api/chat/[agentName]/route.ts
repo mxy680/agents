@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { resolveUserCredentials } from "@/lib/credentials"
+import { resolveAdminCredentials } from "@/lib/credentials"
 import { runContainer } from "@/lib/container-runner"
 import { generateTitle } from "@/lib/auto-title"
 import { checkOrigin } from "@/lib/csrf"
@@ -27,44 +27,6 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })
-  }
-
-  // Check that the user has acquired this agent
-  const { data: template } = await supabase
-    .from("agent_templates")
-    .select("id")
-    .eq("name", agentName)
-    .eq("status", "active")
-    .single()
-
-  if (template) {
-    const { data: userAgent } = await supabase
-      .from("user_agents")
-      .select("template_id, status")
-      .eq("user_id", user.id)
-      .eq("template_id", template.id)
-      .maybeSingle()
-
-    if (!userAgent) {
-      return new Response(
-        JSON.stringify({ error: "Agent not acquired. Visit the marketplace to get this agent." }),
-        { status: 403 }
-      )
-    }
-
-    if (userAgent.status === "pending") {
-      return new Response(
-        JSON.stringify({ error: "Your access to this agent is pending admin approval." }),
-        { status: 403 }
-      )
-    }
-
-    if (userAgent.status === "rejected") {
-      return new Response(
-        JSON.stringify({ error: "Your access to this agent was not approved." }),
-        { status: 403 }
-      )
-    }
   }
 
   // Parse request body
@@ -127,7 +89,7 @@ export async function POST(
   // Resolve credentials for all active integrations
   let credEnv: Record<string, string>
   try {
-    credEnv = await resolveUserCredentials(user.id)
+    credEnv = await resolveAdminCredentials()
   } catch (e) {
     console.error("Failed to resolve user credentials:", e)
     return new Response(JSON.stringify({ error: "Failed to fetch integrations" }), { status: 500 })

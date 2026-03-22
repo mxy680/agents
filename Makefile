@@ -1,5 +1,5 @@
 .PHONY: build test test-integration lint clean \
-       portal-install portal-dev portal-build portal-lint \
+       portal-install portal-dev portal-build portal-lint portal-playwright-install \
        orchestrator sync-templates sync-jobs kind-setup orchestrator-dev
 
 BINARY := bin/integrations
@@ -57,3 +57,6 @@ portal-build:
 
 portal-lint:
 	cd portal && npm run lint
+
+portal-playwright-install:
+	cd portal && npx playwright install chromium
