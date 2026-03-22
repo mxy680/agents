@@ -264,3 +264,225 @@ func TestFilesCreateFolderSuccess(t *testing.T) {
 		t.Errorf("expected folder name in output, got: %s", output)
 	}
 }
+func TestFilesUpdateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"files", "update", "--file-id", "601", "--name", "homework-renamed.pdf"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "601") || !strings.Contains(output, "updated") {
+		t.Errorf("expected file update output, got: %s", output)
+	}
+}
+
+func TestFilesCreateFolderLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"files", "create-folder", "--course-id", "101", "--name", "New Folder"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "created") && !strings.Contains(output, "New Folder") && !strings.Contains(output, "702") {
+		t.Errorf("expected folder creation output, got: %s", output)
+	}
+}
+
+func TestFilesDownloadMissingFileID(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	var execErr error
+	captureStdout(t, func() {
+		root.SetArgs([]string{"files", "download", "--output", "/tmp/out.pdf"})
+		execErr = root.Execute()
+	})
+
+	if execErr == nil {
+		t.Error("expected error when --file-id is missing")
+	}
+	if !strings.Contains(execErr.Error(), "--file-id") {
+		t.Errorf("error should mention --file-id, got: %v", execErr)
+	}
+}
+
+func TestFilesDownloadMissingOutput(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	var execErr error
+	captureStdout(t, func() {
+		root.SetArgs([]string{"files", "download", "--file-id", "601"})
+		execErr = root.Execute()
+	})
+
+	if execErr == nil {
+		t.Error("expected error when --output is missing")
+	}
+	if !strings.Contains(execErr.Error(), "--output") {
+		t.Errorf("error should mention --output, got: %v", execErr)
+	}
+}
+
+func TestFilesFolderContentsJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"files", "folder-contents", "--folder-id", "701", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "homework.pdf") {
+		t.Errorf("expected file name in JSON output, got: %s", output)
+	}
+}
+
+func TestFilesFoldersJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"files", "folders", "--course-id", "101", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "assignments") {
+		t.Errorf("expected folder name in JSON output, got: %s", output)
+	}
+}
+
+func TestFilesUpdateJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"files", "update", "--file-id", "601", "--name", "Updated File", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "601") {
+		t.Errorf("expected file ID in JSON output, got: %s", output)
+	}
+}
+
+func TestFilesUpdateWithAllFlags(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"files", "update",
+			"--file-id", "601",
+			"--name", "Updated File",
+			"--parent-folder-id", "701",
+			"--locked",
+			"--hidden",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "601") {
+		t.Errorf("expected file ID in output, got: %s", output)
+	}
+}
+
+func TestFilesCreateFolderJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"files", "create-folder",
+			"--course-id", "101",
+			"--name", "New Folder",
+			"--json",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "702") {
+		t.Errorf("expected folder ID in JSON output, got: %s", output)
+	}
+}
+
+func TestFilesCreateFolderWithOptionalFlags(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newFilesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"files", "create-folder",
+			"--course-id", "101",
+			"--name", "New Folder",
+			"--parent-folder", "course files",
+			"--locked",
+			"--hidden",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "702") {
+		t.Errorf("expected folder ID in output, got: %s", output)
+	}
+}

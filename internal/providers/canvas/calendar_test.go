@@ -229,3 +229,114 @@ func TestCalendarDeleteConfirm(t *testing.T) {
 		t.Errorf("expected 'deleted' in output, got: %s", output)
 	}
 }
+
+func TestCalendarUpdateLive(t *testing.T) {
+	mux := http.NewServeMux()
+	withCalendarMock(mux)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newCalendarCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"calendar", "update",
+			"--event-id", "901",
+			"--title", "Midterm Exam Updated",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "901") {
+		t.Errorf("expected event ID 901 in update output, got: %s", output)
+	}
+}
+
+func TestCalendarUpdateJSON(t *testing.T) {
+	mux := http.NewServeMux()
+	withCalendarMock(mux)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newCalendarCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"calendar", "update",
+			"--event-id", "901",
+			"--title", "Updated Exam",
+			"--json",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "901") {
+		t.Errorf("expected event ID in JSON output, got: %s", output)
+	}
+}
+
+func TestCalendarListWithFilters(t *testing.T) {
+	mux := http.NewServeMux()
+	withCalendarMock(mux)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newCalendarCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"calendar", "list",
+			"--type", "event",
+			"--start-date", "2026-01-01",
+			"--end-date", "2026-12-31",
+			"--context-codes", "course_101",
+			"--limit", "10",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Midterm Exam") {
+		t.Errorf("expected event in filtered output, got: %s", output)
+	}
+}
+
+func TestCalendarUpdateWithAllFlags(t *testing.T) {
+	mux := http.NewServeMux()
+	withCalendarMock(mux)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newCalendarCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"calendar", "update",
+			"--event-id", "901",
+			"--title", "Updated Exam",
+			"--start-at", "2026-03-15T10:00:00Z",
+			"--end-at", "2026-03-15T12:00:00Z",
+			"--description", "Updated description",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "901") {
+		t.Errorf("expected event ID in output, got: %s", output)
+	}
+}

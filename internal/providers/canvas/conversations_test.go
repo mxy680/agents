@@ -331,3 +331,121 @@ func TestConversationsUnreadCountText(t *testing.T) {
 		t.Errorf("expected 'Unread' label in output, got: %s", output)
 	}
 }
+
+func TestConversationsCreateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newConversationsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"conversations", "create",
+			"--recipients", "42",
+			"--subject", "Question about homework",
+			"--body", "When is it due?",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "created") && !strings.Contains(output, "1002") && !strings.Contains(output, "Question") {
+		t.Errorf("expected conversation creation output, got: %s", output)
+	}
+}
+
+func TestConversationsReplyLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newConversationsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"conversations", "reply",
+			"--conversation-id", "1001",
+			"--body", "Thanks for the update!",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1001") && !strings.Contains(output, "replied") && !strings.Contains(output, "reply") {
+		t.Errorf("expected reply output, got: %s", output)
+	}
+}
+
+func TestConversationsUpdateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newConversationsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"conversations", "update",
+			"--conversation-id", "1001",
+			"--starred",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1001") {
+		t.Errorf("expected conversation ID 1001 in update output, got: %s", output)
+	}
+}
+
+func TestConversationsMarkAllReadLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newConversationsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"conversations", "mark-all-read"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "marked") && !strings.Contains(output, "read") && !strings.Contains(output, "All") {
+		t.Errorf("expected mark-all-read output, got: %s", output)
+	}
+}
+
+func TestConversationsUpdateJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newConversationsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"conversations", "update",
+			"--conversation-id", "1001",
+			"--workflow-state", "read",
+			"--json",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1001") {
+		t.Errorf("expected conversation ID in JSON output, got: %s", output)
+	}
+}

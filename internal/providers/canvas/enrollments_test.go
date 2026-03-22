@@ -292,3 +292,128 @@ func TestEnrollmentsReactivateDryRun(t *testing.T) {
 		t.Errorf("expected DRY RUN in output, got: %s", output)
 	}
 }
+
+func TestEnrollmentsCreateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newEnrollmentsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"enrollments", "create",
+			"--course-id", "101",
+			"--user-id", "42",
+			"--type", "StudentEnrollment",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "created") && !strings.Contains(output, "801") && !strings.Contains(output, "Jane Doe") {
+		t.Errorf("expected enrollment creation output, got: %s", output)
+	}
+}
+
+func TestEnrollmentsDeactivateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newEnrollmentsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"enrollments", "deactivate",
+			"--course-id", "101",
+			"--enrollment-id", "801",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "801") && !strings.Contains(output, "deactivate") && !strings.Contains(output, "inactive") {
+		t.Errorf("expected deactivation output, got: %s", output)
+	}
+}
+
+func TestEnrollmentsReactivateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newEnrollmentsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"enrollments", "reactivate",
+			"--course-id", "101",
+			"--enrollment-id", "801",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "801") && !strings.Contains(output, "reactivate") && !strings.Contains(output, "active") {
+		t.Errorf("expected reactivation output, got: %s", output)
+	}
+}
+
+func TestEnrollmentsConcludeLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newEnrollmentsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"enrollments", "conclude",
+			"--course-id", "101",
+			"--enrollment-id", "801",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "801") {
+		t.Errorf("expected enrollment ID 801 in output, got: %s", output)
+	}
+}
+
+func TestEnrollmentsListWithFilters(t *testing.T) {
+	mux := http.NewServeMux()
+	withEnrollmentsMock(mux)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newEnrollmentsCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"enrollments", "list",
+			"--course-id", "101",
+			"--type", "StudentEnrollment",
+			"--state", "active",
+			"--limit", "10",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "Jane Doe") {
+		t.Errorf("expected student name in filtered output, got: %s", output)
+	}
+}

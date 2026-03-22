@@ -342,3 +342,170 @@ func TestQuizzesSubmissionsJSON(t *testing.T) {
 		t.Errorf("expected submission state in JSON output, got: %s", output)
 	}
 }
+
+func TestQuizzesCreateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"quizzes", "create", "--course-id", "101", "--title", "Pop Quiz"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "created") && !strings.Contains(output, "Pop Quiz") && !strings.Contains(output, "1102") {
+		t.Errorf("expected quiz creation output, got: %s", output)
+	}
+}
+
+func TestQuizzesUpdateLive(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"quizzes", "update", "--course-id", "101", "--quiz-id", "1101", "--title", "Updated Quiz"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1101") {
+		t.Errorf("expected quiz ID 1101 in update output, got: %s", output)
+	}
+}
+
+func TestQuizzesCreateJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"quizzes", "create",
+			"--course-id", "101",
+			"--title", "Final Quiz",
+			"--json",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1102") {
+		t.Errorf("expected quiz ID in JSON output, got: %s", output)
+	}
+}
+
+func TestQuizzesUpdateJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"quizzes", "update",
+			"--course-id", "101",
+			"--quiz-id", "1101",
+			"--title", "Updated Quiz",
+			"--json",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1101") {
+		t.Errorf("expected quiz ID in JSON output, got: %s", output)
+	}
+}
+
+func TestQuizzesQuestionsJSON(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{"quizzes", "questions", "--course-id", "101", "--quiz-id", "1101", "--json"})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "multiple_choice") {
+		t.Errorf("expected question type in JSON output, got: %s", output)
+	}
+}
+func TestQuizzesCreateWithOptionalFlags(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"quizzes", "create",
+			"--course-id", "101",
+			"--title", "Pop Quiz",
+			"--description", "A short quiz",
+			"--quiz-type", "assignment",
+			"--time-limit", "30",
+			"--points", "50",
+			"--published",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1102") {
+		t.Errorf("expected quiz ID in output, got: %s", output)
+	}
+}
+
+func TestQuizzesUpdateWithOptionalFlags(t *testing.T) {
+	server := newFullMockServer(t)
+	defer server.Close()
+
+	factory := newTestClientFactory(server)
+	root := newTestRootCmd()
+	root.AddCommand(newQuizzesCmd(factory))
+
+	output := captureStdout(t, func() {
+		root.SetArgs([]string{
+			"quizzes", "update",
+			"--course-id", "101",
+			"--quiz-id", "1101",
+			"--title", "Updated Quiz",
+			"--description", "Updated description",
+			"--time-limit", "90",
+			"--published",
+		})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	if !strings.Contains(output, "1101") {
+		t.Errorf("expected quiz ID in output, got: %s", output)
+	}
+}

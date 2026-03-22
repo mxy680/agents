@@ -823,11 +823,29 @@ func withGroupsMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 2001, "name": "Study Group Updated", "join_level": "invitation_only",
+				"members_count": 5, "context_type": "Course",
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 2001, "name": "Study Group", "join_level": "invitation_only",
 			"members_count": 5, "context_type": "Course", "description": "Weekly study sessions",
 		})
+	})
+	mux.HandleFunc("/api/v1/groups", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 2003, "name": "New Group", "join_level": "invitation_only", "members_count": 0,
+			})
+			return
+		}
 	})
 	mux.HandleFunc("/api/v1/groups/2001/memberships", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -868,6 +886,13 @@ func withRubricsMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 4001, "title": "Essay Rubric Updated", "points_possible": 100.0, "context_type": "Course",
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 4001, "title": "Essay Rubric", "points_possible": 100.0, "context_type": "Course",
@@ -902,11 +927,35 @@ func withSectionsMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 6001, "name": "Section A Updated", "course_id": 101,
+				"total_students": 15,
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 6001, "name": "Section A", "course_id": 101,
 			"total_students": 15, "start_at": "2026-01-15T00:00:00Z",
 		})
+	})
+	mux.HandleFunc("/api/v1/sections/6001/crosslist/102", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"id": 6001, "name": "Section A", "course_id": 102,
+			"nonxlist_course_id": 101,
+		})
+	})
+	mux.HandleFunc("/api/v1/sections/6001/crosslist", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 6001, "name": "Section A", "course_id": 101,
+			})
+			return
+		}
 	})
 }
 
@@ -948,6 +997,13 @@ func withPlannerMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 7001, "title": "Updated Study Plan", "todo_date": "2026-03-02T00:00:00Z",
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 7001, "title": "Study for Exam", "todo_date": "2026-03-01T00:00:00Z",
@@ -955,7 +1011,30 @@ func withPlannerMock(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/v1/planner/overrides", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]map[string]any{})
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 30001, "plannable_type": "assignment", "plannable_id": 501,
+				"marked_complete": false, "dismissed": false,
+			})
+			return
+		}
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"id": 30001, "plannable_type": "assignment", "plannable_id": 501, "marked_complete": false},
+		})
+	})
+	mux.HandleFunc("/api/v1/planner/overrides/30001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPut {
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 30001, "plannable_type": "assignment", "plannable_id": 501,
+				"marked_complete": true, "dismissed": false,
+			})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"id": 30001, "plannable_type": "assignment", "plannable_id": 501, "marked_complete": false,
+		})
 	})
 }
 
@@ -982,6 +1061,13 @@ func withBookmarksMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 8001, "name": "Updated Bookmark", "url": "https://canvas.edu/courses/101", "position": 1,
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 8001, "name": "Intro to CS", "url": "https://canvas.edu/courses/101", "position": 1,
@@ -1005,8 +1091,22 @@ func withFavoritesMock(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("/api/v1/users/self/favorites/courses/101", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodDelete {
+			json.NewEncoder(w).Encode(map[string]any{"removed": true})
+			return
+		}
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 101, "name": "Intro to CS", "course_code": "CS101",
+		})
+	})
+	mux.HandleFunc("/api/v1/users/self/favorites/groups/2001", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodDelete {
+			json.NewEncoder(w).Encode(map[string]any{"removed": true})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"id": 2001, "name": "Study Group", "join_level": "invitation_only",
 		})
 	})
 }
@@ -1057,6 +1157,13 @@ func withAssignmentGroupsMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 10001, "name": "Homework Updated", "position": 1, "group_weight": 40.0,
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 10001, "name": "Homework", "position": 1, "group_weight": 40.0,
@@ -1072,6 +1179,15 @@ func withOutcomesMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 11001, "title": "Critical Thinking Updated",
+				"display_name": "CT", "mastery_points": 4.0,
+				"context_type": "Course", "context_id": 101,
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 11001, "title": "Critical Thinking",
@@ -1081,9 +1197,39 @@ func withOutcomesMock(mux *http.ServeMux) {
 		})
 	})
 	mux.HandleFunc("/api/v1/courses/101/outcome_groups/root/outcomes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"outcome_id": 11002, "outcome": map[string]any{"title": "New Outcome"},
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"outcome_id": 11001, "outcome": map[string]any{"title": "Critical Thinking"}},
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/outcome_groups", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"id": 20001, "title": "Root Outcome Group", "description": "Top-level group"},
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/outcome_rollups", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"rollups": []map[string]any{
+				{"scores": []map[string]any{{"score": 3.0, "links": map[string]any{"outcome": "11001"}}}},
+			},
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/outcome_results", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"outcome_results": []map[string]any{
+				{"id": 1, "score": 3.0, "links": map[string]any{"user": "42", "outcome": "11001"}},
+			},
 		})
 	})
 }
@@ -1102,6 +1248,20 @@ func withAnalyticsMock(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode([]map[string]any{
 			{"assignment_id": 501, "title": "Homework 1", "max_score": 100, "min_score": 55},
 			{"assignment_id": 502, "title": "Homework 2", "max_score": 50, "min_score": 20},
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/analytics/users/42/activity", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"page_views":     map[string]any{"total": 80},
+			"participations": map[string]any{"total": 20},
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/analytics/users/42/assignments", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"assignment_id": 501, "title": "Homework 1", "score": 95.0, "submitted": true},
+			{"assignment_id": 502, "title": "Homework 2", "score": 48.0, "submitted": true},
 		})
 	})
 }
@@ -1124,6 +1284,15 @@ func withNotificationsMock(mux *http.ServeMux) {
 			"notification_preferences": []map[string]any{
 				{"notification": "Assignment Graded", "frequency": "immediately"},
 				{"notification": "Assignment Due Date", "frequency": "daily"},
+			},
+		})
+	})
+	// Handler for updating a single notification preference category.
+	mux.HandleFunc("/api/v1/users/self/communication_channels/email/self/notification_preferences/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"notification_preferences": []map[string]any{
+				{"notification": "Assignment Graded", "frequency": "daily"},
 			},
 		})
 	})
@@ -1153,11 +1322,26 @@ func withExternalToolsMock(mux *http.ServeMux) {
 			json.NewEncoder(w).Encode(map[string]any{"delete": true})
 			return
 		}
+		if r.Method == http.MethodPut {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": 13001, "name": "Khan Academy Updated",
+				"url": "https://khan.example.com/lti", "privacy_level": "public",
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 13001, "name": "Khan Academy",
 			"url": "https://khan.example.com/lti", "privacy_level": "public",
 			"description": "Khan Academy LTI integration",
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/external_tools/sessionless_launch", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"url": "https://khan.example.com/lti/sessionless?token=abc123",
+			"id":  13001,
 		})
 	})
 }
@@ -1170,6 +1354,20 @@ func withPeerReviewsMock(mux *http.ServeMux) {
 			{"assessor_id": 43, "asset_id": 1001, "workflow_state": "assigned"},
 			{"assessor_id": 44, "asset_id": 1001, "workflow_state": "completed"},
 		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/assignments/501/submissions/1/peer_reviews", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost {
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(map[string]any{
+				"assessor_id": 43, "asset_id": 1001, "workflow_state": "assigned",
+			})
+			return
+		}
+		if r.Method == http.MethodDelete {
+			json.NewEncoder(w).Encode(map[string]any{"deleted": true})
+			return
+		}
 	})
 }
 
@@ -1195,6 +1393,13 @@ func withContentMigrationsMock(mux *http.ServeMux) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"id": 14001, "migration_type": "course_copy_importer", "workflow_state": "completed",
 			"progress_url": "https://canvas.test.edu/api/v1/progress/9999",
+		})
+	})
+	mux.HandleFunc("/api/v1/courses/101/content_migrations/14001/content_list", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"type": "assignment", "title": "Homework 1", "migration_id": "m_hw1"},
+			{"type": "quiz", "title": "Quiz 1", "migration_id": "m_quiz1"},
 		})
 	})
 }
