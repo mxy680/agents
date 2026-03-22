@@ -47,7 +47,11 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { provider, label } = body as { provider: string; label?: string };
+  const { provider, label, baseUrl } = body as {
+    provider: string;
+    label?: string;
+    baseUrl?: string;
+  };
 
   if (!provider || !PROVIDER_CONFIGS[provider]) {
     return NextResponse.json(
@@ -59,11 +63,30 @@ export async function POST(request: NextRequest) {
   }
 
   const accountLabel = label?.trim() || `${provider} Account`;
-  const { config } = PROVIDER_CONFIGS[provider];
-  const sessionId = await captureSession(provider, config());
+
+  // Canvas requires a base URL
+  if (provider === "canvas" && !baseUrl?.trim()) {
+    return NextResponse.json(
+      { error: "Canvas base URL is required (e.g. https://canvas.university.edu)" },
+      { status: 400 }
+    );
+  }
+
+  const entry = PROVIDER_CONFIGS[provider];
+  const providerConfig =
+    provider === "canvas"
+      ? canvasConfig(baseUrl!.trim().replace(/\/+$/, ""))
+      : entry.config();
+  const sessionId = await captureSession(provider, providerConfig);
+
+  // Extra metadata to store alongside cookies
+  const extraCreds: Record<string, string> = {};
+  if (provider === "canvas" && baseUrl) {
+    extraCreds.base_url = baseUrl.trim().replace(/\/+$/, "");
+  }
 
   // Start background task to save cookies when done
-  pollAndSave(sessionId, provider, user.id, accountLabel).catch(console.error);
+  pollAndSave(sessionId, provider, user.id, accountLabel, extraCreds).catch(console.error);
 
   return NextResponse.json({ sessionId, provider });
 }
@@ -72,7 +95,8 @@ async function pollAndSave(
   sessionId: string,
   provider: string,
   userId: string,
-  label: string
+  label: string,
+  extraCreds: Record<string, string> = {}
 ) {
   const maxWait = 6 * 60 * 1000;
   const interval = 1000;
@@ -84,7 +108,7 @@ async function pollAndSave(
 
     if (session.status === "done" && session.cookies) {
       const { mapCookies } = PROVIDER_CONFIGS[provider];
-      const mapped = mapCookies(session.cookies);
+      const mapped = { ...mapCookies(session.cookies), ...extraCreds };
 
       const encrypted = encrypt(JSON.stringify(mapped));
 

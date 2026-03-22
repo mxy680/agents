@@ -31,7 +31,10 @@ export function PlaywrightConnectDialog({
   const [open, setOpen] = React.useState(false)
   const [status, setStatus] = React.useState<Status>("label")
   const [label, setLabel] = React.useState("")
+  const [baseUrl, setBaseUrl] = React.useState("")
   const [message, setMessage] = React.useState("")
+
+  const needsBaseUrl = provider === "canvas"
 
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -50,7 +53,11 @@ export function PlaywrightConnectDialog({
       const res = await fetch("/api/integrations/playwright/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, label: accountLabel }),
+        body: JSON.stringify({
+          provider,
+          label: accountLabel,
+          ...(needsBaseUrl && baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
+        }),
       })
 
       if (!res.ok) {
@@ -83,6 +90,7 @@ export function PlaywrightConnectDialog({
               setOpen(false)
               setStatus("label")
               setLabel("")
+              setBaseUrl("")
               window.location.reload()
             }, 1500)
           } else if (data.status === "done") {
@@ -112,6 +120,7 @@ export function PlaywrightConnectDialog({
       setStatus("label")
       setMessage("")
       setLabel("")
+      setBaseUrl("")
     }
     setOpen(next)
   }
@@ -133,6 +142,18 @@ export function PlaywrightConnectDialog({
           {status === "label" && (
             <>
               <FieldGroup>
+                {needsBaseUrl && (
+                  <Field>
+                    <FieldLabel htmlFor="base-url">Canvas URL</FieldLabel>
+                    <Input
+                      id="base-url"
+                      placeholder="https://canvas.university.edu"
+                      value={baseUrl}
+                      onChange={(e) => setBaseUrl(e.target.value)}
+                      autoFocus
+                    />
+                  </Field>
+                )}
                 <Field>
                   <FieldLabel htmlFor="account-label">Account name</FieldLabel>
                   <Input
@@ -146,7 +167,7 @@ export function PlaywrightConnectDialog({
                         handleLaunch()
                       }
                     }}
-                    autoFocus
+                    autoFocus={!needsBaseUrl}
                   />
                 </Field>
               </FieldGroup>

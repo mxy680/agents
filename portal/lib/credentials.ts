@@ -50,7 +50,8 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.session_cookie) env.CANVAS_SESSION_COOKIE = credJson.session_cookie
       if (credJson.csrf_token) env.CANVAS_CSRF_TOKEN = credJson.csrf_token
       if (credJson.log_session_id) env.CANVAS_LOG_SESSION_ID = credJson.log_session_id
-      if (process.env.CANVAS_BASE_URL) env.CANVAS_BASE_URL = process.env.CANVAS_BASE_URL
+      if (credJson.base_url) env.CANVAS_BASE_URL = credJson.base_url
+      else if (process.env.CANVAS_BASE_URL) env.CANVAS_BASE_URL = process.env.CANVAS_BASE_URL
       break
     case "bluebubbles":
       if (credJson.url) env.BLUEBUBBLES_URL = credJson.url
