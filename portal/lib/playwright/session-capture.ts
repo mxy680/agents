@@ -1,6 +1,4 @@
-import { chromium, type BrowserContext, type Cookie } from "playwright";
-import { join } from "path";
-import { homedir } from "os";
+import { chromium, type BrowserContext } from "playwright";
 
 export type SessionStatus =
   | "pending"
@@ -43,10 +41,9 @@ export interface ProviderConfig {
   displayName: string;
 }
 
-const USER_DATA_DIR = join(homedir(), ".emdash", "playwright-profiles");
-
 /**
  * Launch a visible browser for the user to log in, then capture cookies.
+ * Uses a fresh (incognito) context so old sessions don't interfere.
  * Runs in a spawned async context — caller should not await directly in request handler.
  */
 export async function captureSession(
@@ -78,23 +75,25 @@ async function runCapture(
   provider: string,
   config: ProviderConfig
 ) {
-  const profileDir = join(USER_DATA_DIR, provider);
-
   updateSession(sessionId, {
     status: "browser_open",
     message: `Opening browser for ${config.displayName}...`,
   });
 
-  const context = await chromium.launchPersistentContext(profileDir, {
+  // Fresh incognito context — no old sessions carry over
+  const browser = await chromium.launch({
     headless: false,
-    viewport: { width: 1280, height: 900 },
-    locale: "en-US",
-    timezoneId: "America/New_York",
     args: ["--disable-blink-features=AutomationControlled"],
   });
 
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    locale: "en-US",
+    timezoneId: "America/New_York",
+  });
+
   try {
-    const page = context.pages()[0] || (await context.newPage());
+    const page = await context.newPage();
 
     updateSession(sessionId, {
       status: "waiting_login",
@@ -156,5 +155,6 @@ async function runCapture(
     });
   } finally {
     await context.close();
+    await browser.close();
   }
 }
