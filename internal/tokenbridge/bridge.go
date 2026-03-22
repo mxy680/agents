@@ -102,6 +102,13 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"url":      "BLUEBUBBLES_URL",
 			"password": "BLUEBUBBLES_PASSWORD",
 		})
+	case "canvas":
+		mapCredentials(creds, env, map[string]string{
+			"base_url":        "CANVAS_BASE_URL",
+			"session_cookie":  "CANVAS_SESSION_COOKIE",
+			"csrf_token":      "CANVAS_CSRF_TOKEN",
+			"log_session_id":  "CANVAS_LOG_SESSION_ID",
+		})
 	}
 	return nil
 }
