@@ -77,6 +77,20 @@ Append data rows:
 integrations sheets values append --id=SPREADSHEET_ID --range="Sheet1!A1" --values='[["123 Main St, Bronx, NY 10451","$500,000","2","2,500","1,800","1925","R7A","High","Narrow rowhouse block, similar buildings adjacent","Small 2-family in R7A zone, standard 25ft lot, older stock, attached context","https://zillow.com/...","https://zola.planning.nyc.gov/lot/2/...","Corner lot"]]' --value-input=USER_ENTERED --json
 ```
 
+## Tool 4: Google Drive CLI (for creating Google Docs)
+
+Upload an HTML file as a Google Doc:
+```bash
+integrations drive files upload --path=/tmp/report.html --name="Bronx Assemblage Report — 2026-03-23" --mime-type=text/html --json
+```
+
+The uploaded HTML file will be converted to a Google Doc automatically by Drive. The response includes `id` and `webViewLink`.
+
+To create a formatted report:
+1. Write an HTML file to `/tmp/report.html` with the report content
+2. Use standard HTML formatting: `<h1>`, `<h2>`, `<p>`, `<table>`, `<strong>`, `<ul>`, etc.
+3. Upload it via the Drive CLI — Google converts it to a native Google Doc
+
 ## Workflow
 
 1. Search Zillow for each target zip code (see job prompt for list)
@@ -85,7 +99,8 @@ integrations sheets values append --id=SPREADSHEET_ID --range="Sheet1!A1" --valu
 4. Look up zoning + lot data via PLUTO (Socrata) → get zoning, lot SF, building SF, year built
 5. Filter: only keep R7+ zoned properties
 6. Score starter-lot potential (Low/Moderate/High) based on observable signals
-7. Create Google Sheet and write results
+7. Create Google Sheet with raw data table
+8. Create Google Doc report with analysis and recommendations
 
 ## Important
 - **Use PLUTO for lot size, year built, building area** — not Zillow detail endpoint
