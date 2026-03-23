@@ -1,0 +1,9 @@
+name: bronx-assemblage
+display_name: Bronx Assemblage Scout
+description: Identifies starter-lot opportunities for residential assemblages in the Bronx by cross-referencing Zillow listings with NYC ZoLa zoning data.
+git_path: agents/bronx-assemblage
+docker_image: ghcr.io/emdash-projects/agent-base:dev
+required_integrations:
+  - zillow
+  - google
+status: active

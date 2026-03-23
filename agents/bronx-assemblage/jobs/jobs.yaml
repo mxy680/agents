@@ -1,0 +1,6 @@
+jobs:
+  - slug: weekly-scan
+    display_name: Weekly Bronx Scan
+    schedule: "0 9 * * 1"  # Every Monday at 9am
+    prompt_file: weekly-scan.md
+    timeout_minutes: 30
