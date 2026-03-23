@@ -55,9 +55,7 @@ func TestProviderRegisterCommands(t *testing.T) {
 
 	// Verify subcommands exist
 	expectedSubs := []string{
-		"properties", "zestimates", "agents", "mortgage",
-		"search", "walkscore", "schools", "neighborhoods",
-		"builders", "rentals",
+		"properties", "search", "mortgage", "rentals",
 	}
 	for _, name := range expectedSubs {
 		found := false

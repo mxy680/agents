@@ -108,22 +108,6 @@ func makeRunSearchByAddress(factory ClientFactory) func(*cobra.Command, []string
 			return fmt.Errorf("parse autocomplete: %w", err)
 		}
 
-		// Find the first result with a ZPID
-		for _, r := range results {
-			if r.ZPID != "" {
-				detail, err := fetchPropertyDetail(ctx, client, r.ZPID)
-				if err != nil {
-					return fmt.Errorf("fetch property: %w", err)
-				}
-				if cli.IsJSONOutput(cmd) {
-					return cli.PrintJSON(detail)
-				}
-				printPropertyDetail(detail)
-				return nil
-			}
-		}
-
-		// If no ZPID found, show autocomplete results
 		if cli.IsJSONOutput(cmd) {
 			return cli.PrintJSON(results)
 		}
@@ -131,10 +115,15 @@ func makeRunSearchByAddress(factory ClientFactory) func(*cobra.Command, []string
 			fmt.Println("No results found for that address.")
 			return nil
 		}
-		fmt.Println("No exact property match. Did you mean:")
+		lines := []string{fmt.Sprintf("Results for %q:", address)}
 		for _, r := range results {
-			fmt.Printf("  %s [%s]\n", r.Display, r.Type)
+			line := fmt.Sprintf("  %-40s  [%s]", truncate(r.Display, 40), r.Type)
+			if r.ZPID != "" {
+				line += fmt.Sprintf("  zpid:%s", r.ZPID)
+			}
+			lines = append(lines, line)
 		}
+		cli.PrintText(lines)
 		return nil
 	}
 }

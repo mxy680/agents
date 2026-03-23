@@ -123,10 +123,13 @@ func TestSearchByAddress(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 		})
-		// Should return property detail as JSON
-		var result map[string]any
-		if err := json.Unmarshal([]byte(out), &result); err != nil {
-			t.Fatalf("expected valid JSON, got: %s, error: %v", out, err)
+		// Should return autocomplete results as JSON array
+		var results []AutocompleteResult
+		if err := json.Unmarshal([]byte(out), &results); err != nil {
+			t.Fatalf("expected valid JSON array, got: %s, error: %v", out, err)
+		}
+		if len(results) == 0 {
+			t.Error("expected at least one result")
 		}
 	})
 }

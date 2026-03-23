@@ -174,64 +174,6 @@ func TestClientPutJSON(t *testing.T) {
 	})
 }
 
-func TestClientPostJSON(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodPost {
-				t.Errorf("expected POST, got %s", r.Method)
-			}
-			if r.Header.Get("Content-Type") != "application/json" {
-				t.Errorf("expected Content-Type: application/json, got %s", r.Header.Get("Content-Type"))
-			}
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(`{"result":"created"}`))
-		}))
-		defer server.Close()
-
-		client := newClientWithBase(server.Client(), server.URL)
-		payload := map[string]any{"name": "test"}
-		body, err := client.PostJSON(context.Background(), server.URL+"/test", payload)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if !strings.Contains(string(body), "result") {
-			t.Errorf("unexpected body: %s", body)
-		}
-	})
-
-	t.Run("429_rate_limit", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "rate limited", http.StatusTooManyRequests)
-		}))
-		defer server.Close()
-
-		client := newClientWithBase(server.Client(), server.URL)
-		_, err := client.PostJSON(context.Background(), server.URL+"/test", map[string]any{})
-		if err == nil {
-			t.Fatal("expected error for 429, got nil")
-		}
-		if _, ok := err.(*RateLimitError); !ok {
-			t.Errorf("expected *RateLimitError, got %T", err)
-		}
-	})
-
-	t.Run("403_blocked", func(t *testing.T) {
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "forbidden", http.StatusForbidden)
-		}))
-		defer server.Close()
-
-		client := newClientWithBase(server.Client(), server.URL)
-		_, err := client.PostJSON(context.Background(), server.URL+"/test", map[string]any{})
-		if err == nil {
-			t.Fatal("expected error for 403, got nil")
-		}
-		if _, ok := err.(*BlockedError); !ok {
-			t.Errorf("expected *BlockedError, got %T", err)
-		}
-	})
-}
-
 func TestNewClientWithBase(t *testing.T) {
 	httpClient := &http.Client{}
 	client := newClientWithBase(httpClient, "http://localhost:9999")

@@ -155,44 +155,6 @@ func (c *Client) PutJSON(ctx context.Context, rawURL string, payload any) ([]byt
 	return body, nil
 }
 
-// PostJSON performs an HTTP POST with a JSON body and returns the response body.
-func (c *Client) PostJSON(ctx context.Context, rawURL string, payload any) ([]byte, error) {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("marshal payload: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, strings.NewReader(string(data)))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-	c.applyHeaders(req)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http post: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
-	}
-
-	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, &RateLimitError{}
-	}
-	if resp.StatusCode == http.StatusForbidden {
-		return nil, &BlockedError{StatusCode: resp.StatusCode, Body: string(body)}
-	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, truncateBody(body))
-	}
-
-	return body, nil
-}
-
 // RateLimitError is returned when Zillow responds with HTTP 429.
 type RateLimitError struct{}
 
