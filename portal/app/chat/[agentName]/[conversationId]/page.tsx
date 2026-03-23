@@ -1,20 +1,16 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback, use } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
 import { Button } from "@/components/ui/button"
 import {
   IconSend,
   IconRobot,
-  IconUser,
-  IconChevronDown,
-  IconChevronRight,
-  IconTool,
   IconArrowLeft,
   IconLoader2,
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { MessageBubble } from "@/components/chat/message-bubble"
+import { PromptPalette } from "@/components/chat/prompt-palette"
 
 // --- Types ---
 
@@ -55,264 +51,11 @@ function appendText(blocks: ContentBlock[], text: string): ContentBlock[] {
   return updated
 }
 
-// --- Tool call card component ---
+// Inline ToolCallCard, ThinkingIndicator, MarkdownContent, and MessageBubble
+// are now in portal/components/chat/
 
-function ToolCallCard({ tool }: { tool: ToolBlock }) {
-  const [expanded, setExpanded] = useState(false)
-  const hasResult = Boolean(tool.result)
 
-  return (
-    <div className="my-1.5 border border-border/60 bg-muted/30 text-xs">
-      <button
-        onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left hover:bg-muted/60 transition-colors"
-      >
-        <IconTool className="size-3 shrink-0 text-muted-foreground" />
-        <span className="font-mono font-medium">{tool.name}</span>
-        {hasResult && <span className="ml-1 text-muted-foreground">— done</span>}
-        {!hasResult && (
-          <IconLoader2 className="ml-1 size-3 text-muted-foreground animate-spin" />
-        )}
-        <span className="ml-auto">
-          {expanded ? (
-            <IconChevronDown className="size-3 text-muted-foreground" />
-          ) : (
-            <IconChevronRight className="size-3 text-muted-foreground" />
-          )}
-        </span>
-      </button>
-      {expanded && (
-        <div className="border-t border-border/60 px-2.5 py-2 space-y-2">
-          {tool.finalInput && (
-            <div>
-              <p className="text-muted-foreground mb-1">Input</p>
-              <pre className="whitespace-pre-wrap break-all font-mono text-xs bg-background/60 p-1.5 overflow-auto max-h-48">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(tool.finalInput), null, 2)
-                  } catch {
-                    return tool.finalInput
-                  }
-                })()}
-              </pre>
-            </div>
-          )}
-          {tool.result && (
-            <div>
-              <p className="text-muted-foreground mb-1">Result</p>
-              <pre className="whitespace-pre-wrap break-all font-mono text-xs bg-background/60 p-1.5 overflow-auto max-h-48">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(tool.result), null, 2)
-                  } catch {
-                    return tool.result
-                  }
-                })()}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
-// --- Thinking indicator ---
-
-function ThinkingIndicator() {
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-      <div className="flex gap-1">
-        <span
-          className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "0ms" }}
-        />
-        <span
-          className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "150ms" }}
-        />
-        <span
-          className="size-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "300ms" }}
-        />
-      </div>
-      <span className="italic">Thinking…</span>
-    </div>
-  )
-}
-
-// --- Markdown renderer ---
-
-function MarkdownContent({ content }: { content: string }) {
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-        strong: ({ children }) => (
-          <strong className="font-semibold">{children}</strong>
-        ),
-        em: ({ children }) => <em className="italic">{children}</em>,
-        del: ({ children }) => (
-          <del className="line-through text-muted-foreground">{children}</del>
-        ),
-        ul: ({ children }) => (
-          <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>
-        ),
-        ol: ({ children }) => (
-          <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>
-        ),
-        li: ({ children }) => <li className="mb-0.5">{children}</li>,
-        code: ({ children, className }) => {
-          const isBlock = className?.includes("language-")
-          if (isBlock) {
-            return (
-              <pre className="my-2 overflow-auto rounded bg-background/80 p-2 text-[11px] font-mono">
-                <code>{children}</code>
-              </pre>
-            )
-          }
-          return (
-            <code className="rounded bg-background/60 px-1 py-0.5 text-[11px] font-mono">
-              {children}
-            </code>
-          )
-        },
-        pre: ({ children }) => <>{children}</>,
-        h1: ({ children }) => (
-          <h1 className="mb-2 text-base font-bold">{children}</h1>
-        ),
-        h2: ({ children }) => (
-          <h2 className="mb-2 text-sm font-bold">{children}</h2>
-        ),
-        h3: ({ children }) => (
-          <h3 className="mb-1 text-xs font-bold">{children}</h3>
-        ),
-        h4: ({ children }) => (
-          <h4 className="mb-1 text-xs font-semibold">{children}</h4>
-        ),
-        blockquote: ({ children }) => (
-          <blockquote className="my-2 border-l-2 border-border pl-3 text-muted-foreground italic">
-            {children}
-          </blockquote>
-        ),
-        hr: () => <hr className="my-3 border-border/60" />,
-        a: ({ href, children }) => (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 hover:text-primary/80"
-          >
-            {children}
-          </a>
-        ),
-        table: ({ children }) => (
-          <div className="my-2 overflow-x-auto">
-            <table className="w-full border-collapse text-[11px]">{children}</table>
-          </div>
-        ),
-        thead: ({ children }) => (
-          <thead className="bg-background/60">{children}</thead>
-        ),
-        tbody: ({ children }) => <tbody>{children}</tbody>,
-        tr: ({ children }) => (
-          <tr className="border-b border-border/40">{children}</tr>
-        ),
-        th: ({ children }) => (
-          <th className="px-2 py-1.5 text-left font-semibold border border-border/40">
-            {children}
-          </th>
-        ),
-        td: ({ children }) => (
-          <td className="px-2 py-1.5 border border-border/40">{children}</td>
-        ),
-        input: ({ checked, ...props }) => (
-          <input
-            type="checkbox"
-            checked={checked}
-            readOnly
-            className="mr-1.5 align-middle"
-            {...props}
-          />
-        ),
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  )
-}
-
-// --- Message bubble ---
-
-function MessageBubble({ message }: { message: Message }) {
-  const isUser = message.role === "user"
-  const hasContent = message.blocks.length > 0
-  const isThinking = message.isStreaming && !hasContent
-  const lastBlock = message.blocks[message.blocks.length - 1]
-  const isStreamingText = message.isStreaming && lastBlock?.type === "text"
-
-  return (
-    <div className={cn("flex gap-2.5 mb-4", isUser && "flex-row-reverse")}>
-      <div
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center mt-0.5",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted"
-        )}
-      >
-        {isUser ? (
-          <IconUser className="size-3.5" />
-        ) : (
-          <IconRobot className="size-3.5" />
-        )}
-      </div>
-      <div
-        className={cn(
-          "flex flex-col gap-0 max-w-[80%]",
-          isUser && "items-end"
-        )}
-      >
-        {isThinking && (
-          <div className="bg-muted/60 border border-border/40">
-            <ThinkingIndicator />
-          </div>
-        )}
-
-        {message.blocks.map((block, i) => {
-          if (block.type === "text") {
-            const isLast = i === message.blocks.length - 1
-            return (
-              <div
-                key={i}
-                className={cn(
-                  "px-3 py-2 text-xs/relaxed",
-                  isUser
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted/60 text-foreground border border-border/40"
-                )}
-              >
-                {isUser ? (
-                  block.content
-                ) : (
-                  <MarkdownContent content={block.content} />
-                )}
-                {isLast && isStreamingText && (
-                  <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse align-text-bottom" />
-                )}
-              </div>
-            )
-          }
-
-          if (block.type === "tool") {
-            return <ToolCallCard key={block.id} tool={block} />
-          }
-
-          return null
-        })}
-      </div>
-    </div>
-  )
-}
 
 // --- DB message type for hydration ---
 
@@ -372,8 +115,8 @@ export default function ConversationPage({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim()
+  const sendMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim()
     if (!text || isLoading) return
 
     setInput("")
@@ -606,23 +349,20 @@ export default function ConversationPage({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         {hydrated && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-            <div className="flex size-14 items-center justify-center bg-muted">
-              <IconRobot className="size-7 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm font-medium capitalize">
-                {agentName.replace(/-/g, " ")}
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Send a message to start a conversation.
-              </p>
-            </div>
-          </div>
+          <PromptPalette
+            agentName={agentName}
+            agentDisplayName={agentName.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+            onSelect={(prompt) => sendMessage(prompt)}
+          />
         )}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            role={message.role}
+            blocks={message.blocks}
+            isStreaming={message.isStreaming}
+          />
         ))}
 
         {error && (
@@ -669,7 +409,7 @@ export default function ConversationPage({
           ) : (
             <Button
               size="icon"
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={!input.trim()}
               title="Send message"
             >
