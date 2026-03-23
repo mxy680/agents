@@ -32,24 +32,12 @@ export const zillowConfig: ProviderConfig = {
     const pages = ctx.pages();
     const page = pages[pages.length - 1];
     if (!page) return false;
-    const url = page.url();
 
-    // Must be on zillow.com
-    if (!url.startsWith("https://www.zillow.com")) return false;
-
-    // Check that real page content loaded (not CAPTCHA/block page)
     // The CAPTCHA page title is "Access to this page has been denied"
-    const title = await page.title();
-    if (title.includes("denied") || title.includes("blocked")) return false;
-
-    // Verify actual listings are present (search results page has property cards)
-    const hasContent = await page.evaluate(() => {
-      return document.querySelectorAll('article, [data-test="property-card"]').length > 0
-        || document.querySelector('#grid-search-results') !== null
-        || document.querySelector('[id="search-page-list-container"]') !== null;
-    }).catch(() => false);
-
-    return hasContent;
+    // If _px3 is required and present, PerimeterX challenge was passed.
+    // Just verify we're not still on the block page.
+    const title = await page.title().catch(() => "");
+    return !title.includes("denied") && !title.includes("blocked");
   },
 };
 
