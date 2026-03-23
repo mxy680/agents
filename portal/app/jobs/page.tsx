@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
-import { isAdmin } from "@/lib/admin"
+
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,11 +22,6 @@ import { JobCard } from "./job-card"
 interface AgentTemplate {
   id: string
   display_name: string
-}
-
-interface UserAgentRow {
-  template_id: string
-  status: string
 }
 
 interface JobDefinition {
@@ -63,53 +58,37 @@ export default async function JobsPage() {
 
   const admin = createAdminClient()
 
-  // Fetch approved user agents to get template IDs
-  const { data: userAgents } = await supabase
-    .from("user_agents")
-    .select("template_id, status")
-    .eq("user_id", user.id)
-    .eq("status", "approved")
+  // Fetch all enabled job definitions (admin-only tool, no per-user filtering)
+  const { data: jobDefs } = await admin
+    .from("job_definitions")
+    .select("id, template_id, display_name, description, schedule, agent_templates(id, display_name)")
+    .eq("enabled", true)
 
-  const approvedTemplateIds = ((userAgents ?? []) as UserAgentRow[]).map((ua) => ua.template_id)
+  const definitions = (jobDefs ?? []) as JobDefinition[]
 
-  let enrichedJobs: EnrichedJob[] = []
+  // For each job, fetch the most recent job run for this user
+  const enrichedJobs: EnrichedJob[] = await Promise.all(
+    definitions.map(async (def) => {
+      const { data: runs } = await supabase
+        .from("job_runs")
+        .select("id, status, started_at, completed_at, created_at")
+        .eq("job_definition_id", def.id)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
 
-  if (approvedTemplateIds.length > 0) {
-    // Fetch enabled job definitions for the user's approved templates
-    const { data: jobDefs } = await admin
-      .from("job_definitions")
-      .select("id, template_id, display_name, description, schedule, agent_templates(id, display_name)")
-      .in("template_id", approvedTemplateIds)
-      .eq("enabled", true)
+      const lastRun = ((runs ?? []) as JobRun[])[0] ?? null
 
-    const definitions = (jobDefs ?? []) as JobDefinition[]
+      const agentTemplate = Array.isArray(def.agent_templates)
+        ? def.agent_templates[0]
+        : def.agent_templates
+      const agentName = agentTemplate?.display_name ?? "Unknown Agent"
 
-    // For each job, fetch the most recent job run for this user
-    enrichedJobs = await Promise.all(
-      definitions.map(async (def) => {
-        const { data: runs } = await supabase
-          .from("job_runs")
-          .select("id, status, started_at, completed_at, created_at")
-          .eq("job_definition_id", def.id)
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
+      const nextRun = getNextRun(def.schedule)
 
-        const lastRun = ((runs ?? []) as JobRun[])[0] ?? null
-
-        const agentTemplate = Array.isArray(def.agent_templates)
-          ? def.agent_templates[0]
-          : def.agent_templates
-        const agentName = agentTemplate?.display_name ?? "Unknown Agent"
-
-        const nextRun = getNextRun(def.schedule)
-
-        return { definition: def, agentName, lastRun, nextRun }
-      })
-    )
-  }
-
-  const userIsAdmin = isAdmin(user.email)
+      return { definition: def, agentName, lastRun, nextRun }
+    })
+  )
 
   return (
     <SidebarProvider>
@@ -118,7 +97,6 @@ export default async function JobsPage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
-        isAdmin={userIsAdmin}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

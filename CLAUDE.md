@@ -1,7 +1,9 @@
-# Agent Marketplace - Integration CLI
+# Emdash Agents — Internal Integration Platform
 
 ## Overview
-Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), and iMessage (via BlueBubbles). Includes a Next.js web portal for self-service OAuth and token management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Internal admin tool for managing AI agent integrations. Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), iMessage (via BlueBubbles), and Canvas LMS. Includes an admin-only Next.js portal for centralized credential management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+
+Mark owns all integrations centrally. Clients get specialized agents configured via the admin dashboard. Session-bound integrations (Instagram, LinkedIn, X, Canvas) use Playwright browser automation for cookie capture — no manual cookie pasting or Chrome extensions.
 
 ## Quick Start
 ```bash
@@ -20,10 +22,11 @@ make docker-agent-base    # build agent base image
 make docker-export-creds  # build export-creds image
 
 # Portal
-make portal-install # npm install
-make portal-dev     # npm run dev (localhost:3000)
-make portal-build   # npm run build
-make portal-lint    # npm run lint
+make portal-install             # npm install
+make portal-dev                 # npm run dev (localhost:3000)
+make portal-build               # npm run build
+make portal-lint                # npm run lint
+make portal-playwright-install  # install Playwright chromium for session capture
 ```
 
 ## Commands — Gmail
@@ -498,7 +501,7 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%, canvas: 80.0%)
 
 ## Commands — Framer
 ```
@@ -1220,39 +1223,316 @@ internal/providers/imessage/
   mock_server_test.go   # httptest mock server helpers for all endpoints
 ```
 
-## Web Portal (Next.js 15 + Supabase)
+## Commands — Canvas LMS
+```
+# Courses [alias: course]
+integrations canvas courses list [--enrollment-type=teacher|student|ta|observer|designer] [--limit=N] [--json]
+integrations canvas courses get --course-id=ID [--json]
+
+# Assignments [alias: assignment, assign]
+integrations canvas assignments list --course-id=ID [--search=Q] [--limit=N] [--json]
+integrations canvas assignments get --course-id=ID --assignment-id=ID [--json]
+integrations canvas assignments delete --course-id=ID --assignment-id=ID [--confirm] [--dry-run] [--json]
+
+# Assignment Groups [alias: assign-group, ag]
+integrations canvas assignment-groups list --course-id=ID [--json]
+integrations canvas assignment-groups get --course-id=ID --group-id=ID [--json]
+integrations canvas assignment-groups create --course-id=ID --name=NAME [--position=N] [--weight=N] [--dry-run] [--json]
+integrations canvas assignment-groups update --course-id=ID --group-id=ID [--name=NAME] [--position=N] [--weight=N] [--dry-run] [--json]
+integrations canvas assignment-groups delete --course-id=ID --group-id=ID [--confirm] [--dry-run] [--json]
+
+# Submissions [alias: submission, sub]
+integrations canvas submissions list --course-id=ID --assignment-id=ID [--limit=N] [--json]
+integrations canvas submissions get --course-id=ID --assignment-id=ID [--user-id=ID] [--json]
+
+# Quizzes [alias: quiz]
+integrations canvas quizzes list --course-id=ID [--search=Q] [--limit=N] [--json]
+integrations canvas quizzes get --course-id=ID --quiz-id=ID [--json]
+integrations canvas quizzes create --course-id=ID --title=TEXT [--quiz-type=practice_quiz|assignment|graded_survey|survey] [--time-limit=N] [--points=N] [--published] [--dry-run] [--json]
+integrations canvas quizzes update --course-id=ID --quiz-id=ID [--title=TEXT] [--time-limit=N] [--published] [--dry-run] [--json]
+integrations canvas quizzes delete --course-id=ID --quiz-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas quizzes questions --course-id=ID --quiz-id=ID [--limit=N] [--json]
+integrations canvas quizzes submissions --course-id=ID --quiz-id=ID [--limit=N] [--json]
+
+# Discussions [alias: discuss, disc]
+integrations canvas discussions list --course-id=ID [--scope=locked|unlocked|pinned|unpinned] [--search=Q] [--limit=N] [--json]
+integrations canvas discussions get --course-id=ID --topic-id=ID [--json]
+integrations canvas discussions create --course-id=ID --title=TEXT [--message=TEXT] [--type=side_comment|threaded] [--published] [--pinned] [--dry-run] [--json]
+integrations canvas discussions update --course-id=ID --topic-id=ID [--title=TEXT] [--message=TEXT] [--dry-run] [--json]
+integrations canvas discussions delete --course-id=ID --topic-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas discussions entries --course-id=ID --topic-id=ID [--limit=N] [--json]
+integrations canvas discussions reply --course-id=ID --topic-id=ID --message=TEXT [--entry-id=ID] [--dry-run] [--json]
+integrations canvas discussions mark-read --course-id=ID --topic-id=ID [--dry-run] [--json]
+
+# Announcements [alias: announce, ann]
+integrations canvas announcements list --course-ids=ID,ID [--start-date=RFC3339] [--end-date=RFC3339] [--active-only] [--limit=N] [--json]
+integrations canvas announcements get --course-id=ID --announcement-id=ID [--json]
+integrations canvas announcements create --course-id=ID --title=TEXT --message=TEXT [--published] [--dry-run] [--json]
+integrations canvas announcements update --course-id=ID --announcement-id=ID [--title=TEXT] [--message=TEXT] [--dry-run] [--json]
+integrations canvas announcements delete --course-id=ID --announcement-id=ID [--confirm] [--dry-run] [--json]
+
+# Modules [alias: mod]
+integrations canvas modules list --course-id=ID [--search=Q] [--limit=N] [--json]
+integrations canvas modules get --course-id=ID --module-id=ID [--json]
+integrations canvas modules create --course-id=ID --name=NAME [--position=N] [--unlock-at=RFC3339] [--require-sequential-progress] [--dry-run] [--json]
+integrations canvas modules update --course-id=ID --module-id=ID [--name=NAME] [--published] [--dry-run] [--json]
+integrations canvas modules delete --course-id=ID --module-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas modules items --course-id=ID --module-id=ID [--limit=N] [--json]
+integrations canvas modules add-item --course-id=ID --module-id=ID --type=File|Page|Discussion|Assignment|Quiz|SubHeader|ExternalUrl|ExternalTool --content-id=ID [--title=TEXT] [--dry-run] [--json]
+integrations canvas modules remove-item --course-id=ID --module-id=ID --item-id=ID [--confirm] [--dry-run] [--json]
+
+# Pages [alias: page]
+integrations canvas pages list --course-id=ID [--sort=title|created_at|updated_at] [--search=Q] [--published] [--limit=N] [--json]
+integrations canvas pages get --course-id=ID --url=URL_SLUG [--json]
+integrations canvas pages create --course-id=ID --title=TEXT [--body=TEXT] [--published] [--front-page] [--editing-roles=teachers|students|members|public] [--dry-run] [--json]
+integrations canvas pages update --course-id=ID --url=URL_SLUG [--title=TEXT] [--body=TEXT] [--published] [--dry-run] [--json]
+integrations canvas pages delete --course-id=ID --url=URL_SLUG [--confirm] [--dry-run] [--json]
+integrations canvas pages revisions --course-id=ID --url=URL_SLUG [--limit=N] [--json]
+
+# Files [alias: file, f]
+integrations canvas files list --course-id=ID [--search=Q] [--sort=name|size|created_at|updated_at] [--limit=N] [--json]
+integrations canvas files get --file-id=ID [--json]
+integrations canvas files download --file-id=ID --output=PATH
+integrations canvas files update --file-id=ID [--name=NAME] [--parent-folder-id=ID] [--locked] [--hidden] [--dry-run] [--json]
+integrations canvas files delete --file-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas files folders --course-id=ID [--json]
+integrations canvas files folder-contents --folder-id=ID [--limit=N] [--json]
+integrations canvas files create-folder --course-id=ID --name=NAME [--parent-folder=PATH] [--locked] [--hidden] [--dry-run] [--json]
+
+# Enrollments [alias: enroll]
+integrations canvas enrollments list --course-id=ID [--type=StudentEnrollment|TeacherEnrollment|TaEnrollment|ObserverEnrollment|DesignerEnrollment] [--state=active|invited|completed|inactive|rejected] [--limit=N] [--json]
+integrations canvas enrollments get --enrollment-id=ID [--json]
+integrations canvas enrollments create --course-id=ID --user-id=ID --type=StudentEnrollment|TeacherEnrollment [--enrollment-state=active|invited] [--dry-run] [--json]
+integrations canvas enrollments deactivate --course-id=ID --enrollment-id=ID [--dry-run] [--json]
+integrations canvas enrollments reactivate --course-id=ID --enrollment-id=ID [--dry-run] [--json]
+integrations canvas enrollments conclude --course-id=ID --enrollment-id=ID [--dry-run] [--json]
+integrations canvas enrollments delete --course-id=ID --enrollment-id=ID [--confirm] [--dry-run] [--json]
+
+# Sections [alias: section, sec]
+integrations canvas sections list --course-id=ID [--limit=N] [--json]
+integrations canvas sections get --section-id=ID [--json]
+integrations canvas sections create --course-id=ID --name=NAME [--start-at=RFC3339] [--end-at=RFC3339] [--dry-run] [--json]
+integrations canvas sections update --section-id=ID [--name=NAME] [--start-at=RFC3339] [--end-at=RFC3339] [--dry-run] [--json]
+integrations canvas sections delete --section-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas sections crosslist --section-id=ID --new-course-id=ID [--dry-run] [--json]
+integrations canvas sections uncrosslist --section-id=ID [--dry-run] [--json]
+
+# Calendar [alias: cal]
+integrations canvas calendar list [--type=event|assignment] [--start-date=RFC3339] [--end-date=RFC3339] [--context-codes=course_ID,...] [--limit=N] [--json]
+integrations canvas calendar get --event-id=ID [--json]
+integrations canvas calendar create --context-code=course_ID --title=TEXT --start-at=RFC3339 --end-at=RFC3339 [--description=TEXT] [--location-name=TEXT] [--all-day] [--dry-run] [--json]
+integrations canvas calendar update --event-id=ID [--title=TEXT] [--start-at=RFC3339] [--end-at=RFC3339] [--dry-run] [--json]
+integrations canvas calendar delete --event-id=ID [--confirm] [--dry-run] [--json]
+
+# Conversations [alias: conv, msg]
+integrations canvas conversations list [--scope=unread|starred|archived|sent] [--filter=course_ID] [--limit=N] [--json]
+integrations canvas conversations get --conversation-id=ID [--json]
+integrations canvas conversations create --recipients=ID,ID --subject=TEXT --body=TEXT [--group-conversation] [--context-code=course_ID] [--dry-run] [--json]
+integrations canvas conversations reply --conversation-id=ID --body=TEXT [--dry-run] [--json]
+integrations canvas conversations update --conversation-id=ID [--starred] [--workflow-state=read|unread|archived] [--dry-run] [--json]
+integrations canvas conversations delete --conversation-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas conversations mark-all-read [--dry-run] [--json]
+integrations canvas conversations unread-count [--json]
+
+# Users [alias: user]
+integrations canvas users me [--json]
+integrations canvas users todo [--json]
+integrations canvas users upcoming [--json]
+integrations canvas users missing [--json]
+
+# Groups [alias: group, grp]
+integrations canvas groups list [--context-type=Account|Course] [--context-id=ID] [--limit=N] [--json]
+integrations canvas groups get --group-id=ID [--json]
+integrations canvas groups create --name=NAME --group-category-id=ID [--description=TEXT] [--join-level=parent_context_auto_join|parent_context_request|invitation_only] [--dry-run] [--json]
+integrations canvas groups update --group-id=ID [--name=NAME] [--description=TEXT] [--dry-run] [--json]
+integrations canvas groups delete --group-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas groups members --group-id=ID [--limit=N] [--json]
+integrations canvas groups categories --course-id=ID [--json]
+
+# Rubrics [alias: rubric]
+integrations canvas rubrics list --course-id=ID [--limit=N] [--json]
+integrations canvas rubrics get --course-id=ID --rubric-id=ID [--json]
+integrations canvas rubrics create --course-id=ID --title=TEXT [--criteria=JSON] [--points=N] [--dry-run] [--json]
+integrations canvas rubrics update --course-id=ID --rubric-id=ID [--title=TEXT] [--criteria=JSON] [--dry-run] [--json]
+integrations canvas rubrics delete --course-id=ID --rubric-id=ID [--confirm] [--dry-run] [--json]
+
+# Grades [alias: grade]
+integrations canvas grades list --course-id=ID [--json]
+integrations canvas grades history --course-id=ID [--assignment-id=ID] [--student-id=ID] [--json]
+
+# Outcomes [alias: outcome]
+integrations canvas outcomes list [--context-type=Account|Course] [--context-id=ID] [--json]
+integrations canvas outcomes get --outcome-id=ID [--json]
+integrations canvas outcomes create --title=TEXT [--description=TEXT] [--mastery-points=N] [--context-type=Course] [--context-id=ID] [--dry-run] [--json]
+integrations canvas outcomes update --outcome-id=ID [--title=TEXT] [--description=TEXT] [--dry-run] [--json]
+integrations canvas outcomes delete --outcome-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas outcomes groups --context-type=Account|Course --context-id=ID [--json]
+integrations canvas outcomes results --course-id=ID [--user-ids=ID,...] [--outcome-ids=ID,...] [--json]
+
+# Planner [alias: plan]
+integrations canvas planner list [--start-date=RFC3339] [--end-date=RFC3339] [--context-codes=course_ID,...] [--limit=N] [--json]
+integrations canvas planner notes [--start-date=RFC3339] [--end-date=RFC3339] [--json]
+integrations canvas planner create-note --title=TEXT [--details=TEXT] [--course-id=ID] [--todo-date=RFC3339] [--dry-run] [--json]
+integrations canvas planner update-note --note-id=ID [--title=TEXT] [--details=TEXT] [--todo-date=RFC3339] [--dry-run] [--json]
+integrations canvas planner delete-note --note-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas planner overrides [--json]
+integrations canvas planner override --plannable-type=TYPE --plannable-id=ID --marked-complete [--dry-run] [--json]
+
+# Bookmarks [alias: bookmark, bm]
+integrations canvas bookmarks list [--json]
+integrations canvas bookmarks get --bookmark-id=ID [--json]
+integrations canvas bookmarks create --name=NAME --url=URL [--position=N] [--dry-run] [--json]
+integrations canvas bookmarks update --bookmark-id=ID [--name=NAME] [--url=URL] [--position=N] [--dry-run] [--json]
+integrations canvas bookmarks delete --bookmark-id=ID [--confirm] [--dry-run] [--json]
+
+# External Tools [alias: lti, tool]
+integrations canvas external-tools list --course-id=ID [--search=Q] [--limit=N] [--json]
+integrations canvas external-tools get --course-id=ID --tool-id=ID [--json]
+integrations canvas external-tools create --course-id=ID --name=NAME --url=URL --consumer-key=KEY --shared-secret=SECRET [--privacy-level=anonymous|name_only|public] [--dry-run] [--json]
+integrations canvas external-tools update --course-id=ID --tool-id=ID [--name=NAME] [--url=URL] [--dry-run] [--json]
+integrations canvas external-tools delete --course-id=ID --tool-id=ID [--confirm] [--dry-run] [--json]
+integrations canvas external-tools sessionless-launch --course-id=ID --tool-id=ID [--json]
+
+# Content Migrations [alias: migration, migrate]
+integrations canvas content-migrations list --course-id=ID [--limit=N] [--json]
+integrations canvas content-migrations get --course-id=ID --migration-id=ID [--json]
+integrations canvas content-migrations create --course-id=ID --type=course_copy_importer|canvas_cartridge_importer|zip_file_importer [--source-course-id=ID] [--dry-run] [--json]
+integrations canvas content-migrations progress --course-id=ID --migration-id=ID [--json]
+integrations canvas content-migrations content-list --course-id=ID --migration-id=ID [--json]
+
+# Content Exports [alias: export]
+integrations canvas content-exports list --course-id=ID [--limit=N] [--json]
+integrations canvas content-exports get --course-id=ID --export-id=ID [--json]
+integrations canvas content-exports create --course-id=ID --type=common_cartridge|qti|zip [--dry-run] [--json]
+
+# Analytics [alias: stats]
+integrations canvas analytics course --course-id=ID [--json]
+integrations canvas analytics assignments --course-id=ID [--json]
+integrations canvas analytics student --course-id=ID --student-id=ID [--json]
+integrations canvas analytics student-assignments --course-id=ID --student-id=ID [--json]
+
+# Notifications [alias: notif]
+integrations canvas notifications list [--json]
+integrations canvas notifications preferences [--json]
+integrations canvas notifications update-preference --category=TEXT --frequency=immediately|daily|weekly|never [--dry-run] [--json]
+
+# Peer Reviews [alias: review]
+integrations canvas peer-reviews list --course-id=ID --assignment-id=ID [--json]
+integrations canvas peer-reviews create --course-id=ID --assignment-id=ID --user-id=ID --reviewer-id=ID [--dry-run] [--json]
+integrations canvas peer-reviews delete --course-id=ID --assignment-id=ID --user-id=ID --reviewer-id=ID [--confirm] [--dry-run] [--json]
+
+# Search [alias: find]
+integrations canvas search recipients --search=Q [--context=course_ID] [--type=user|context] [--limit=N] [--json]
+integrations canvas search courses --search=Q [--limit=N] [--json]
+integrations canvas search all --search=Q [--context=course_ID] [--limit=N] [--json]
+
+# Favorites [alias: fav]
+integrations canvas favorites courses [--json]
+integrations canvas favorites groups [--json]
+integrations canvas favorites add-course --course-id=ID [--dry-run] [--json]
+integrations canvas favorites remove-course --course-id=ID [--dry-run] [--json]
+integrations canvas favorites add-group --group-id=ID [--dry-run] [--json]
+integrations canvas favorites remove-group --group-id=ID [--dry-run] [--json]
+```
+
+`canvas` has alias `cvs`. `courses` has alias `course`. `assignments` has aliases `assignment`, `assign`. `assignment-groups` has aliases `assign-group`, `ag`. `submissions` has aliases `submission`, `sub`. `quizzes` has alias `quiz`. `discussions` has aliases `discuss`, `disc`. `announcements` has aliases `announce`, `ann`. `modules` has alias `mod`. `pages` has alias `page`. `files` has aliases `file`, `f`. `enrollments` has alias `enroll`. `sections` has aliases `section`, `sec`. `calendar` has alias `cal`. `conversations` has aliases `conv`, `msg`. `users` has alias `user`. `groups` has aliases `group`, `grp`. `rubrics` has alias `rubric`. `grades` has alias `grade`. `outcomes` has alias `outcome`. `planner` has alias `plan`. `bookmarks` has aliases `bookmark`, `bm`. `external-tools` has aliases `lti`, `tool`. `content-migrations` has aliases `migration`, `migrate`. `content-exports` has alias `export`. `analytics` has alias `stats`. `notifications` has alias `notif`. `peer-reviews` has alias `review`. `search` has alias `find`. `favorites` has alias `fav`.
+
+Powered by Canvas LMS's `/api/v1/` REST API — uses session cookie auth (`_normandy_session` + `_csrf_token`), no API key or access token required.
+
+## Architecture — Canvas Package Layout
+```
+internal/providers/canvas/
+  canvas.go               # Provider struct, RegisterCommands (29 resource subcommand groups)
+  client.go               # HTTP client: session cookie auth, CSRF rotation, rate limit detection, Link header pagination
+  helpers.go              # Shared types (CourseSummary, AssignmentSummary, SubmissionSummary, etc.) and helpers
+  courses.go              # 2 course commands (list, get)
+  assignments.go          # 3 assignment commands (list, get, delete)
+  assignment_groups.go    # 5 assignment group commands (list, get, create, update, delete)
+  submissions.go          # 2 submission commands (list, get)
+  quizzes.go              # 7 quiz commands (list, get, create, update, delete, questions, submissions)
+  discussions.go          # 8 discussion commands (list, get, create, update, delete, entries, reply, mark-read)
+  announcements.go        # 5 announcement commands (list, get, create, update, delete)
+  modules.go              # 8 module commands (list, get, create, update, delete, items, add-item, remove-item)
+  pages.go                # 6 page commands (list, get, create, update, delete, revisions)
+  files.go                # 8 file commands (list, get, download, update, delete, folders, folder-contents, create-folder)
+  enrollments.go          # 7 enrollment commands (list, get, create, deactivate, reactivate, conclude, delete)
+  sections.go             # 7 section commands (list, get, create, update, delete, crosslist, uncrosslist)
+  calendar.go             # 5 calendar commands (list, get, create, update, delete)
+  conversations.go        # 8 conversation commands (list, get, create, reply, update, delete, mark-all-read, unread-count)
+  users.go                # 4 user commands (me, todo, upcoming, missing)
+  groups.go               # 7 group commands (list, get, create, update, delete, members, categories)
+  rubrics.go              # 5 rubric commands (list, get, create, update, delete)
+  grades.go               # 2 grade commands (list, history)
+  outcomes.go             # 7 outcome commands (list, get, create, update, delete, groups, results)
+  planner.go              # 7 planner commands (list, notes, create-note, update-note, delete-note, overrides, override)
+  bookmarks.go            # 5 bookmark commands (list, get, create, update, delete)
+  external_tools.go       # 6 external tool commands (list, get, create, update, delete, sessionless-launch)
+  content_migrations.go   # 5 content migration commands (list, get, create, progress, content-list)
+  content_exports.go      # 3 content export commands (list, get, create)
+  analytics.go            # 4 analytics commands (course, assignments, student, student-assignments)
+  notifications.go        # 3 notification commands (list, preferences, update-preference)
+  peer_reviews.go         # 3 peer review commands (list, create, delete)
+  search.go               # 3 search commands (recipients, courses, all)
+  favorites.go            # 6 favorite commands (courses, groups, add-course, remove-course, add-group, remove-group)
+  *_test.go               # Tests for each command file + helpers + provider + client
+  mock_server_test.go     # httptest mock server helpers for all endpoints
+```
+
+## Web Portal (Next.js 15 + Supabase) — Admin Only
 
 ### Architecture
 - `portal/` — Next.js 15 App Router, TypeScript, Tailwind CSS
-- Auth: Supabase Auth with Google OAuth (narrow scopes for login)
+- Auth: Supabase Auth with Google OAuth (narrow scopes for login), admin-only access enforced in proxy.ts
 - Database: Supabase PostgreSQL with RLS policies
-- Integration tokens: AES-256-GCM encrypted, stored in `integrations` table
-- Two Google OAuth flows: (1) login via Supabase Auth, (2) full-scope connect via custom API route
+- Integration tokens: AES-256-GCM encrypted, stored in `user_integrations` table (single admin owner)
+- Session-bound auth: Playwright browser automation captures cookies for Instagram, LinkedIn, X, Canvas
+- OAuth providers: Google, GitHub, Supabase use standard OAuth connect flows
+- Manual config: Framer (API key), iMessage/BlueBubbles (server URL + password)
 
 ### Portal Directory Layout
 ```
 portal/
-  supabase/migrations/00001_create_tables.sql  # integrations table + RLS
-  src/
-    app/
-      page.tsx                     # Landing page
-      login/page.tsx               # Google sign-in via Supabase Auth
-      integrations/page.tsx        # Dashboard with provider cards
-      auth/callback/route.ts       # Supabase Auth code exchange
-      api/integrations/
-        route.ts                   # GET: list user integrations
-        google/connect|callback|disconnect/route.ts
-        github/connect|callback|disconnect/route.ts
-        instagram/save|disconnect/route.ts
-        bluebubbles/save|disconnect/route.ts
-        supabase/connect|callback/route.ts
-    lib/
-      supabase/server.ts|client.ts|middleware.ts
-      crypto.ts                    # AES-256-GCM (Go-compatible wire format)
-      providers.ts                 # Provider metadata and scopes
-    components/
-      navbar.tsx, provider-card.tsx, instagram-form.tsx, sign-out-button.tsx
-    middleware.ts                   # Protects /integrations route
+  supabase/migrations/
+    00001_create_tables.sql        # integrations table + RLS
+    00008_single_tenant_pivot.sql  # clients table, drop user_agents/marketplace columns
+  app/
+    page.tsx                       # Redirect to /login
+    login/page.tsx                 # Admin sign-in (Emdash Admin branding)
+    integrations/page.tsx          # Admin integration dashboard with provider cards
+    admin/
+      page.tsx                     # Admin overview dashboard (stats)
+      clients/page.tsx             # Client management CRUD
+    chat/[agentName]/              # Agent chat interface
+    jobs/                          # Job management pages
+    auth/callback|sign-out/        # Supabase Auth flows
+    api/
+      integrations/
+        playwright/connect|status/ # Playwright session capture API
+        google/connect|callback/   # Google OAuth
+        github/connect|callback/   # GitHub OAuth
+        supabase/connect|callback/ # Supabase OAuth
+        bluebubbles/save|disconnect/
+        framer/save|disconnect/
+        canvas/disconnect/
+      admin/clients/               # Client CRUD API
+      chat/[agentName]/            # Agent chat API (admin credentials)
+      jobs/cron|trigger/           # Job scheduling (admin credentials)
+  lib/
+    playwright/                    # Playwright session automation
+      session-capture.ts           # Core: launch browser, poll cookies, capture
+      providers/                   # Per-provider cookie configs + mappers
+        instagram.ts, linkedin.ts, x.ts, canvas.ts
+    supabase/server.ts|client.ts|admin.ts
+    crypto.ts                      # AES-256-GCM (Go-compatible wire format)
+    credentials.ts                 # resolveAdminCredentials() — single-tenant
+    job-runner.ts                  # Job execution with admin credentials
+  components/
+    app-sidebar.tsx                # Admin nav: Dashboard, Agents, Jobs, Clients
+    playwright-connect-dialog.tsx  # Browser launch + status polling UI
+    connect-dialog.tsx             # OAuth connect flow
+    framer-connect-dialog.tsx      # Framer API key form
+    bluebubbles-connect-dialog.tsx # BlueBubbles config form
+  proxy.ts                         # Admin-only middleware (ADMIN_EMAILS check)
 ```
 
 ### Token Bridge (Go)
@@ -1368,12 +1648,22 @@ X_AUTH_TOKEN              # auth_token cookie (required)
 X_CSRF_TOKEN              # ct0 cookie (required)
 X_USER_AGENT              # User-Agent override (optional)
 
+# Canvas LMS (cookie-based session auth, no API key needed)
+CANVAS_BASE_URL           # Canvas instance URL, e.g. https://canvas.university.edu (required)
+CANVAS_SESSION_COOKIE     # _normandy_session cookie (required)
+CANVAS_CSRF_TOKEN         # _csrf_token cookie (required)
+CANVAS_LOG_SESSION_ID     # log_session_id cookie (optional)
+CANVAS_USER_AGENT         # User-Agent override (optional)
+
 # Orchestrator
 SUPABASE_DB_URL, ENCRYPTION_MASTER_KEY, SUPABASE_JWT_SECRET
 PORT (default: 8080)
 KUBE_NAMESPACE (default: agents)
 AGENT_BASE_IMAGE, EXPORT_CREDS_IMAGE
 ANTHROPIC_API_KEY_SECRET (K8s secret name, default: anthropic-api-key)
+
+# Portal (Next.js) — additional env vars
+ORCHESTRATOR_URL          # Orchestrator HTTP base URL, e.g. http://localhost:8080 or https://agents.markshteyn.com:8080 (required for chat API)
 ```
 
 # currentDate

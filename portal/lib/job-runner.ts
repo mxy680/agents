@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin"
-import { resolveUserCredentials } from "@/lib/credentials"
+import { resolveAdminCredentials } from "@/lib/credentials"
 import { runContainer } from "@/lib/container-runner"
 import path from "path"
 import os from "os"
@@ -61,7 +61,7 @@ export async function runJob(userId: string, jobDefinitionId: string): Promise<s
 
   try {
     // Resolve credentials
-    const credEnv = await resolveUserCredentials(userId)
+    const credEnv = await resolveAdminCredentials()
 
     const claudeToken = process.env.CLAUDE_CODE_OAUTH_TOKEN
     if (!claudeToken) {

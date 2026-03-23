@@ -5,6 +5,7 @@ import (
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/emdash-projects/agents/internal/providers/calendar"
+	"github.com/emdash-projects/agents/internal/providers/canvas"
 	"github.com/emdash-projects/agents/internal/providers/drive"
 	"github.com/emdash-projects/agents/internal/providers/framer"
 	githubprovider "github.com/emdash-projects/agents/internal/providers/github"
@@ -55,6 +56,9 @@ func main() {
 
 	imessageProvider := imessage.New()
 	imessageProvider.RegisterCommands(cli.RootCmd())
+
+	canvasProvider := canvas.New()
+	canvasProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

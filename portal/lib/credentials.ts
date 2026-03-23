@@ -46,13 +46,68 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.auth_token) env.X_AUTH_TOKEN = credJson.auth_token
       if (credJson.csrf_token) env.X_CSRF_TOKEN = credJson.csrf_token
       break
+    case "canvas":
+      // Go CLI expects CANVAS_COOKIES (full cookie string) and CANVAS_BASE_URL
+      if (credJson.all_cookies) env.CANVAS_COOKIES = credJson.all_cookies
+      if (credJson.base_url) env.CANVAS_BASE_URL = credJson.base_url
+      else if (process.env.CANVAS_BASE_URL) env.CANVAS_BASE_URL = process.env.CANVAS_BASE_URL
+      break
+    case "bluebubbles":
+      if (credJson.url) env.BLUEBUBBLES_URL = credJson.url
+      if (credJson.password) env.BLUEBUBBLES_PASSWORD = credJson.password
+      break
   }
   return env
 }
 
 /**
+ * Resolves all active integration credentials for the admin user.
+ * Single-tenant: all integrations are owned centrally.
+ */
+export async function resolveAdminCredentials(): Promise<Record<string, string>> {
+  const adminUserId = process.env.ADMIN_USER_ID
+  if (adminUserId) {
+    return resolveUserCredentials(adminUserId)
+  }
+  // Fallback: resolve all active integrations regardless of owner
+  const admin = createAdminClient()
+  const { data: integrations, error } = await admin
+    .from("user_integrations")
+    .select("provider, credentials, status")
+    .eq("status", "active")
+
+  if (error) {
+    throw new Error(`Failed to fetch integrations: ${error.message}`)
+  }
+
+  const credEnv: Record<string, string> = {}
+  for (const integration of integrations ?? []) {
+    try {
+      const raw = integration.credentials
+      let buf: Buffer
+      if (typeof raw === "string") {
+        const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
+        buf = Buffer.from(hex, "hex")
+      } else if (Buffer.isBuffer(raw)) {
+        buf = raw
+      } else {
+        buf = Buffer.from(raw as ArrayBuffer)
+      }
+      const decrypted = decrypt(buf)
+      const credJson = JSON.parse(decrypted) as Record<string, string>
+      const envVars = credentialsToEnv(integration.provider, credJson)
+      Object.assign(credEnv, envVars)
+    } catch {
+      console.error(`[credentials] Failed to decrypt credentials for ${integration.provider}`)
+    }
+  }
+
+  return credEnv
+}
+
+/**
  * Resolves all active integration credentials for a user into environment variables.
- * Used by both the chat API and job runner.
+ * @deprecated Use resolveAdminCredentials() for single-tenant operation.
  */
 export async function resolveUserCredentials(userId: string): Promise<Record<string, string>> {
   const admin = createAdminClient()

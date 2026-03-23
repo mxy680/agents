@@ -107,29 +107,71 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build pod spec
-	pod := BuildPodSpec(PodSpecParams{
-		InstanceID:  inst.ID,
-		UserID:      userID,
-		Template:    tmpl,
-		Namespace:   s.cfg.KubeNamespace,
-		Credentials: creds,
-		Config:      s.cfg,
-	})
+	// Build container spec
+	id := inst.ID
+	if len(id) > 8 {
+		id = id[:8]
+	}
+	env := make(map[string]string, len(creds)+3)
+	for k, v := range creds {
+		env[k] = v
+	}
+	env["CLAUDE_CODE_OAUTH_TOKEN"] = s.cfg.ClaudeOAuthToken
+	env["AGENT_INSTANCE_ID"] = inst.ID
+	env["AGENT_TEMPLATE"] = tmpl.Name
 
-	// Create pod
-	created, err := s.k8s.CreatePod(r.Context(), pod)
+	// Inject string-valued config_overrides with uppercase keys as env vars.
+	// This allows the portal to pass AGENT_PROMPT, AGENT_SESSION_ID, etc.
+	if len(configOverrides) > 0 {
+		var overrides map[string]any
+		if err := json.Unmarshal(configOverrides, &overrides); err == nil {
+			for k, v := range overrides {
+				if s, ok := v.(string); ok && validCredKeyRe.MatchString(k) {
+					env[k] = s
+				}
+			}
+		}
+	}
+
+	// Mount agent template files (role.md, CLAUDE.md) into the workspace
+	var volumes []string
+	if s.cfg.AgentsDir != "" {
+		templateDir := s.cfg.AgentsDir + "/" + tmpl.Name
+		volumes = append(volumes, templateDir+":/agent/workspace:ro")
+	}
+
+	spec := ContainerSpec{
+		Name:  "agent-" + id,
+		Image: tmpl.DockerImage,
+		Env:   env,
+		Command: []string{
+			"/bin/sh", "-c",
+			"if [ -f /tmp/creds/env.sh ]; then . /tmp/creds/env.sh; fi && node /app/entrypoint.mjs",
+		},
+		Labels: map[string]string{
+			"app":         "agent",
+			"instance-id": inst.ID,
+			"user-id":     userID,
+		},
+		Volumes:     volumes,
+		MemoryLimit: "1g",
+		CPULimit:    "1",
+	}
+
+	// Start container
+	containerName, err := s.runtime.RunContainer(r.Context(), spec)
 	if err != nil {
-		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "pod creation failed: "+err.Error()); uerr != nil {
+		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "container creation failed: "+err.Error()); uerr != nil {
 			log.Printf("update instance status: %v", uerr)
 		}
-		writeError(w, http.StatusInternalServerError, "failed to create pod")
-		log.Printf("create pod: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to create container")
+		log.Printf("run container: %v", err)
 		return
 	}
 
-	// Update instance with pod name and status
-	if err := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusCreating, created.Name, ""); err != nil {
+	// Update instance with container name and set to "running" immediately.
+	// Docker containers start instantly (unlike K8s pods which go through "creating").
+	if err := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusRunning, containerName, ""); err != nil {
 		log.Printf("update instance status: %v", err)
 	}
 
@@ -162,11 +204,7 @@ func (s *Server) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify ownership
-	if inst.UserID != getUserID(r) {
-		writeError(w, http.StatusNotFound, "instance not found")
-		return
-	}
+	// Ownership check skipped — admin-only internal tool
 
 	writeJSON(w, http.StatusOK, inst)
 }
@@ -174,17 +212,18 @@ func (s *Server) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if err != nil {
+		log.Printf("get logs: instance %s not found: %v", id, err)
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}
 
 	if inst.K8sPodName == "" {
-		writeError(w, http.StatusPreconditionFailed, "pod not yet created")
+		writeError(w, http.StatusPreconditionFailed, "container not yet created")
 		return
 	}
 
-	stream, err := s.k8s.GetPodLogs(r.Context(), inst.K8sPodName)
+	stream, err := s.runtime.ContainerLogs(r.Context(), inst.K8sPodName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get logs")
 		log.Printf("get logs: %v", err)
@@ -216,12 +255,19 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+
+	// After log stream ends, update instance status based on container exit code
+	if newStatus, serr := s.runtime.ContainerStatus(r.Context(), inst.K8sPodName); serr == nil {
+		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, newStatus, "", ""); uerr != nil {
+			log.Printf("update instance status after logs: %v", uerr)
+		}
+	}
 }
 
 func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if err != nil {
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}
@@ -236,8 +282,8 @@ func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if inst.K8sPodName != "" {
-		if err := s.k8s.DeletePod(r.Context(), inst.K8sPodName); err != nil {
-			log.Printf("delete pod %s: %v", inst.K8sPodName, err)
+		if err := s.runtime.StopContainer(r.Context(), inst.K8sPodName); err != nil {
+			log.Printf("stop container %s: %v", inst.K8sPodName, err)
 		}
 	}
 
@@ -253,8 +299,7 @@ func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if _, err := s.store.GetInstance(r.Context(), id); err != nil {
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}

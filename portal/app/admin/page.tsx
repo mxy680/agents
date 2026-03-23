@@ -15,20 +15,13 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { AdminTable } from "./admin-table"
-
-interface ApprovalRequest {
-  id: string
-  user_id: string
-  user_email: string
-  template_id: string
-  template_name: string
-  template_display_name: string
-  status: "pending" | "approved" | "rejected"
-  acquired_at: string
-  reviewed_at: string | null
-  reviewer_note: string | null
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  IconPlugConnected,
+  IconRobot,
+  IconUsers,
+  IconCalendarEvent,
+} from "@tabler/icons-react"
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -44,46 +37,40 @@ export default async function AdminPage() {
 
   const admin = createAdminClient()
 
-  // Fetch all user_agents with template info
-  const { data: rows } = await admin
-    .from("user_agents")
-    .select("id, user_id, template_id, status, acquired_at, reviewed_at, reviewer_note, agent_templates(id, name, display_name)")
-    .order("acquired_at", { ascending: true })
+  // Fetch counts for dashboard
+  const [integrationsRes, templatesRes, clientsRes, jobsRes] = await Promise.all([
+    admin.from("user_integrations").select("id", { count: "exact", head: true }).eq("status", "active"),
+    admin.from("agent_templates").select("id", { count: "exact", head: true }).eq("status", "active"),
+    admin.from("clients").select("id", { count: "exact", head: true }).eq("active", true),
+    admin.from("job_definitions").select("id", { count: "exact", head: true }).eq("enabled", true),
+  ])
 
-  // Fetch emails for unique user IDs
-  const userIds = Array.from(new Set((rows ?? []).map((r) => r.user_id)))
-  const emailMap: Record<string, string> = {}
-
-  for (const uid of userIds) {
-    try {
-      const { data: userData } = await admin.auth.admin.getUserById(uid)
-      if (userData.user?.email) {
-        emailMap[uid] = userData.user.email
-      }
-    } catch {
-      // non-fatal
-    }
-  }
-
-  const requests: ApprovalRequest[] = (rows ?? []).map((row) => {
-    const tmpl = Array.isArray(row.agent_templates)
-      ? row.agent_templates[0]
-      : row.agent_templates
-    return {
-      id: row.id,
-      user_id: row.user_id,
-      user_email: emailMap[row.user_id] ?? "Unknown",
-      template_id: row.template_id,
-      template_name: (tmpl as { name?: string } | null)?.name ?? "",
-      template_display_name: (tmpl as { display_name?: string } | null)?.display_name ?? "",
-      status: row.status as "pending" | "approved" | "rejected",
-      acquired_at: row.acquired_at,
-      reviewed_at: row.reviewed_at ?? null,
-      reviewer_note: row.reviewer_note ?? null,
-    }
-  })
-
-  const pendingCount = requests.filter((r) => r.status === "pending").length
+  const stats = [
+    {
+      title: "Active Integrations",
+      count: integrationsRes.count ?? 0,
+      icon: IconPlugConnected,
+      href: "/integrations",
+    },
+    {
+      title: "Agent Templates",
+      count: templatesRes.count ?? 0,
+      icon: IconRobot,
+      href: "/chat",
+    },
+    {
+      title: "Clients",
+      count: clientsRes.count ?? 0,
+      icon: IconUsers,
+      href: "/admin/clients",
+    },
+    {
+      title: "Active Jobs",
+      count: jobsRes.count ?? 0,
+      icon: IconCalendarEvent,
+      href: "/jobs",
+    },
+  ]
 
   return (
     <SidebarProvider>
@@ -92,7 +79,6 @@ export default async function AdminPage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
-        isAdmin
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -111,18 +97,27 @@ export default async function AdminPage() {
         </header>
         <div className="flex flex-1 flex-col gap-6 p-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
             <p className="text-sm text-muted-foreground">
-              Review and approve agent acquisition requests.
-              {pendingCount > 0 && (
-                <span className="ml-1 font-medium text-yellow-400">
-                  {pendingCount} pending.
-                </span>
-              )}
+              Overview of integrations, agents, and clients.
             </p>
           </div>
 
-          <AdminTable initialRequests={requests} />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <a key={stat.title} href={stat.href}>
+                <Card className="transition-colors hover:bg-muted/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon className="size-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stat.count}</div>
+                  </CardContent>
+                </Card>
+              </a>
+            ))}
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

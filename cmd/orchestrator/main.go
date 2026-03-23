@@ -43,6 +43,14 @@ func main() {
 		cfg.ClaudeSessionSecretRef = v
 	}
 	cfg.AllowedOrigin = os.Getenv("CORS_ALLOWED_ORIGIN")
+	cfg.APIKey = os.Getenv("ORCHESTRATOR_API_KEY")
+	cfg.AdminUserID = os.Getenv("ADMIN_USER_ID")
+	cfg.AgentsDir = os.Getenv("AGENTS_DIR")
+
+	if v := os.Getenv("RUNTIME"); v != "" {
+		cfg.Runtime = v
+	}
+	cfg.ClaudeOAuthToken = os.Getenv("CLAUDE_CODE_OAUTH_TOKEN")
 
 	// Database
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
@@ -57,17 +65,26 @@ func main() {
 
 	store := orchestrator.NewStore(db)
 
-	// K8s client
-	k8s, err := orchestrator.NewK8sClient(cfg.KubeNamespace)
-	if err != nil {
-		log.Fatalf("k8s client: %v", err)
+	// Container runtime
+	var runtime orchestrator.ContainerRuntime
+	switch cfg.Runtime {
+	case "docker":
+		log.Println("using Docker runtime")
+		runtime = orchestrator.NewDockerRuntime()
+	default:
+		log.Println("using Kubernetes runtime")
+		k8s, err := orchestrator.NewK8sClient(cfg.KubeNamespace)
+		if err != nil {
+			log.Fatalf("k8s client: %v", err)
+		}
+		runtime = orchestrator.NewK8sRuntime(k8s, cfg)
 	}
 
 	// Credential resolver
 	creds := orchestrator.NewCredentialResolver(store, cfg)
 
 	// Server
-	srv := orchestrator.NewServer(cfg, store, k8s, creds)
+	srv := orchestrator.NewServer(cfg, store, runtime, creds)
 
 	// Start reconciler
 	ctx, cancel := context.WithCancel(context.Background())

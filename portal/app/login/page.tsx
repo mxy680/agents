@@ -1,5 +1,5 @@
 import { LoginForm } from "@/components/login-form"
-import { IconApps, IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react"
+import { IconApps } from "@tabler/icons-react"
 
 export default async function LoginPage({
   searchParams,
@@ -15,29 +15,21 @@ export default async function LoginPage({
           <div className="flex size-8 items-center justify-center bg-primary">
             <IconApps className="size-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Agent Marketplace</span>
+          <span className="text-lg font-semibold tracking-tight">Emdash Admin</span>
         </div>
 
         <div className="flex flex-col gap-4">
           <p className="text-3xl font-semibold leading-snug tracking-tight">
-            Connect your tools.<br />
-            Let agents do the work.
+            Manage integrations.<br />
+            Deploy agents for clients.
           </p>
           <p className="text-sm text-background/60">
-            Authorize Gmail, GitHub, Google Sheets, Drive, Calendar, and Instagram — then let AI agents run operations on your behalf inside isolated containers.
+            Admin portal for managing integration credentials, configuring AI agents, and deploying them on behalf of clients.
           </p>
         </div>
 
-        <div className="flex items-center gap-6 text-xs text-background/40">
-          <div className="flex items-center gap-2">
-            <IconBrandGoogle className="size-4" />
-            Google Workspace
-          </div>
-          <div className="flex items-center gap-2">
-            <IconBrandGithub className="size-4" />
-            GitHub
-          </div>
-          <span>Instagram</span>
+        <div className="text-xs text-background/40">
+          Internal tool — authorized access only
         </div>
       </div>
 
@@ -49,7 +41,7 @@ export default async function LoginPage({
             <div className="flex size-8 items-center justify-center bg-primary">
               <IconApps className="size-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">Agent Marketplace</span>
+            <span className="text-lg font-semibold tracking-tight">Emdash Admin</span>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -68,13 +60,6 @@ export default async function LoginPage({
           )}
 
           <LoginForm />
-
-          <p className="text-center text-xs text-muted-foreground">
-            By signing in you agree to our{" "}
-            <a href="#" className="underline underline-offset-4 hover:text-foreground">
-              Terms of Service
-            </a>
-          </p>
         </div>
       </div>
     </div>

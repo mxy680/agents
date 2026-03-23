@@ -41,8 +41,14 @@ func (cr *CredentialResolver) ResolveForUser(ctx context.Context, userID string)
 		return nil, fmt.Errorf("export env: %w", err)
 	}
 
-	// For Google: refresh the access token
+	// For Google: inject client credentials and refresh the access token
 	if refreshToken, ok := env["GOOGLE_REFRESH_TOKEN"]; ok && refreshToken != "" {
+		if cr.googleClientID != "" {
+			env["GOOGLE_CLIENT_ID"] = cr.googleClientID
+		}
+		if cr.googleClientSecret != "" {
+			env["GOOGLE_CLIENT_SECRET"] = cr.googleClientSecret
+		}
 		freshToken, err := cr.refreshToken(refreshToken, cr.googleClientID, cr.googleClientSecret)
 		if err != nil {
 			return nil, fmt.Errorf("refresh google token: %w", err)

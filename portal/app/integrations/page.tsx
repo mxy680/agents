@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { AppSidebar } from "@/components/app-sidebar"
 import { isAdmin } from "@/lib/admin"
+import { AppSidebar } from "@/components/app-sidebar"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,7 +17,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
-import { ExtensionConnectDialog } from "@/components/extension-connect-dialog"
+import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { AccountItem } from "@/components/account-item"
@@ -30,6 +30,7 @@ import {
   IconLayout,
   IconBrandSupabase,
   IconMessage,
+  IconSchool,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -39,48 +40,63 @@ const providers = [
     name: "Google",
     description: "Gmail, Sheets, Calendar, Drive",
     icon: IconBrandGoogle,
+    connectType: "oauth" as const,
   },
   {
     id: "github",
     name: "GitHub",
     description: "Repos, Issues, Pull Requests, Actions",
     icon: IconBrandGithub,
+    connectType: "oauth" as const,
   },
   {
     id: "instagram",
     name: "Instagram",
     description: "Media, Stories, Comments, Messages",
     icon: IconBrandInstagram,
+    connectType: "playwright" as const,
   },
   {
     id: "linkedin",
     name: "LinkedIn",
     description: "Posts, Connections, Messages, Jobs",
     icon: IconBrandLinkedin,
+    connectType: "playwright" as const,
   },
   {
     id: "x",
     name: "X",
     description: "Posts, Likes, DMs, Lists, Communities",
     icon: IconBrandX,
+    connectType: "playwright" as const,
   },
   {
     id: "framer",
     name: "Framer",
     description: "Pages, Collections, Styles, Deployments",
     icon: IconLayout,
+    connectType: "framer" as const,
   },
   {
     id: "supabase",
     name: "Supabase",
     description: "Projects, Branches, Auth, Database",
     icon: IconBrandSupabase,
+    connectType: "oauth" as const,
   },
   {
     id: "bluebubbles",
     name: "iMessage",
     description: "Chats, Messages, Attachments, FaceTime",
     icon: IconMessage,
+    connectType: "bluebubbles" as const,
+  },
+  {
+    id: "canvas",
+    name: "Canvas LMS",
+    description: "Courses, Assignments, Grades, Discussions",
+    icon: IconSchool,
+    connectType: "playwright" as const,
   },
 ]
 
@@ -92,7 +108,11 @@ export default async function IntegrationsPage() {
     redirect("/login")
   }
 
-  // Fetch user's connected integrations
+  if (!isAdmin(user.email)) {
+    redirect("/login?error=not_authorized")
+  }
+
+  // Fetch all active integrations (admin sees everything)
   const { data: integrations } = await supabase
     .from("user_integrations")
     .select("id, provider, label, status, created_at")
@@ -108,8 +128,6 @@ export default async function IntegrationsPage() {
     return acc
   }, {})
 
-  const userIsAdmin = isAdmin(user.email)
-
   return (
     <SidebarProvider>
       <AppSidebar
@@ -117,7 +135,6 @@ export default async function IntegrationsPage() {
           email: user.email ?? undefined,
           name: user.user_metadata?.full_name ?? user.user_metadata?.name,
         }}
-        isAdmin={userIsAdmin}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -138,7 +155,7 @@ export default async function IntegrationsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Integrations</h1>
             <p className="text-sm text-muted-foreground">
-              Connect your accounts to let agents access external services.
+              Manage centralized integration credentials for all agents.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -170,32 +187,28 @@ export default async function IntegrationsPage() {
                         ))}
                       </div>
                     )}
-                    {["instagram", "linkedin", "x"].includes(provider.id) ? (
-                      <ExtensionConnectDialog
+                    {provider.connectType === "playwright" ? (
+                      <PlaywrightConnectDialog
                         provider={provider.id}
                         providerName={provider.name}
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Add another account" : "Connect"}
+                          {accounts.length > 0 ? "Refresh session" : "Launch browser"}
                         </Button>
-                      </ExtensionConnectDialog>
-                    ) : provider.id === "framer" ? (
+                      </PlaywrightConnectDialog>
+                    ) : provider.connectType === "framer" ? (
                       <FramerConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
+                          {accounts.length > 0 ? "Update" : "Connect"}
                         </Button>
                       </FramerConnectDialog>
-                    ) : provider.id === "bluebubbles" ? (
+                    ) : provider.connectType === "bluebubbles" ? (
                       <BlueBubblesConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
+                          {accounts.length > 0 ? "Update" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
                     ) : (
@@ -205,9 +218,7 @@ export default async function IntegrationsPage() {
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0
-                            ? "Add another account"
-                            : "Connect"}
+                          {accounts.length > 0 ? "Add another account" : "Connect"}
                         </Button>
                       </ConnectDialog>
                     )}

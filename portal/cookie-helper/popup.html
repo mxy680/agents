@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { width: 260px; padding: 16px; font-family: system-ui, sans-serif; font-size: 13px; margin: 0; }
+    h3 { margin: 0 0 8px; font-size: 14px; }
+    .site { color: #666; margin-bottom: 12px; font-size: 12px; word-break: break-all; }
+    button { width: 100%; padding: 10px; border: none; border-radius: 6px; background: #2563eb; color: white; font-size: 13px; font-weight: 500; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #93c5fd; cursor: default; }
+    .status { margin-top: 8px; text-align: center; font-size: 12px; }
+    .success { color: #16a34a; }
+    .error { color: #dc2626; }
+  </style>
+</head>
+<body>
+  <h3>Emdash Cookie Helper</h3>
+  <div class="site" id="site">Loading...</div>
+  <button id="copy">Copy Cookies</button>
+  <div class="status" id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
