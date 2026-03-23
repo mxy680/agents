@@ -17,7 +17,7 @@ const execFileAsync = promisify(execFile)
 const TEST_COMMANDS: Record<string, string[]> = {
   google: ["gmail", "messages", "list", "--limit=1", "--json"],
   github: ["github", "repos", "list", "--limit=1", "--json"],
-  instagram: ["instagram", "profile", "get", "--json"],
+  instagram: ["instagram", "media", "list", "--limit=1", "--json"],
   linkedin: ["linkedin", "profile", "me", "--json"],
   x: ["x", "users", "get", "--username=elonmusk", "--json"],
   framer: ["framer", "project", "info", "--json"],

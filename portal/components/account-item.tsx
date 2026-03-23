@@ -101,9 +101,9 @@ export function AccountItem({ id, label, status }: AccountItemProps) {
         </div>
       </div>
       {testError && (
-        <p className="px-2 text-xs text-red-500 font-mono truncate" title={testError}>
+        <pre className="px-2 py-1 text-xs text-red-500 font-mono whitespace-pre-wrap break-words max-h-24 overflow-y-auto border border-red-500/20 bg-red-500/5">
           {testError}
-        </p>
+        </pre>
       )}
     </div>
   )
