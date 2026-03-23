@@ -56,6 +56,9 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.url) env.BLUEBUBBLES_URL = credJson.url
       if (credJson.password) env.BLUEBUBBLES_PASSWORD = credJson.password
       break
+    case "zillow":
+      if (credJson.proxy_url) env.ZILLOW_PROXY_URL = credJson.proxy_url
+      break
   }
   return env
 }

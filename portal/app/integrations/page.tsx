@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
+import { ZillowConnectDialog } from "@/components/zillow-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -31,6 +32,7 @@ import {
   IconBrandSupabase,
   IconMessage,
   IconSchool,
+  IconHome,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -97,6 +99,13 @@ const providers = [
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
     connectType: "playwright" as const,
+  },
+  {
+    id: "zillow",
+    name: "Zillow",
+    description: "Properties, Zestimates, Agents, Mortgage Rates",
+    icon: IconHome,
+    connectType: "zillow" as const,
   },
 ]
 
@@ -211,6 +220,13 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Update" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
+                    ) : provider.connectType === "zillow" ? (
+                      <ZillowConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Update" : "Connect"}
+                        </Button>
+                      </ZillowConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}
