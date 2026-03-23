@@ -47,38 +47,36 @@ async function captureCookies(): Promise<string> {
     const page = await context.newPage()
     await page.goto(ZILLOW_URL, { waitUntil: "domcontentloaded" })
 
-    let elapsed = 0
-    while (elapsed < MAX_WAIT_MS) {
-      const cookies = await context.cookies()
-      const cookieMap = new Map(cookies.map((c) => [c.name, c.value]))
-
-      // _px3 is set after CAPTCHA is solved
-      const hasPx3 = cookieMap.has("_px3") && cookieMap.get("_px3") !== ""
-      // search cookie is set after real page loads
-      const hasSearch = cookieMap.has("search") && cookieMap.get("search") !== ""
-
-      if (hasPx3 && hasSearch) {
-        // Verify not on CAPTCHA page
-        const title = await page.title().catch(() => "")
-        if (!title.includes("denied") && !title.includes("blocked")) {
-          // Filter to zillow.com domain
-          const zillowCookies = cookies.filter((c) => {
-            const domain = c.domain.startsWith(".") ? c.domain.slice(1) : c.domain
-            return "www.zillow.com" === domain || "www.zillow.com".endsWith("." + domain)
-          })
-
-          return zillowCookies
-            .filter((c) => c.value)
-            .map((c) => `${c.name}=${c.value}`)
-            .join("; ")
-        }
-      }
-
-      await new Promise((r) => setTimeout(r, POLL_MS))
-      elapsed += POLL_MS
+    // Wait for real Zillow listings to appear in the DOM.
+    // This means the CAPTCHA (if any) was solved and the page fully loaded.
+    // The browser stays open until you see actual search results.
+    try {
+      await page.waitForSelector(
+        'article, [data-test="property-card"], #grid-search-results, [id="search-page-list-container"]',
+        { timeout: MAX_WAIT_MS }
+      )
+    } catch {
+      throw new Error("Timed out waiting for Zillow to load (2 minutes). Solve the CAPTCHA if prompted.")
     }
 
-    throw new Error("Timed out waiting for Zillow cookies (2 minutes). Did you solve the CAPTCHA?")
+    // Give the page a moment to set all cookies after content loads
+    await new Promise((r) => setTimeout(r, 2000))
+
+    // Capture all zillow.com cookies
+    const cookies = await context.cookies()
+    const zillowCookies = cookies.filter((c) => {
+      const domain = c.domain.startsWith(".") ? c.domain.slice(1) : c.domain
+      return "www.zillow.com" === domain || "www.zillow.com".endsWith("." + domain)
+    })
+
+    if (zillowCookies.length === 0) {
+      throw new Error("No Zillow cookies captured")
+    }
+
+    return zillowCookies
+      .filter((c) => c.value)
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ")
   } finally {
     await context.close()
     await browser.close()
