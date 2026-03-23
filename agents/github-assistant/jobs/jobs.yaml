@@ -1,7 +1,0 @@
-jobs:
-  - slug: activity-report
-    display_name: Daily Activity Report
-    description: Summarizes PRs, issues, and CI status across your repositories
-    schedule: "0 9 * * *"
-    prompt_file: activity-report.md
-    timeout_minutes: 10
