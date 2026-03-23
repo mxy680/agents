@@ -17,6 +17,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
+	"github.com/emdash-projects/agents/internal/providers/zillow"
 )
 
 func main() {
@@ -59,6 +60,9 @@ func main() {
 
 	canvasProvider := canvas.New()
 	canvasProvider.RegisterCommands(cli.RootCmd())
+
+	zillowProvider := zillow.New()
+	zillowProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
