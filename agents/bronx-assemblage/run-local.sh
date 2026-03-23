@@ -6,12 +6,6 @@
 #   ./run-local.sh                    # Run the weekly scan job
 #   ./run-local.sh "custom prompt"    # Run with a custom prompt
 #
-# Prerequisites:
-#   - doppler CLI configured (project: agents, config: dev)
-#   - integrations binary built (make build from repo root)
-#   - @anthropic-ai/claude-agent-sdk installed globally or in node_modules
-#   - ANTHROPIC_API_KEY set in doppler
-#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -44,55 +38,23 @@ fi
 # Add integrations binary to PATH
 export PATH="$REPO_ROOT/bin:$PATH"
 
-# Create temp workspace
-WORKSPACE=$(mktemp -d)
-trap "rm -rf $WORKSPACE" EXIT
+# Create temp session file
+SESSION_FILE=$(mktemp /tmp/agent-session-XXXXXX.json)
+trap "rm -f $SESSION_FILE" EXIT
 
-# Write session.json
-cat > "$WORKSPACE/session.json" <<EOF
-{
-  "prompt": $(echo "$PROMPT" | jq -Rs .),
-  "model": "claude-sonnet-4-6"
-}
-EOF
-
-# Write system prompt files
-echo "$SYSTEM_PROMPT" > "$WORKSPACE/role.md"
+# Write session.json with jq
+jq -n \
+  --arg prompt "$PROMPT" \
+  --arg systemPrompt "$SYSTEM_PROMPT" \
+  '{prompt: $prompt, systemPrompt: $systemPrompt, model: "claude-sonnet-4-6"}' \
+  > "$SESSION_FILE"
 
 echo "Starting Bronx Assemblage Scout..."
-echo "Workspace: $WORKSPACE"
 echo "---"
 
-# Run the agent with doppler env vars (includes ANTHROPIC_API_KEY + integration credentials)
+# Run the agent with doppler env vars
+# NODE_PATH ensures the globally-installed agent SDK is resolvable
+export NODE_PATH="$(npm root -g):${NODE_PATH:-}"
+
 exec doppler run --project agents --config dev -- \
-  node -e "
-    import { readFileSync } from 'fs';
-    import { query } from '@anthropic-ai/claude-agent-sdk';
-
-    const session = JSON.parse(readFileSync('$WORKSPACE/session.json', 'utf-8'));
-    const systemPrompt = readFileSync('$WORKSPACE/role.md', 'utf-8');
-
-    const conversation = query({
-      prompt: session.prompt,
-      options: {
-        cwd: '$WORKSPACE',
-        permissionMode: 'bypassPermissions',
-        allowDangerouslySkipPermissions: true,
-        systemPrompt,
-        maxTurns: 30,
-        model: session.model || 'claude-sonnet-4-6',
-      },
-    });
-
-    for await (const event of conversation) {
-      if (event.type === 'assistant' && event.message?.content) {
-        for (const block of event.message.content) {
-          if (block.type === 'text') {
-            process.stderr.write(block.text);
-          }
-        }
-      } else if (event.type === 'result') {
-        process.stderr.write('\n---\nAgent finished.\n');
-      }
-    }
-  "
+  node "$SCRIPT_DIR/entrypoint.mjs" "$SESSION_FILE"
