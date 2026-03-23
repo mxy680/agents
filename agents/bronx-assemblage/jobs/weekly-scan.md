@@ -8,7 +8,20 @@ Create a structured Google Sheet of small residential properties currently for s
 
 ## Search criteria
 
-Location: Bronx, New York only.
+Location: Bronx, New York only. Focus on high-density zoning areas by searching these zip codes individually:
+- 10451 (Mott Haven / Port Morris)
+- 10452 (Highbridge / Concourse)
+- 10453 (Morris Heights / University Heights)
+- 10454 (Mott Haven / Melrose)
+- 10456 (Morrisania / Melrose)
+- 10457 (East Tremont / Fordham)
+- 10458 (Fordham / Belmont)
+- 10459 (Longwood / Crotona Park East)
+- 10460 (West Farms / Crotona Park)
+- 10468 (Fordham / Bedford Park)
+
+Run a separate Zillow search for each zip code. Do NOT just search "Bronx, NY" — that returns mostly low-density neighborhoods.
+
 Listing status: Active for sale listings only.
 Property types: 1-family, 2-family, 3-family, 4-family, 5-family homes.
 
