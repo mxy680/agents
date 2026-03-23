@@ -203,21 +203,21 @@ export default async function IntegrationsPage() {
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Refresh session" : "Launch browser"}
+                          {accounts.length > 0 ? "Add account" : "Launch browser"}
                         </Button>
                       </PlaywrightConnectDialog>
                     ) : provider.connectType === "framer" ? (
                       <FramerConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Update" : "Connect"}
+                          {accounts.length > 0 ? "Add project" : "Connect"}
                         </Button>
                       </FramerConnectDialog>
                     ) : provider.connectType === "bluebubbles" ? (
                       <BlueBubblesConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Update" : "Connect"}
+                          {accounts.length > 0 ? "Add server" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
                     ) : provider.connectType === "zillow" ? (
@@ -244,7 +244,7 @@ export default async function IntegrationsPage() {
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Add another account" : "Connect"}
+                          {accounts.length > 0 ? "Add account" : "Connect"}
                         </Button>
                       </ConnectDialog>
                     )}
