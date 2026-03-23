@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
+import { ZillowConnectDialog } from "@/components/zillow-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -220,15 +221,12 @@ export default async function IntegrationsPage() {
                         </Button>
                       </BlueBubblesConnectDialog>
                     ) : provider.connectType === "zillow" ? (
-                      <PlaywrightConnectDialog
-                        provider={provider.id}
-                        providerName={provider.name}
-                      >
+                      <ZillowConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
-                      </PlaywrightConnectDialog>
+                      </ZillowConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

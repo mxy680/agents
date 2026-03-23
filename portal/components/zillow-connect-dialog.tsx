@@ -3,17 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { IconLoader2, IconCheck, IconAlertCircle } from "@tabler/icons-react"
 
 interface ZillowConnectDialogProps {
   children: React.ReactNode
@@ -21,98 +11,66 @@ interface ZillowConnectDialogProps {
 
 export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [label, setLabel] = useState("")
-  const [proxyUrl, setProxyUrl] = useState("")
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [message, setMessage] = useState("")
 
-  async function handleSave() {
-    setError("")
-    setSaving(true)
+  async function handleCapture() {
+    setStatus("loading")
+    setMessage("Browser opening — solve the CAPTCHA if prompted...")
 
     try {
-      const res = await fetch("/api/integrations/zillow/save", {
+      const res = await fetch("/api/integrations/zillow/refresh", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          label: label.trim() || "Zillow",
-          proxy_url: proxyUrl.trim(),
-        }),
       })
-
       const data = await res.json()
-      if (!res.ok) {
-        setError(data.error || "Failed to save configuration")
-        return
-      }
 
-      setOpen(false)
-      setLabel("")
-      setProxyUrl("")
-      router.refresh()
+      if (data.ok) {
+        setStatus("done")
+        setMessage(`Captured ${data.cookieCount} cookies`)
+        setTimeout(() => {
+          setStatus("idle")
+          setMessage("")
+          router.refresh()
+        }, 1500)
+      } else {
+        setStatus("error")
+        setMessage(data.error || "Failed to capture cookies")
+      }
     } catch {
-      setError("Network error. Please try again.")
-    } finally {
-      setSaving(false)
+      setStatus("error")
+      setMessage("Network error")
     }
   }
 
-  function handleReset() {
-    setOpen(false)
-    setLabel("")
-    setProxyUrl("")
-    setError("")
+  if (status === "idle") {
+    return <div onClick={handleCapture}>{children}</div>
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) handleReset(); else setOpen(true) }}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Zillow Proxy</DialogTitle>
-          <DialogDescription>
-            A residential proxy lets agents search Zillow without browser cookies. Requests rotate through residential IPs, bypassing bot detection. Works with laptop closed.
-          </DialogDescription>
-        </DialogHeader>
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="zillow-label">Account name</FieldLabel>
-            <Input
-              id="zillow-label"
-              placeholder="e.g. Zillow, Real Estate Search"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              autoFocus
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="zillow-proxy-url">Proxy URL</FieldLabel>
-            <Input
-              id="zillow-proxy-url"
-              placeholder="http://user:pass@proxy.example.com:8080"
-              value={proxyUrl}
-              onChange={(e) => setProxyUrl(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Supports http://, https://, socks4://, socks5://
-            </p>
-          </Field>
-        </FieldGroup>
-        {error && (
-          <p className="text-sm text-destructive">{error}</p>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={handleReset} disabled={saving}>
-            Cancel
+    <div className="flex items-center justify-center gap-2 py-1 text-sm w-full">
+      {status === "loading" && (
+        <>
+          <IconLoader2 className="size-4 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">{message}</span>
+        </>
+      )}
+      {status === "done" && (
+        <>
+          <IconCheck className="size-4 text-green-500" />
+          <span className="text-green-500">{message}</span>
+        </>
+      )}
+      {status === "error" && (
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
+            <IconAlertCircle className="size-4 text-red-500" />
+            <span className="text-red-500">{message}</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => { setStatus("idle"); setMessage("") }}>
+            Try again
           </Button>
-          <Button onClick={handleSave} disabled={saving || !proxyUrl.trim()}>
-            {saving ? "Saving..." : "Save"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      )}
+    </div>
   )
 }
