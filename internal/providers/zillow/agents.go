@@ -3,6 +3,7 @@ package zillow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -51,10 +52,13 @@ func makeRunAgentSearch(factory ClientFactory) func(*cobra.Command, []string) er
 		limit, _ := cmd.Flags().GetInt("limit")
 
 		// Zillow agent search uses a different endpoint
-		reqURL := fmt.Sprintf("%s/search/GetSearchPageState.htm?searchQueryState={\"usersSearchTerm\":\"%s\"}&wants={\"cat3\":[\"agentResults\"]}", client.baseURL, location)
+		qs := url.Values{}
+		qs.Set("searchQueryState", fmt.Sprintf(`{"usersSearchTerm":"%s"}`, location))
+		qs.Set("wants", `{"cat3":["agentResults"]}`)
 		if name != "" {
-			reqURL += "&agentName=" + name
+			qs.Set("agentName", name)
 		}
+		reqURL := client.baseURL + "/search/GetSearchPageState.htm?" + qs.Encode()
 
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {

@@ -3,6 +3,7 @@ package zillow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -103,7 +104,7 @@ func makeRunNeighborhoodSearch(factory ClientFactory) func(*cobra.Command, []str
 		location, _ := cmd.Flags().GetString("location")
 
 		// Use autocomplete API to find neighborhood regions
-		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + location
+		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + url.QueryEscape(location)
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {
 			return fmt.Errorf("search neighborhoods: %w", err)

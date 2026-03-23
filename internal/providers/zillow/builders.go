@@ -3,6 +3,7 @@ package zillow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -46,7 +47,7 @@ func makeRunBuilderSearch(factory ClientFactory) func(*cobra.Command, []string) 
 		location, _ := cmd.Flags().GetString("location")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		reqURL := fmt.Sprintf("%s/graphql/?builderSearch=%s", client.baseURL, location)
+		reqURL := client.baseURL + "/graphql/?builderSearch=" + url.QueryEscape(location)
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {
 			return fmt.Errorf("search builders: %w", err)

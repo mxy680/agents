@@ -3,6 +3,7 @@ package zillow
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -42,7 +43,7 @@ func makeRunSearchAutocomplete(factory ClientFactory) func(*cobra.Command, []str
 
 		query, _ := cmd.Flags().GetString("query")
 
-		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + query
+		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + url.QueryEscape(query)
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {
 			return fmt.Errorf("autocomplete: %w", err)
@@ -96,7 +97,7 @@ func makeRunSearchByAddress(factory ClientFactory) func(*cobra.Command, []string
 		address, _ := cmd.Flags().GetString("address")
 
 		// Use autocomplete to resolve address to ZPID, then fetch details
-		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + address
+		reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + url.QueryEscape(address)
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {
 			return fmt.Errorf("search by address: %w", err)
