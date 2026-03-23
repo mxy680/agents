@@ -77,19 +77,35 @@ Append data rows:
 integrations sheets values append --id=SPREADSHEET_ID --range="Sheet1!A1" --values='[["123 Main St, Bronx, NY 10451","$500,000","2","2,500","1,800","1925","R7A","High","Narrow rowhouse block, similar buildings adjacent","Small 2-family in R7A zone, standard 25ft lot, older stock, attached context","https://zillow.com/...","https://zola.planning.nyc.gov/lot/2/...","Corner lot"]]' --value-input=USER_ENTERED --json
 ```
 
-## Tool 4: Google Drive CLI (for creating Google Docs)
+## Tool 4: Google Docs CLI
 
-Upload an HTML file as a Google Doc:
+Create a new document:
 ```bash
-integrations drive files upload --path=/tmp/report.html --name="Bronx Assemblage Report — 2026-03-23" --mime-type=text/html --json
+integrations docs documents create --title="Bronx Assemblage Report — 2026-03-23" --json
 ```
 
-The uploaded HTML file will be converted to a Google Doc automatically by Drive. The response includes `id` and `webViewLink`.
+Returns `{ "id": "...", "title": "...", "url": "https://docs.google.com/document/d/.../edit" }`.
 
-To create a formatted report:
-1. Write an HTML file to `/tmp/report.html` with the report content
-2. Use standard HTML formatting: `<h1>`, `<h2>`, `<p>`, `<table>`, `<strong>`, `<ul>`, etc.
-3. Upload it via the Drive CLI — Google converts it to a native Google Doc
+Append text to a document:
+```bash
+integrations docs documents append --document-id=DOC_ID --text="# Executive Summary\n\nThis report covers..." --json
+```
+
+The `--text` flag supports `\n` for newlines. Use `--text-file=PATH` to append from a file.
+
+For rich formatting (headings, tables, bold), use batch-update with raw Docs API requests:
+```bash
+integrations docs documents batch-update --document-id=DOC_ID --requests-file=/tmp/requests.json --json
+```
+
+### Writing a formatted report
+
+The easiest approach:
+1. Create the doc: `docs documents create --title=...`
+2. Write the full report content to a text file
+3. Append it: `docs documents append --document-id=ID --text-file=/tmp/report.txt`
+
+For the report, write plain text with clear section headers using markdown-style formatting. The agent should write content that reads well as plain text — Google Docs will display it cleanly.
 
 ## Workflow
 
