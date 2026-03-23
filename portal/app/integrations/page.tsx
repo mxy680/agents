@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
+import { ZillowConnectDialog } from "@/components/zillow-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -104,7 +105,7 @@ const providers = [
     name: "Zillow",
     description: "Properties, Zestimates, Agents, Mortgage Rates",
     icon: IconHome,
-    connectType: "playwright" as const,
+    connectType: "zillow" as const,
   },
 ]
 
@@ -219,6 +220,23 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Update" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
+                    ) : provider.connectType === "zillow" ? (
+                      <div className="flex flex-col gap-2">
+                        <ZillowConnectDialog>
+                          <Button variant="outline" size="sm" className="w-full">
+                            <IconPlus />
+                            {accounts.length > 0 ? "Update proxy" : "Set proxy"}
+                          </Button>
+                        </ZillowConnectDialog>
+                        <PlaywrightConnectDialog
+                          provider={provider.id}
+                          providerName={provider.name}
+                        >
+                          <Button variant="ghost" size="sm" className="w-full text-muted-foreground">
+                            {accounts.length > 0 ? "Refresh cookies" : "Or capture cookies"}
+                          </Button>
+                        </PlaywrightConnectDialog>
+                      </div>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

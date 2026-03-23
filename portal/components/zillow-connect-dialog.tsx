@@ -72,9 +72,9 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Connect Zillow</DialogTitle>
+          <DialogTitle>Zillow Proxy</DialogTitle>
           <DialogDescription>
-            Zillow works without any credentials. Optionally configure a proxy to avoid rate limits in production.
+            A residential proxy lets agents search Zillow without browser cookies. Requests rotate through residential IPs, bypassing bot detection. Works with laptop closed.
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
@@ -89,13 +89,16 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="zillow-proxy-url">Proxy URL (optional)</FieldLabel>
+            <FieldLabel htmlFor="zillow-proxy-url">Proxy URL</FieldLabel>
             <Input
               id="zillow-proxy-url"
-              placeholder="e.g. http://user:pass@proxy:8080 or socks5://..."
+              placeholder="http://user:pass@proxy.example.com:8080"
               value={proxyUrl}
               onChange={(e) => setProxyUrl(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Supports http://, https://, socks4://, socks5://
+            </p>
           </Field>
         </FieldGroup>
         {error && (
@@ -105,8 +108,8 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
           <Button variant="outline" onClick={handleReset} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Connect"}
+          <Button onClick={handleSave} disabled={saving || !proxyUrl.trim()}>
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
