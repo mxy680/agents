@@ -19,9 +19,13 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
     setMessage("Browser opening — solve the CAPTCHA if prompted...")
 
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 180_000) // 3 min
       const res = await fetch("/api/integrations/zillow/refresh", {
         method: "POST",
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
       const data = await res.json()
 
       if (data.ok) {
