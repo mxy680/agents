@@ -3,41 +3,38 @@
 ## Authentication
 All credentials are pre-configured via environment variables. Run commands directly — do not check for missing tokens.
 
-## Tool 1: Zillow CLI
+## Tool 1: Zillow CLI (search only)
 
 Search for properties:
 ```bash
-integrations zillow properties search --location="Bronx, NY" --limit=40 --json
-```
-
-Get full details for a property:
-```bash
-integrations zillow properties get --zpid=ZPID --json
+integrations zillow properties search --location="Bronx, NY 10451" --limit=40 --json
 ```
 
 The search returns: zpid, address, price, beds, baths, sqft, homeType, status, zillowUrl, latitude, longitude, daysOnMarket.
 
-The detail endpoint returns additional fields: lotSize, yearBuilt, description, photos, priceHistory, taxHistory, schools.
+**Do NOT use `integrations zillow properties get`** — the detail endpoint has CSRF issues. Use NYC PLUTO (Tool 2) for lot size, year built, and building area instead.
 
-## Tool 2: NYC ZoLa (raw HTTP — no CLI needed)
+## Tool 2: NYC PLUTO + GeoSearch (zoning, lot data, year built)
+
+PLUTO is the authoritative source for lot data. It returns zoning, lot area, building area, year built, and building class — all in one call.
 
 ### Step A: Geocode the address to get BBL
 
 ```bash
-curl -s "https://geosearch.planninglabs.nyc/v2/search?text=1776+Seminole+Ave+Bronx+NY" | jq '.features[0].properties'
+curl -s "https://geosearch.planninglabs.nyc/v2/search?text=1776+Seminole+Ave+Bronx+NY"
 ```
 
-Response includes `addendum.pad.bbl` — the Borough-Block-Lot identifier. Example: `2037620044` where `2` = Bronx.
+The BBL is in `.features[0].properties.addendum.pad.bbl`. Example: `2037620044` where `2` = Bronx.
 
-### Step B: Look up zoning for that BBL
+### Step B: Look up lot data via PLUTO (Socrata)
 
 ```bash
-curl -s "https://zola-api.planning.nyc.gov/api/v1/lot/2/03762/0044" | jq '.zoning_districts'
+curl -s "https://data.cityofnewyork.us/resource/64uk-42ks.json?bbl=2037620044"
 ```
 
-URL format: `/api/v1/lot/{borough}/{block}/{lot}` where borough=2 for Bronx, block and lot are zero-padded from the BBL.
+Returns: `zonedist1` (zoning), `lotarea` (lot SF), `bldgarea` (building SF), `yearbuilt`, `bldgclass`, `numbldgs`, `numfloors`, `unitsres`, `unitstotal`, `address`.
 
-The `zoning_districts` array contains objects with a `zonedist` field like "R7-1", "R8A", "C4-4", etc.
+This is more reliable than Zillow for lot size and year built.
 
 ### Step C: Build the ZoLa URL
 
@@ -45,16 +42,10 @@ The `zoning_districts` array contains objects with a `zonedist` field like "R7-1
 https://zola.planning.nyc.gov/lot/2/03762/0044
 ```
 
-Same format as the API: `/lot/{borough}/{block}/{lot}`.
-
-### Parsing the BBL
-
-The BBL is a 10-digit number: `BBBBBBBLLLL` where:
+Format: `/lot/{borough}/{block}/{lot}` — parse from BBL where:
 - Digit 1: borough (2 = Bronx)
 - Digits 2-6: block (5 digits, zero-padded)
 - Digits 7-10: lot (4 digits, zero-padded)
-
-Example: BBL `2037620044` → borough=2, block=03762, lot=0044
 
 ### Zoning classification guide
 
@@ -76,8 +67,6 @@ Create a new spreadsheet:
 integrations sheets spreadsheets create --title="Bronx Assemblage Scan — 2026-03-23" --json
 ```
 
-Returns `{ "spreadsheetId": "...", "spreadsheetUrl": "..." }`.
-
 Write the header row:
 ```bash
 integrations sheets values update --id=SPREADSHEET_ID --range="Sheet1!A1:M1" --values='[["Property Address","Asking Price","Units","Lot Size (SF)","Building SF","Year Built","Zoning","Starter Lot Potential","Block Context Note","Why This Could Be a Starting Point","Zillow Link","ZoLa Link","Notes"]]' --value-input=USER_ENTERED --json
@@ -90,16 +79,17 @@ integrations sheets values append --id=SPREADSHEET_ID --range="Sheet1!A1" --valu
 
 ## Workflow
 
-1. Search Zillow for Bronx 1-5 family homes for sale
-2. For each result, get property details (lot size, year built)
-3. Geocode the address via NYC GeoSearch → get BBL
-4. Look up zoning via ZoLa API → get zoning district
+1. Search Zillow for each target zip code (see job prompt for list)
+2. Filter out condos, co-ops, pending/contingent listings
+3. Geocode each address via NYC GeoSearch → get BBL
+4. Look up zoning + lot data via PLUTO (Socrata) → get zoning, lot SF, building SF, year built
 5. Filter: only keep R7+ zoned properties
 6. Score starter-lot potential (Low/Moderate/High) based on observable signals
 7. Create Google Sheet and write results
 
 ## Important
-- Process properties in batches — don't try to do all 40 at once
-- If ZoLa API returns no results for an address, write "Unable to verify" in the zoning column
-- If a property is a condo or co-op (check homeType), skip it
+- **Use PLUTO for lot size, year built, building area** — not Zillow detail endpoint
+- Process properties in batches — don't try to do all at once
+- If PLUTO returns no results for a BBL, write "Unable to verify" in the zoning column
+- If a property is a condo or co-op (check homeType from Zillow or bldgclass from PLUTO), skip it
 - The Google Sheet is the final deliverable — make sure every row is complete
