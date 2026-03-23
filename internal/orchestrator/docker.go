@@ -28,6 +28,10 @@ func (d *DockerRuntime) RunContainer(ctx context.Context, spec ContainerSpec) (s
 		args = append(args, "--cpus="+spec.CPULimit)
 	}
 
+	for _, vol := range spec.Volumes {
+		args = append(args, "-v", vol)
+	}
+
 	for k, v := range spec.Labels {
 		args = append(args, "--label="+k+"="+v)
 	}

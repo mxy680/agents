@@ -30,6 +30,7 @@ type ContainerSpec struct {
 	Labels      map[string]string
 	MemoryLimit string // e.g. "1g"
 	CPULimit    string // e.g. "1"
+	Volumes     []string // e.g. "/host/path:/container/path:ro"
 }
 
 // ContainerInfo is a simplified container status report.

@@ -133,6 +133,13 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Mount agent template files (role.md, CLAUDE.md) into the workspace
+	var volumes []string
+	if s.cfg.AgentsDir != "" {
+		templateDir := s.cfg.AgentsDir + "/" + tmpl.Name
+		volumes = append(volumes, templateDir+":/agent/workspace:ro")
+	}
+
 	spec := ContainerSpec{
 		Name:  "agent-" + id,
 		Image: tmpl.DockerImage,
@@ -146,6 +153,7 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 			"instance-id": inst.ID,
 			"user-id":     userID,
 		},
+		Volumes:     volumes,
 		MemoryLimit: "1g",
 		CPULimit:    "1",
 	}

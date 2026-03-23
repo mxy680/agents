@@ -45,6 +45,7 @@ func main() {
 	cfg.AllowedOrigin = os.Getenv("CORS_ALLOWED_ORIGIN")
 	cfg.APIKey = os.Getenv("ORCHESTRATOR_API_KEY")
 	cfg.AdminUserID = os.Getenv("ADMIN_USER_ID")
+	cfg.AgentsDir = os.Getenv("AGENTS_DIR")
 
 	if v := os.Getenv("RUNTIME"); v != "" {
 		cfg.Runtime = v

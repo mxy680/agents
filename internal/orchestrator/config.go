@@ -32,6 +32,9 @@ type Config struct {
 	APIKey      string // If set, Bearer <APIKey> is accepted as auth
 	AdminUserID string // User ID to use when authenticating with API key
 
+	// Agent templates directory (on host filesystem)
+	AgentsDir string // e.g. "/opt/agents/agents" — mounted read-only into containers
+
 	// CORS
 	AllowedOrigin string // If empty, defaults to "*" (development only)
 }
