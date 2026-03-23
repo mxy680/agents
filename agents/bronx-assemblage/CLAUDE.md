@@ -60,52 +60,111 @@ Only include properties zoned R7 or higher:
 
 Exclude: R1 through R6B (low/medium density — not worth assembling).
 
-## Tool 3: Google Sheets CLI
+## Tool 3: Professional XLSX Spreadsheet (via Python openpyxl)
 
-Create a new spreadsheet:
-```bash
-integrations sheets spreadsheets create --title="Bronx Assemblage Scan — 2026-03-23" --json
+Create the spreadsheet as a styled .xlsx file using Python, then upload to Google Drive.
+
+```python
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "Assemblage Scan"
+
+# Header styling
+header_font = Font(bold=True, color="FFFFFF", size=11, name="Arial")
+header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+thin_border = Border(
+    left=Side(style='thin'), right=Side(style='thin'),
+    top=Side(style='thin'), bottom=Side(style='thin')
+)
+
+# Write headers
+headers = ["Property Address", "Asking Price", "Units", "Lot Size (SF)", "Building SF", "Year Built", "Zoning", "Starter Lot Potential", "Block Context Note", "Why This Could Be a Starting Point", "Zillow Link", "ZoLa Link", "Notes"]
+for col, header in enumerate(headers, 1):
+    cell = ws.cell(row=1, column=col, value=header)
+    cell.font = header_font
+    cell.fill = header_fill
+    cell.alignment = Alignment(horizontal='center', wrap_text=True)
+    cell.border = thin_border
+
+# Color coding for Starter Lot Potential
+high_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")  # green
+moderate_fill = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")  # yellow
+low_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")  # red
+
+# Write data rows with formatting...
+# Set column widths
+ws.column_dimensions['A'].width = 35  # Address
+ws.column_dimensions['B'].width = 14  # Price
+# etc.
+
+wb.save("/tmp/bronx_assemblage_scan.xlsx")
 ```
 
-Write the header row:
+Upload to Google Drive:
 ```bash
-integrations sheets values update --id=SPREADSHEET_ID --range="Sheet1!A1:M1" --values='[["Property Address","Asking Price","Units","Lot Size (SF)","Building SF","Year Built","Zoning","Starter Lot Potential","Block Context Note","Why This Could Be a Starting Point","Zillow Link","ZoLa Link","Notes"]]' --value-input=USER_ENTERED --json
+integrations drive files upload --path=/tmp/bronx_assemblage_scan.xlsx --name="Bronx Assemblage Scan — 2026-03-23.xlsx" --json
 ```
 
-Append data rows:
-```bash
-integrations sheets values append --id=SPREADSHEET_ID --range="Sheet1!A1" --values='[["123 Main St, Bronx, NY 10451","$500,000","2","2,500","1,800","1925","R7A","High","Narrow rowhouse block, similar buildings adjacent","Small 2-family in R7A zone, standard 25ft lot, older stock, attached context","https://zillow.com/...","https://zola.planning.nyc.gov/lot/2/...","Corner lot"]]' --value-input=USER_ENTERED --json
+## Tool 4: Professional PDF Report (via Python reportlab)
+
+Create the report as a styled PDF, then upload to Google Drive.
+
+```python
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+
+doc = SimpleDocTemplate("/tmp/bronx_assemblage_report.pdf", pagesize=letter,
+    topMargin=0.75*inch, bottomMargin=0.75*inch,
+    leftMargin=0.75*inch, rightMargin=0.75*inch)
+
+styles = getSampleStyleSheet()
+title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=18, spaceAfter=12)
+heading_style = ParagraphStyle('Heading', parent=styles['Heading2'], fontSize=14, spaceAfter=8, textColor=HexColor('#1F4E79'))
+body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, spaceAfter=6, leading=14)
+
+elements = []
+elements.append(Paragraph("Bronx Assemblage Report — 2026-03-23", title_style))
+elements.append(Paragraph("Prepared for Brokerage Team", body_style))
+elements.append(Spacer(1, 12))
+
+# Add sections: Executive Summary, Top Opportunities, Cluster Analysis, Full Table, Methodology
+elements.append(Paragraph("1. Executive Summary", heading_style))
+elements.append(Paragraph("...", body_style))
+
+# Add a formatted table
+table_data = [["Address", "Price", "Zone", "Potential"], ...]
+t = Table(table_data, colWidths=[2.5*inch, 1*inch, 0.8*inch, 1*inch])
+t.setStyle(TableStyle([
+    ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1F4E79')),
+    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+    ('FONTSIZE', (0, 0), (-1, -1), 8),
+    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F2F2F2')]),
+]))
+elements.append(t)
+
+doc.build(elements)
 ```
 
-## Tool 4: Google Docs CLI
-
-Create a new document:
+Upload to Google Drive:
 ```bash
-integrations docs documents create --title="Bronx Assemblage Report — 2026-03-23" --json
+integrations drive files upload --path=/tmp/bronx_assemblage_report.pdf --name="Bronx Assemblage Report — 2026-03-23.pdf" --json
 ```
 
-Returns `{ "id": "...", "title": "...", "url": "https://docs.google.com/document/d/.../edit" }`.
+## Tool 5: Google Drive CLI (for uploading files)
 
-Append text to a document:
 ```bash
-integrations docs documents append --document-id=DOC_ID --text="# Executive Summary\n\nThis report covers..." --json
+integrations drive files upload --path=/tmp/file.xlsx --name="Display Name" --json
 ```
 
-The `--text` flag supports `\n` for newlines. Use `--text-file=PATH` to append from a file.
-
-For rich formatting (headings, tables, bold), use batch-update with raw Docs API requests:
-```bash
-integrations docs documents batch-update --document-id=DOC_ID --requests-file=/tmp/requests.json --json
-```
-
-### Writing a formatted report
-
-The easiest approach:
-1. Create the doc: `docs documents create --title=...`
-2. Write the full report content to a text file
-3. Append it: `docs documents append --document-id=ID --text-file=/tmp/report.txt`
-
-For the report, write plain text with clear section headers using markdown-style formatting. The agent should write content that reads well as plain text — Google Docs will display it cleanly.
+Returns `{ "id": "...", "url": "..." }`.
 
 ## Workflow
 
@@ -115,12 +174,15 @@ For the report, write plain text with clear section headers using markdown-style
 4. Look up zoning + lot data via PLUTO (Socrata) → get zoning, lot SF, building SF, year built
 5. Filter: only keep R7+ zoned properties
 6. Score starter-lot potential (Low/Moderate/High) based on observable signals
-7. Create Google Sheet with raw data table
-8. Create Google Doc report with analysis and recommendations
+7. **Verify**: Re-read all collected data. Check for: mismatched Zillow URLs, missing zoning data, duplicate addresses, inconsistent scoring. Fix any issues found.
+8. Create professional XLSX spreadsheet with styled headers, color-coded potential scores, and proper column widths. Upload to Google Drive.
+9. Create professional PDF report with executive summary, top opportunities, cluster analysis, full results table, and methodology. Upload to Google Drive.
 
 ## Important
 - **Use PLUTO for lot size, year built, building area** — not Zillow detail endpoint
 - Process properties in batches — don't try to do all at once
 - If PLUTO returns no results for a BBL, write "Unable to verify" in the zoning column
 - If a property is a condo or co-op (check homeType from Zillow or bldgclass from PLUTO), skip it
-- The Google Sheet is the final deliverable — make sure every row is complete
+- **Always run the verification step** before creating output files
+- Install Python dependencies if needed: `pip install openpyxl reportlab`
+- The XLSX and PDF are the final deliverables — they must be professional, accurate, and complete

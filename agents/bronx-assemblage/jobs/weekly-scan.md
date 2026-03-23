@@ -68,32 +68,47 @@ Score each qualifying property as Low / Moderate / High starter-lot potential ba
 Do NOT calculate FAR or development yield.
 Do NOT assume specific buildable square footage.
 
-### Step 4 — Output to Google Sheet
+### Step 4 — Verify data
 
-Create a Google Sheet titled "Bronx Assemblage Scan — [today's date]".
+Before creating any output files, re-read all collected data and check for:
+- Mismatched Zillow URLs (URL points to wrong property)
+- Missing zoning data (should be "Unable to verify", not blank)
+- Duplicate addresses
+- Inconsistent scoring (e.g., R8 property scored Moderate when it should be High)
+- Properties that should have been filtered out (condos, co-ops, <R7 zoning)
 
-Write a table with these columns:
+Fix any issues found.
 
-| Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Starter Lot Potential | Block Context Note | Why This Could Be a Starting Point | Zillow Link | ZoLa Link | Notes |
+### Step 5 — Create professional XLSX spreadsheet
 
-### Step 5 — Create Google Doc report
+Use Python with openpyxl to create a styled .xlsx file with:
+- Dark blue header row with white bold text
+- Color-coded "Starter Lot Potential" cells (green=High, yellow=Moderate, red=Low)
+- Proper column widths for readability
+- All 13 columns: Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Starter Lot Potential | Block Context Note | Why This Could Be a Starting Point | Zillow Link | ZoLa Link | Notes
 
-Create a formatted Google Doc titled "Bronx Assemblage Report — [today's date]".
+Save to /tmp/ and upload to Google Drive.
 
-Write it as an HTML file and upload via Google Drive. The report should include:
+### Step 6 — Create professional PDF report
 
-1. **Executive Summary** — how many zip codes searched, how many listings reviewed, how many passed the R7+ filter, how many scored High/Moderate/Low
-2. **Top Opportunities** — the 3-5 best starter lots with a paragraph each explaining why they stand out. Mention price, zoning, lot size, year built, and block context.
-3. **Cluster Opportunities** — any cases where 2+ qualifying properties are on the same block or adjacent. These are rare and especially valuable for assemblage.
-4. **Full Results Table** — all qualifying properties in a formatted HTML table (same columns as the Google Sheet)
-5. **Methodology** — brief note on data sources (Zillow search API, NYC PLUTO via Socrata, NYC GeoSearch) and any limitations encountered
-6. **Link to the Google Sheet** — include the URL of the companion spreadsheet
+Use Python with reportlab to create a styled PDF report with:
 
-Format the HTML cleanly with proper headings, paragraphs, and table styling. This document will be shared with a brokerage team.
+1. **Title page** — "Bronx Assemblage Report" + date + "Prepared for Brokerage Team"
+2. **Executive Summary** — zip codes searched, listings reviewed, R7+ filter results, score distribution
+3. **Top Opportunities** — the 3-5 best starter lots with a paragraph each explaining why. Mention price, zoning, lot size, year built, block context.
+4. **Cluster Opportunities** — cases where 2+ qualifying properties are on the same block. Include combined lot area estimate.
+5. **Full Results Table** — all qualifying properties in a formatted table with alternating row colors
+6. **Methodology** — data sources, process, limitations
+7. **Link to companion spreadsheet** — the Google Drive URL of the XLSX file
+
+Use professional styling: navy headers, clean fonts, proper spacing, alternating row backgrounds in tables.
+
+Save to /tmp/ and upload to Google Drive.
 
 ## Quality standard
 
 - Accurate, clean, and useful for brokerage research and outreach planning.
 - Write "Not stated" or "Unable to verify" for missing information.
 - No speculation beyond visible listing and zoning context.
-- The Google Doc should be professional and readable — not a raw data dump.
+- The XLSX and PDF must be professional — these go to a brokerage team.
+- Always run the verification step before creating output files.
