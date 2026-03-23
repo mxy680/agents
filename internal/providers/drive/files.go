@@ -241,6 +241,7 @@ func newFilesUploadCmd(factory ServiceFactory) *cobra.Command {
 	cmd.Flags().String("parent", "", "Parent folder ID")
 	cmd.Flags().String("mime-type", "", "MIME type override")
 	cmd.Flags().String("description", "", "File description")
+	cmd.Flags().Bool("convert", false, "Convert to native Google format (e.g., XLSX → Google Sheet)")
 	_ = cmd.MarkFlagRequired("path")
 	return cmd
 }
@@ -252,6 +253,7 @@ func makeRunFilesUpload(factory ServiceFactory) func(*cobra.Command, []string) e
 		parent, _ := cmd.Flags().GetString("parent")
 		mimeType, _ := cmd.Flags().GetString("mime-type")
 		description, _ := cmd.Flags().GetString("description")
+		convert, _ := cmd.Flags().GetBool("convert")
 
 		// Default name to filename from path
 		if name == "" {
@@ -281,6 +283,18 @@ func makeRunFilesUpload(factory ServiceFactory) func(*cobra.Command, []string) e
 		}
 		if parent != "" {
 			fileMeta.Parents = []string{parent}
+		}
+		// When --convert is set, tell Drive to convert to the native Google format.
+		// e.g., XLSX → Google Sheets, DOCX → Google Docs, CSV → Google Sheets
+		if convert {
+			fileMeta.MimeType = "application/vnd.google-apps.spreadsheet"
+			if strings.HasSuffix(strings.ToLower(path), ".csv") || strings.HasSuffix(strings.ToLower(path), ".tsv") {
+				fileMeta.MimeType = "application/vnd.google-apps.spreadsheet"
+			} else if strings.HasSuffix(strings.ToLower(path), ".docx") || strings.HasSuffix(strings.ToLower(path), ".doc") {
+				fileMeta.MimeType = "application/vnd.google-apps.document"
+			} else if strings.HasSuffix(strings.ToLower(path), ".pptx") || strings.HasSuffix(strings.ToLower(path), ".ppt") {
+				fileMeta.MimeType = "application/vnd.google-apps.presentation"
+			}
 		}
 
 		ctx := cmd.Context()

@@ -87,11 +87,12 @@ Use Python with openpyxl to create a styled .xlsx file with:
 - Proper column widths for readability
 - All 13 columns: Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Starter Lot Potential | Block Context Note | Why This Could Be a Starting Point | Zillow Link | ZoLa Link | Notes
 
-Save to /tmp/ and upload to Google Drive with `--mime-type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. Google Drive will auto-convert it to a Google Sheet when opened.
+Save to /tmp/ and upload to Google Drive with the `--convert` flag to auto-convert to a native Google Sheet:
+```
+integrations drive files upload --path=/tmp/scan.xlsx --name="Bronx Assemblage Scan — [date]" --convert --json
+```
 
-After uploading, provide both links:
-- The Google Drive file link (from the upload response)
-- A direct Google Sheets link: `https://docs.google.com/spreadsheets/d/FILE_ID/edit` (use the file ID from the upload response)
+Provide the Google Sheets link: `https://docs.google.com/spreadsheets/d/FILE_ID/edit`
 
 ### Step 6 — Create professional PDF report
 
@@ -107,7 +108,14 @@ Write a LaTeX document and compile with `pdflatex` to create a styled PDF report
 
 Use professional LaTeX styling: booktabs tables, navy section headers, fancyhdr page headers, hyperlinked URLs. Escape all special characters (`$`, `#`, `%`, `&`, `_`).
 
-Save the .tex file to /tmp/, compile with `pdflatex -interaction=nonstopmode` (run twice), and upload the PDF to Google Drive.
+Save the .tex file to /tmp/, compile with `pdflatex -interaction=nonstopmode` (run twice).
+
+**Verify the PDF output:** Check the pdflatex log for errors. If there are LaTeX errors, read the log, fix the .tex file, and recompile. Repeat until compilation is clean (no errors). Common issues to watch for:
+- Unescaped `$`, `#`, `%`, `&`, `_` characters in property data
+- Missing `\end{longtable}` or `\end{document}`
+- Overfull hbox warnings (table too wide — reduce column widths)
+
+Once clean, upload the PDF to Google Drive.
 
 ## Quality standard
 

@@ -193,6 +193,16 @@ integrations drive files upload --path=/tmp/file.xlsx --name="Display Name" --js
 
 Returns `{ "id": "...", "url": "..." }`.
 
+### Uploading XLSX as a native Google Sheet
+
+Use `--convert` to auto-convert the XLSX into a native Google Sheet:
+```bash
+integrations drive files upload --path=/tmp/scan.xlsx --name="Bronx Assemblage Scan — 2026-03-23" --convert --json
+```
+
+The response `id` gives you the Google Sheets link:
+`https://docs.google.com/spreadsheets/d/ID/edit`
+
 ## Workflow
 
 1. Search Zillow for each target zip code (see job prompt for list)
@@ -201,9 +211,9 @@ Returns `{ "id": "...", "url": "..." }`.
 4. Look up zoning + lot data via PLUTO (Socrata) → get zoning, lot SF, building SF, year built
 5. Filter: only keep R7+ zoned properties
 6. Score starter-lot potential (Low/Moderate/High) based on observable signals
-7. **Verify**: Re-read all collected data. Check for: mismatched Zillow URLs, missing zoning data, duplicate addresses, inconsistent scoring. Fix any issues found.
-8. Create professional XLSX spreadsheet with styled headers, color-coded potential scores, and proper column widths. Upload to Google Drive.
-9. Create professional PDF report with executive summary, top opportunities, cluster analysis, full results table, and methodology. Upload to Google Drive.
+7. **Verify data**: Re-read all collected data. Check for: mismatched Zillow URLs, missing zoning data, duplicate addresses, inconsistent scoring. Fix any issues found.
+8. Create professional XLSX spreadsheet. Upload to Google Drive with `--convert` flag.
+9. Write LaTeX report, compile with `pdflatex`. **Verify the PDF**: check pdflatex output for errors/warnings. If there are errors, fix the .tex file and recompile. Repeat until clean. Upload PDF to Google Drive.
 
 ## Important
 - **Use PLUTO for lot size, year built, building area** — not Zillow detail endpoint
