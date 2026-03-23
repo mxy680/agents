@@ -109,7 +109,8 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		})
 	case "zillow":
 		mapCredentials(creds, env, map[string]string{
-			"proxy_url": "ZILLOW_PROXY_URL",
+			"all_cookies": "ZILLOW_COOKIES",
+			"proxy_url":   "ZILLOW_PROXY_URL",
 		})
 	}
 	return nil

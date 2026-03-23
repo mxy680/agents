@@ -1748,7 +1748,8 @@ CANVAS_CSRF_TOKEN         # _csrf_token cookie (required)
 CANVAS_LOG_SESSION_ID     # log_session_id cookie (optional)
 CANVAS_USER_AGENT         # User-Agent override (optional)
 
-# Zillow (no auth needed, public API scraping)
+# Zillow (session cookie auth via Playwright, no API key needed)
+ZILLOW_COOKIES            # All cookies from Playwright session capture (required for search/property APIs)
 ZILLOW_PROXY_URL          # HTTP/SOCKS5 proxy URL (optional, recommended for production)
 ZILLOW_USER_AGENT         # User-Agent override (optional)
 

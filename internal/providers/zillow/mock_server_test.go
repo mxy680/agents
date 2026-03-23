@@ -278,7 +278,7 @@ func withAutocompleteMock(mux *http.ServeMux) {
 					"lat":  39.7392,
 					"lng":  -104.9903,
 				},
-				"type": "city",
+				"resultType": "city",
 			},
 		}
 		if strings.Contains(q, "123") {
@@ -290,7 +290,7 @@ func withAutocompleteMock(mux *http.ServeMux) {
 						"lat":  39.7392,
 						"lng":  -104.9903,
 					},
-					"type": "address",
+					"resultType": "address",
 				},
 			}
 		}

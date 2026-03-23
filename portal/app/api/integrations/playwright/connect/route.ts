@@ -10,10 +10,12 @@ import {
   linkedinConfig,
   xConfig,
   canvasConfig,
+  zillowConfig,
   mapInstagramCookies,
   mapLinkedinCookies,
   mapXCookies,
   mapCanvasCookies,
+  mapZillowCookies,
   type ProviderConfig,
 } from "@/lib/playwright";
 import { encrypt } from "@/lib/crypto";
@@ -34,6 +36,7 @@ const PROVIDER_CONFIGS: Record<string, ProviderEntry> = {
       ),
     mapCookies: mapCanvasCookies,
   },
+  zillow: { config: () => zillowConfig, mapCookies: mapZillowCookies },
 };
 
 export async function POST(request: NextRequest) {

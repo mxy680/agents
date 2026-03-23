@@ -26,6 +26,7 @@ type Client struct {
 	staticURL string // https://www.zillowstatic.com
 	mortURL   string // https://mortgageapi.zillow.com
 	userAgent string
+	cookies   string // raw cookie string from Playwright session capture
 }
 
 // ClientFactory is the function signature for creating a Client.
@@ -56,6 +57,7 @@ func DefaultClientFactory() ClientFactory {
 			staticURL: zillowStaticURL,
 			mortURL:   mortgageAPIURL,
 			userAgent: userAgent,
+			cookies:   os.Getenv("ZILLOW_COOKIES"),
 		}, nil
 	}
 }
@@ -78,6 +80,9 @@ func (c *Client) applyHeaders(req *http.Request) {
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	req.Header.Set("Referer", c.baseURL+"/")
 	req.Header.Set("Origin", c.baseURL)
+	if c.cookies != "" {
+		req.Header.Set("Cookie", c.cookies)
+	}
 }
 
 // Get performs an HTTP GET and returns the response body.

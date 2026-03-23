@@ -137,7 +137,7 @@ func TestParseAutocompleteResults(t *testing.T) {
 			"results": [
 				{
 					"display": "123 Main St, Denver, CO 80202",
-					"type": "address",
+					"resultType": "address",
 					"metaData": {
 						"zpid": "12345678",
 						"lat": 39.7392,
@@ -146,7 +146,7 @@ func TestParseAutocompleteResults(t *testing.T) {
 				},
 				{
 					"display": "Denver, CO",
-					"type": "city",
+					"resultType": "city",
 					"metaData": {
 						"zpid": "",
 						"lat": 39.7392,
