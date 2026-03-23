@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -82,12 +83,29 @@ func makeRunPropertySearch(factory ClientFactory) func(*cobra.Command, []string)
 
 		filterState := buildFilterState(status, minPrice, maxPrice, minBeds, maxBeds, minBaths, maxBaths, minSqft, maxSqft, homeType, daysOnZillow)
 
+		// Resolve location to coordinates via autocomplete, then build map bounds
+		bounds, regionID, err := resolveLocationBounds(ctx, client, location)
+		if err != nil {
+			return fmt.Errorf("resolve location: %w", err)
+		}
+
+		searchState := map[string]any{
+			"pagination":      map[string]any{"currentPage": page},
+			"usersSearchTerm": location,
+			"filterState":     filterState,
+			"isMapVisible":    true,
+		}
+		if bounds != nil {
+			searchState["mapBounds"] = bounds
+		}
+		if regionID != "" {
+			searchState["regionSelection"] = []map[string]any{
+				{"regionId": regionID, "regionType": 6},
+			}
+		}
+
 		payload := map[string]any{
-			"searchQueryState": map[string]any{
-				"pagination":      map[string]any{"currentPage": page},
-				"usersSearchTerm": location,
-				"filterState":     filterState,
-			},
+			"searchQueryState": searchState,
 			"wants": map[string]any{
 				"cat1": []string{"listResults", "mapResults"},
 				"cat2": []string{"total"},
@@ -96,13 +114,13 @@ func makeRunPropertySearch(factory ClientFactory) func(*cobra.Command, []string)
 		}
 
 		if sortBy != "" {
-			payload["searchQueryState"].(map[string]any)["sortSelection"] = map[string]string{
+			searchState["sortSelection"] = map[string]string{
 				"value": mapSortValue(sortBy),
 			}
 		}
 
-		url := client.baseURL + "/async-create-search-page-state"
-		body, err := client.PutJSON(ctx, url, payload)
+		reqURL := client.baseURL + "/async-create-search-page-state"
+		body, err := client.PutJSON(ctx, reqURL, payload)
 		if err != nil {
 			return fmt.Errorf("search: %w", err)
 		}
@@ -539,7 +557,11 @@ func parseSearchResults(body []byte, limit int) ([]PropertySummary, error) {
 		}
 
 		if detailURL := jsonStr(m, "detailUrl"); detailURL != "" {
-			s.ZillowURL = "https://www.zillow.com" + detailURL
+			if strings.HasPrefix(detailURL, "http") {
+				s.ZillowURL = detailURL
+			} else {
+				s.ZillowURL = "https://www.zillow.com" + detailURL
+			}
 		}
 
 		if hdpData, ok := m["hdpData"].(map[string]any); ok {
@@ -916,6 +938,56 @@ func parsePropertyDetailComps(detail PropertyDetail) []PropertySummary {
 	// Comps are populated from the GraphQL response during fetchPropertyDetail.
 	// For now return empty — they'll be populated when we implement the full parser.
 	return nil
+}
+
+// resolveLocationBounds resolves a location string to map bounds via the autocomplete API.
+// Returns (mapBounds, regionID, error). The regionID is used for Zillow's regionSelection.
+func resolveLocationBounds(ctx context.Context, client *Client, location string) (map[string]any, string, error) {
+	reqURL := client.staticURL + "/autocomplete/v3/suggestions?q=" + url.QueryEscape(location)
+	body, err := client.Get(ctx, reqURL)
+	if err != nil {
+		return nil, "", fmt.Errorf("autocomplete: %w", err)
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, "", nil
+	}
+
+	results, _ := resp["results"].([]any)
+	if len(results) == 0 {
+		return nil, "", nil
+	}
+
+	// Use the first result
+	first, _ := results[0].(map[string]any)
+	if first == nil {
+		return nil, "", nil
+	}
+
+	meta, _ := first["metaData"].(map[string]any)
+	if meta == nil {
+		return nil, "", nil
+	}
+
+	lat, latOK := meta["lat"].(float64)
+	lng, lngOK := meta["lng"].(float64)
+	if !latOK || !lngOK {
+		return nil, "", nil
+	}
+
+	regionID := jsonStr(meta, "regionId")
+
+	// Create map bounds around the coordinates (~0.4 degree offset for city-level search)
+	offset := 0.4
+	bounds := map[string]any{
+		"north": lat + offset,
+		"south": lat - offset,
+		"east":  lng + offset,
+		"west":  lng - offset,
+	}
+
+	return bounds, regionID, nil
 }
 
 // jsonStr safely extracts a string from a map.
