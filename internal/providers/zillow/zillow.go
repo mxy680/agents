@@ -25,20 +25,14 @@ func (p *Provider) Name() string {
 func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	zillowCmd := &cobra.Command{
 		Use:     "zillow",
-		Short:   "Search Zillow for properties, agents, and real estate data",
-		Long:    "Search Zillow's real estate listings, get property details, Zestimates, agent info, mortgage rates, and more — no API key needed.",
+		Short:   "Search Zillow for properties and real estate data",
+		Long:    "Search Zillow's real estate listings and autocomplete — uses cookies from Playwright session capture.",
 		Aliases: []string{"zw"},
 	}
 
 	zillowCmd.AddCommand(newPropertiesCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newZestimatesCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newAgentsCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newMortgageCmd(p.ClientFactory))
 	zillowCmd.AddCommand(newSearchCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newWalkScoreCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newSchoolsCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newNeighborhoodsCmd(p.ClientFactory))
-	zillowCmd.AddCommand(newBuildersCmd(p.ClientFactory))
+	zillowCmd.AddCommand(newMortgageCmd(p.ClientFactory))
 	zillowCmd.AddCommand(newRentalsCmd(p.ClientFactory))
 
 	parent.AddCommand(zillowCmd)

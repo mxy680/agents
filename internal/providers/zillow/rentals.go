@@ -3,7 +3,6 @@ package zillow
 import (
 	"fmt"
 
-	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -15,8 +14,6 @@ func newRentalsCmd(factory ClientFactory) *cobra.Command {
 	}
 
 	cmd.AddCommand(newRentalSearchCmd(factory))
-	cmd.AddCommand(newRentalGetCmd(factory))
-	cmd.AddCommand(newRentalEstimateCmd(factory))
 
 	return cmd
 }
@@ -71,8 +68,8 @@ func makeRunRentalSearch(factory ClientFactory) func(*cobra.Command, []string) e
 			"requestId": 1,
 		}
 
-		url := client.baseURL + "/async-create-search-page-state"
-		body, err := client.PutJSON(ctx, url, payload)
+		reqURL := client.baseURL + "/async-create-search-page-state"
+		body, err := client.PutJSON(ctx, reqURL, payload)
 		if err != nil {
 			return fmt.Errorf("rental search: %w", err)
 		}
@@ -83,83 +80,5 @@ func makeRunRentalSearch(factory ClientFactory) func(*cobra.Command, []string) e
 		}
 
 		return printPropertySummaries(cmd, summaries)
-	}
-}
-
-func newRentalGetCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get rental listing details by ZPID",
-		RunE:  makeRunRentalGet(factory),
-	}
-	cmd.Flags().String("zpid", "", "Zillow property ID")
-	cmd.MarkFlagRequired("zpid")
-	return cmd
-}
-
-func makeRunRentalGet(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return fmt.Errorf("create client: %w", err)
-		}
-
-		zpid, _ := cmd.Flags().GetString("zpid")
-
-		detail, err := fetchPropertyDetail(ctx, client, zpid)
-		if err != nil {
-			return fmt.Errorf("get rental: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(detail)
-		}
-		printPropertyDetail(detail)
-		return nil
-	}
-}
-
-func newRentalEstimateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "estimate",
-		Short: "Get Rent Zestimate for a property",
-		RunE:  makeRunRentalEstimate(factory),
-	}
-	cmd.Flags().String("zpid", "", "Zillow property ID")
-	cmd.MarkFlagRequired("zpid")
-	return cmd
-}
-
-func makeRunRentalEstimate(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return fmt.Errorf("create client: %w", err)
-		}
-
-		zpid, _ := cmd.Flags().GetString("zpid")
-
-		detail, err := fetchPropertyDetail(ctx, client, zpid)
-		if err != nil {
-			return fmt.Errorf("get rental estimate: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{
-				"zpid":          detail.ZPID,
-				"address":       detail.Address,
-				"rentZestimate": detail.RentZestimate,
-			})
-		}
-
-		lines := []string{
-			fmt.Sprintf("ZPID:           %s", detail.ZPID),
-			fmt.Sprintf("Address:        %s", detail.Address),
-			fmt.Sprintf("Rent Zestimate: %s/mo", formatPrice(detail.RentZestimate)),
-		}
-		cli.PrintText(lines)
-		return nil
 	}
 }
