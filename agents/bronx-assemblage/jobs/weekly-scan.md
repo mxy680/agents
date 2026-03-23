@@ -87,7 +87,11 @@ Use Python with openpyxl to create a styled .xlsx file with:
 - Proper column widths for readability
 - All 13 columns: Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Starter Lot Potential | Block Context Note | Why This Could Be a Starting Point | Zillow Link | ZoLa Link | Notes
 
-Save to /tmp/ and upload to Google Drive.
+Save to /tmp/ and upload to Google Drive with `--mime-type=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. Google Drive will auto-convert it to a Google Sheet when opened.
+
+After uploading, provide both links:
+- The Google Drive file link (from the upload response)
+- A direct Google Sheets link: `https://docs.google.com/spreadsheets/d/FILE_ID/edit` (use the file ID from the upload response)
 
 ### Step 6 — Create professional PDF report
 
