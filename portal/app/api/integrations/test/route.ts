@@ -14,13 +14,18 @@ const execFileAsync = promisify(execFile)
  * Simple read-only test command for each provider.
  * Each returns quickly and verifies credentials are valid.
  */
-const TEST_COMMANDS: Record<string, string[]> = {
+/**
+ * Simple read-only test command for each provider.
+ * Each returns quickly and verifies credentials are valid.
+ * null = credentials-only check (no CLI command available locally).
+ */
+const TEST_COMMANDS: Record<string, string[] | null> = {
   google: ["gmail", "messages", "list", "--limit=1", "--json"],
   github: ["github", "repos", "list", "--limit=1", "--json"],
   instagram: ["instagram", "media", "list", "--limit=1", "--json"],
   linkedin: ["linkedin", "profile", "me", "--json"],
   x: ["x", "users", "get", "--username=elonmusk", "--json"],
-  framer: ["framer", "project", "info", "--json"],
+  framer: null,  // Requires Node.js bridge — verify credentials only
   supabase: ["supabase", "projects", "list", "--json"],
   bluebubbles: ["imessage", "server", "info", "--json"],
   canvas: ["canvas", "users", "me", "--json"],
@@ -57,9 +62,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Integration not found" }, { status: 404 })
   }
 
-  const testArgs = TEST_COMMANDS[integration.provider]
-  if (!testArgs) {
-    return NextResponse.json({ error: `No test command for provider: ${integration.provider}` }, { status: 400 })
+  if (!(integration.provider in TEST_COMMANDS)) {
+    return NextResponse.json({ error: `No test for provider: ${integration.provider}` }, { status: 400 })
   }
 
   // Decrypt credentials → env vars
@@ -82,6 +86,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Failed to decrypt credentials" })
   }
 
+  // If no CLI command, just verify credentials decrypted with non-empty values
+  const testArgs = TEST_COMMANDS[integration.provider]
+  if (testArgs === null) {
+    const hasValues = Object.values(env).some((v) => v.length > 0)
+    return NextResponse.json({
+      ok: hasValues,
+      provider: integration.provider,
+      ...(!hasValues && { error: "Credentials are empty" }),
+    })
+  }
+
   // Find the integrations binary
   const binPath = path.resolve(process.cwd(), "..", "bin", "integrations")
 
@@ -91,7 +106,6 @@ export async function POST(request: NextRequest) {
       timeout: 15_000,
     })
 
-    // If we got JSON output, credentials are valid
     return NextResponse.json({ ok: true, provider: integration.provider })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
