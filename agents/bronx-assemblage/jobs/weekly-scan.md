@@ -95,7 +95,7 @@ After uploading, provide both links:
 
 ### Step 6 — Create professional PDF report
 
-Use Python with reportlab to create a styled PDF report with:
+Write a LaTeX document and compile with `pdflatex` to create a styled PDF report with:
 
 1. **Title page** — "Bronx Assemblage Report" + date + "Prepared for Brokerage Team"
 2. **Executive Summary** — zip codes searched, listings reviewed, R7+ filter results, score distribution
@@ -105,9 +105,9 @@ Use Python with reportlab to create a styled PDF report with:
 6. **Methodology** — data sources, process, limitations
 7. **Link to companion spreadsheet** — the Google Drive URL of the XLSX file
 
-Use professional styling: navy headers, clean fonts, proper spacing, alternating row backgrounds in tables.
+Use professional LaTeX styling: booktabs tables, navy section headers, fancyhdr page headers, hyperlinked URLs. Escape all special characters (`$`, `#`, `%`, `&`, `_`).
 
-Save to /tmp/ and upload to Google Drive.
+Save the .tex file to /tmp/, compile with `pdflatex -interaction=nonstopmode` (run twice), and upload the PDF to Google Drive.
 
 ## Quality standard
 

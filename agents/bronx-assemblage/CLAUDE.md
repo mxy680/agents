@@ -108,55 +108,82 @@ Upload to Google Drive:
 integrations drive files upload --path=/tmp/bronx_assemblage_scan.xlsx --name="Bronx Assemblage Scan — 2026-03-23.xlsx" --json
 ```
 
-## Tool 4: Professional PDF Report (via Python reportlab)
+## Tool 4: Professional PDF Report (via LaTeX)
 
-Create the report as a styled PDF, then upload to Google Drive.
+Write a `.tex` file, compile with `pdflatex`, then upload the PDF to Google Drive.
 
-```python
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib.colors import HexColor
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-
-doc = SimpleDocTemplate("/tmp/bronx_assemblage_report.pdf", pagesize=letter,
-    topMargin=0.75*inch, bottomMargin=0.75*inch,
-    leftMargin=0.75*inch, rightMargin=0.75*inch)
-
-styles = getSampleStyleSheet()
-title_style = ParagraphStyle('Title', parent=styles['Title'], fontSize=18, spaceAfter=12)
-heading_style = ParagraphStyle('Heading', parent=styles['Heading2'], fontSize=14, spaceAfter=8, textColor=HexColor('#1F4E79'))
-body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, spaceAfter=6, leading=14)
-
-elements = []
-elements.append(Paragraph("Bronx Assemblage Report — 2026-03-23", title_style))
-elements.append(Paragraph("Prepared for Brokerage Team", body_style))
-elements.append(Spacer(1, 12))
-
-# Add sections: Executive Summary, Top Opportunities, Cluster Analysis, Full Table, Methodology
-elements.append(Paragraph("1. Executive Summary", heading_style))
-elements.append(Paragraph("...", body_style))
-
-# Add a formatted table
-table_data = [["Address", "Price", "Zone", "Potential"], ...]
-t = Table(table_data, colWidths=[2.5*inch, 1*inch, 0.8*inch, 1*inch])
-t.setStyle(TableStyle([
-    ('BACKGROUND', (0, 0), (-1, 0), HexColor('#1F4E79')),
-    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-    ('FONTSIZE', (0, 0), (-1, -1), 8),
-    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, HexColor('#F2F2F2')]),
-]))
-elements.append(t)
-
-doc.build(elements)
-```
-
-Upload to Google Drive:
 ```bash
-integrations drive files upload --path=/tmp/bronx_assemblage_report.pdf --name="Bronx Assemblage Report — 2026-03-23.pdf" --json
+# Write the .tex file
+cat > /tmp/report.tex << 'LATEX'
+\documentclass[11pt,letterpaper]{article}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+\definecolor{navy}{HTML}{1F4E79}
+\definecolor{highgreen}{HTML}{C6EFCE}
+\definecolor{moderateyellow}{HTML}{FFEB9C}
+\definecolor{lightgray}{HTML}{F2F2F2}
+
+\titleformat{\section}{\Large\bfseries\color{navy}}{}{0em}{}
+\titleformat{\subsection}{\large\bfseries\color{navy}}{}{0em}{}
+
+\pagestyle{fancy}
+\fancyhead[L]{\small\color{gray}Bronx Assemblage Report}
+\fancyhead[R]{\small\color{gray}\today}
+\fancyfoot[C]{\thepage}
+
+\begin{document}
+\begin{center}
+{\LARGE\bfseries Bronx Assemblage Report}\\[6pt]
+{\large\color{gray}\today}\\[4pt]
+{\normalsize Prepared for Brokerage Team}
+\end{center}
+\vspace{12pt}
+
+\section{Executive Summary}
+% Content here...
+
+\section{Top Opportunities}
+% Content here...
+
+\section{Cluster Opportunities}
+% Content here...
+
+\section{Full Results}
+\begin{longtable}{p{2.2in} r r r r l l}
+\toprule
+\textbf{Address} & \textbf{Price} & \textbf{Lot SF} & \textbf{Bldg SF} & \textbf{Year} & \textbf{Zone} & \textbf{Score} \\
+\midrule
+\endhead
+% Data rows here...
+\bottomrule
+\end{longtable}
+
+\section{Methodology}
+% Content here...
+
+\end{document}
+LATEX
+
+# Compile to PDF (run twice for references)
+cd /tmp && pdflatex -interaction=nonstopmode report.tex && pdflatex -interaction=nonstopmode report.tex
+
+# Upload
+integrations drive files upload --path=/tmp/report.pdf --name="Bronx Assemblage Report — 2026-03-23.pdf" --json
 ```
+
+### LaTeX tips
+- Escape special characters: `\$`, `\#`, `\%`, `\&`, `\_`
+- Use `\$499{,}000` for dollar amounts (comma in math mode)
+- Use `\href{URL}{text}` for clickable links
+- Use `\rowcolor{highgreen}` before a table row to color-code High potential
+- Use `longtable` for tables that may span multiple pages
 
 ## Tool 5: Google Drive CLI (for uploading files)
 
