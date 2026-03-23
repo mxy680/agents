@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
+	docsapi "google.golang.org/api/docs/v1"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
@@ -76,6 +77,7 @@ func NewOAuthConfig() (*oauth2.Config, error) {
 			drive.DriveFileScope,
 			calendar.CalendarScope,
 			drive.DriveScope,
+			docsapi.DocumentsScope,
 		},
 	}, nil
 }
@@ -195,5 +197,14 @@ func NewCalendarService(ctx context.Context) (*calendar.Service, error) {
 		return nil, err
 	}
 	return calendar.NewService(ctx, option.WithHTTPClient(client))
+}
+
+// NewDocsService creates an authenticated Google Docs API service from environment variables.
+func NewDocsService(ctx context.Context) (*docsapi.Service, error) {
+	client, err := newAuthenticatedClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return docsapi.NewService(ctx, option.WithHTTPClient(client))
 }
 

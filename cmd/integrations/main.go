@@ -6,6 +6,7 @@ import (
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/emdash-projects/agents/internal/providers/calendar"
 	"github.com/emdash-projects/agents/internal/providers/canvas"
+	"github.com/emdash-projects/agents/internal/providers/docs"
 	"github.com/emdash-projects/agents/internal/providers/drive"
 	"github.com/emdash-projects/agents/internal/providers/framer"
 	githubprovider "github.com/emdash-projects/agents/internal/providers/github"
@@ -60,6 +61,9 @@ func main() {
 
 	canvasProvider := canvas.New()
 	canvasProvider.RegisterCommands(cli.RootCmd())
+
+	docsProvider := docs.New()
+	docsProvider.RegisterCommands(cli.RootCmd())
 
 	zillowProvider := zillow.New()
 	zillowProvider.RegisterCommands(cli.RootCmd())
