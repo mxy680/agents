@@ -3,19 +3,21 @@ import type { ProviderConfig } from "../session-capture";
 /**
  * Zillow session capture config.
  *
- * Zillow doesn't require login — it uses PerimeterX (HUMAN Security) bot detection.
- * The browser just needs to visit zillow.com and pass the CAPTCHA challenge.
- * Once PerimeterX sets its cookies (_px3, _pxvid, etc.), subsequent API calls
- * work from the Go CLI by sending those cookies.
+ * Zillow uses PerimeterX (HUMAN Security) bot detection. On first visit,
+ * PerimeterX may show a "press and hold" CAPTCHA challenge. The user must
+ * solve it in the browser window. Once solved, PerimeterX sets _px3 (the
+ * session cookie that proves the challenge was passed).
  *
- * We use isLoggedIn to verify the user has loaded a real Zillow page (not blocked).
+ * We require _px3 AND use isLoggedIn to verify real property listings
+ * loaded (not the CAPTCHA page). This ensures cookies are only captured
+ * after the challenge is fully solved.
  */
 export const zillowConfig: ProviderConfig = {
   loginUrl: "https://www.zillow.com/homes/Denver,-CO_rb/",
   domain: "https://www.zillow.com",
-  requiredCookies: ["_pxvid"],
+  requiredCookies: ["_px3", "search"],
   optionalCookies: [
-    "_px3",
+    "_pxvid",
     "_px2",
     "_pxde",
     "pxcts",
@@ -24,7 +26,6 @@ export const zillowConfig: ProviderConfig = {
     "AWSALBCORS",
     "zguid",
     "zgsession",
-    "search",
   ],
   displayName: "Zillow",
   isLoggedIn: async (ctx) => {
@@ -32,12 +33,23 @@ export const zillowConfig: ProviderConfig = {
     const page = pages[pages.length - 1];
     if (!page) return false;
     const url = page.url();
-    // Verify we're on a real Zillow page, not a CAPTCHA/block page
-    return (
-      url.startsWith("https://www.zillow.com") &&
-      !url.includes("captcha") &&
-      !url.includes("blocked")
-    );
+
+    // Must be on zillow.com
+    if (!url.startsWith("https://www.zillow.com")) return false;
+
+    // Check that real page content loaded (not CAPTCHA/block page)
+    // The CAPTCHA page title is "Access to this page has been denied"
+    const title = await page.title();
+    if (title.includes("denied") || title.includes("blocked")) return false;
+
+    // Verify actual listings are present (search results page has property cards)
+    const hasContent = await page.evaluate(() => {
+      return document.querySelectorAll('article, [data-test="property-card"]').length > 0
+        || document.querySelector('#grid-search-results') !== null
+        || document.querySelector('[id="search-page-list-container"]') !== null;
+    }).catch(() => false);
+
+    return hasContent;
   },
 };
 

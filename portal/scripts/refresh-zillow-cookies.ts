@@ -19,7 +19,7 @@ import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 
 const ZILLOW_URL = "https://www.zillow.com/homes/Denver,-CO_rb/"
-const REQUIRED_COOKIE = "_pxvid"
+const REQUIRED_COOKIE = "_px3"
 const MAX_WAIT_MS = 60_000 // 1 minute
 const POLL_MS = 2_000
 
@@ -63,9 +63,14 @@ async function main() {
       const cookieMap = new Map(cookies.map((c) => [c.name, c.value]))
 
       if (cookieMap.has(REQUIRED_COOKIE) && cookieMap.get(REQUIRED_COOKIE) !== "") {
-        // Verify we're on a real page (not CAPTCHA)
+        // Verify real content loaded (not CAPTCHA page)
         const url = page.url()
-        if (url.startsWith("https://www.zillow.com") && !url.includes("captcha")) {
+        const title = await page.title()
+        const hasContent = await page.evaluate(() => {
+          return document.querySelectorAll('article, [data-test="property-card"]').length > 0
+            || document.querySelector('#grid-search-results') !== null;
+        }).catch(() => false)
+        if (url.startsWith("https://www.zillow.com") && !title.includes("denied") && hasContent) {
           // Filter to zillow.com domain
           const zillowCookies = cookies.filter((c) => {
             const domain = c.domain.startsWith(".") ? c.domain.slice(1) : c.domain
