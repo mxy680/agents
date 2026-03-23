@@ -16,7 +16,7 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
 
   async function handleCapture() {
     setStatus("loading")
-    setMessage("Browser opening — solve the CAPTCHA if prompted...")
+    setMessage("Browser opening — solve CAPTCHA if prompted, then close the tab...")
 
     try {
       const controller = new AbortController()

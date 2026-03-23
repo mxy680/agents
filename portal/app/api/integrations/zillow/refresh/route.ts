@@ -49,46 +49,13 @@ async function captureCookies(): Promise<string> {
     const page = await context.newPage()
     await page.goto(ZILLOW_URL, { waitUntil: "domcontentloaded" })
 
-    // Inject a "Done" button into the page. The browser stays open
-    // until the user clicks it (after solving any CAPTCHA).
-    await page.evaluate(() => {
-      const btn = document.createElement("button")
-      btn.textContent = "✓ Done — Capture Cookies"
-      btn.id = "__zillow_done__"
-      Object.assign(btn.style, {
-        position: "fixed", top: "10px", right: "10px", zIndex: "999999",
-        padding: "12px 24px", fontSize: "16px", fontWeight: "bold",
-        background: "#22c55e", color: "white", border: "none",
-        borderRadius: "8px", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-      })
-      document.body.appendChild(btn)
+    // Wait for the user to close the browser tab.
+    // They solve the CAPTCHA, see listings load, then close the tab.
+    await page.waitForEvent("close", { timeout: MAX_WAIT_MS }).catch(() => {
+      // If timeout, that's fine — we'll still grab whatever cookies exist
     })
 
-    // Set up click handler, then wait for the user to click it
-    await page.evaluate(() => {
-      const btn = document.getElementById("__zillow_done__")
-      if (btn) {
-        btn.addEventListener("click", () => {
-          ;(window as unknown as Record<string, boolean>).__zillow_captured__ = true
-          btn.textContent = "Capturing..."
-          btn.style.background = "#666"
-        })
-      }
-    })
-
-    try {
-      await page.waitForFunction(
-        () => (window as unknown as Record<string, boolean>).__zillow_captured__,
-        { timeout: MAX_WAIT_MS }
-      )
-    } catch {
-      throw new Error("Timed out (2 minutes). Click the green 'Done' button after solving the CAPTCHA.")
-    }
-
-    // Give cookies a moment to settle
-    await new Promise((r) => setTimeout(r, 1000))
-
-    // Capture all zillow.com cookies
+    // Capture all zillow.com cookies from the context (survives tab close)
     const cookies = await context.cookies()
     const zillowCookies = cookies.filter((c) => {
       const domain = c.domain.startsWith(".") ? c.domain.slice(1) : c.domain
