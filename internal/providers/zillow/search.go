@@ -155,7 +155,7 @@ func parseAutocompleteResults(body []byte) ([]AutocompleteResult, error) {
 		}
 		r := AutocompleteResult{
 			Display: jsonStr(m, "display"),
-			Type:    jsonStr(m, "type"),
+			Type:    jsonStr(m, "resultType"),
 		}
 		if meta, ok := m["metaData"].(map[string]any); ok {
 			r.ZPID = jsonStr(meta, "zpid")
