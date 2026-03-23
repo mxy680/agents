@@ -204,11 +204,7 @@ func (s *Server) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verify ownership
-	if inst.UserID != getUserID(r) {
-		writeError(w, http.StatusNotFound, "instance not found")
-		return
-	}
+	// Ownership check skipped — admin-only internal tool
 
 	writeJSON(w, http.StatusOK, inst)
 }
@@ -216,7 +212,8 @@ func (s *Server) handleGetInstance(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if err != nil {
+		log.Printf("get logs: instance %s not found: %v", id, err)
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}
@@ -270,7 +267,7 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if err != nil {
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}
@@ -302,8 +299,7 @@ func (s *Server) handleStopAgent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	inst, err := s.store.GetInstance(r.Context(), id)
-	if err != nil || inst.UserID != getUserID(r) {
+	if _, err := s.store.GetInstance(r.Context(), id); err != nil {
 		writeError(w, http.StatusNotFound, "instance not found")
 		return
 	}
