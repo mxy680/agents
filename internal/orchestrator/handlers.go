@@ -169,8 +169,9 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update instance with container name and status
-	if err := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusCreating, containerName, ""); err != nil {
+	// Update instance with container name and set to "running" immediately.
+	// Docker containers start instantly (unlike K8s pods which go through "creating").
+	if err := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusRunning, containerName, ""); err != nil {
 		log.Printf("update instance status: %v", err)
 	}
 
@@ -255,6 +256,13 @@ func (s *Server) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			break
+		}
+	}
+
+	// After log stream ends, update instance status based on container exit code
+	if newStatus, serr := s.runtime.ContainerStatus(r.Context(), inst.K8sPodName); serr == nil {
+		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, newStatus, "", ""); uerr != nil {
+			log.Printf("update instance status after logs: %v", uerr)
 		}
 	}
 }
