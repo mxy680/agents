@@ -84,6 +84,14 @@ Filter for `doc_type=JUDG` filed in the last 90 days:
 curl -s "https://data.cityofnewyork.us/resource/bnx9-e6tj.json?\$where=document_id in('ID1','ID2')AND doc_type='JUDG' AND document_date > '2025-12-01'"
 ```
 
+### Detecting estate/probate signals
+Filter ACRIS parties for names containing "ESTATE OF" or "AS EXECUTOR":
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/636b-3b5g.json" \
+  --data-urlencode "\$where=document_id in('DOC_ID') AND (name like '%25ESTATE OF%25' OR name like '%25EXECUTOR%25')"
+```
+If any party name matches, the property owner likely died and the estate is in probate. This is a strong sell signal — heirs often want to liquidate quickly.
+
 ### Detecting developer activity
 Filter for `doc_type=DEED` where the buyer name contains "LLC":
 ```bash
@@ -169,7 +177,18 @@ Any property appearing on the tax lien list = **strong distress signal**. The ow
 
 ---
 
-## Tool 7: StreetEasy CLI — Price History + Listing Cycles
+## Tool 7: NYSCEF CLI — Court Records (direct lookup)
+
+Look up a specific court case by docket ID (no CAPTCHA required):
+```bash
+integrations nyscef cases get --docket-id=ENCODED_ID --json
+```
+
+Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party name data to detect estate/probate signals instead (see "Detecting estate/probate signals" above). If you find an estate signal in ACRIS, you can construct the NYSCEF case URL manually for the report.
+
+---
+
+## Tool 8: StreetEasy CLI — Price History + Listing Cycles
 
 Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
 
@@ -254,6 +273,7 @@ Each qualifying R7+ lot gets a composite score:
 | Price drop > 10% from original | +3 | StreetEasy |
 | 3+ listing/delisting cycles | +4 | StreetEasy |
 | Price drop in last 30 days | +2 | StreetEasy |
+| ACRIS party name contains "ESTATE OF" or "EXECUTOR" | +5 | ACRIS |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
