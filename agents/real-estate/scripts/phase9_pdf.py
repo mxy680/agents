@@ -303,7 +303,7 @@ def main():
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{parskip}
-\usepackage{microtype}
+% \usepackage{microtype}  % removed — not installed in TinyTeX
 \usepackage{multicol}
 \usepackage{tabularx}
 \usepackage{helvet}

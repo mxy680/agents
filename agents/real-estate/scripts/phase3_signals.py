@@ -343,7 +343,7 @@ def compute_score(prop):
     # Price bonus — affordable properties are better starter lots
     if 0 < price <= 800_000:
         score += 2
-        reasons.append(f"Affordable price ≤$800K (+2)")
+        reasons.append(f"Affordable price under $800K (+2)")
 
     prop["_score"] = max(score, 0)  # Floor at 0
     prop["_score_reasons"] = reasons
