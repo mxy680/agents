@@ -6,21 +6,26 @@ Produce a professional XLSX spreadsheet and PDF report of small residential prop
 
 ## Search Criteria
 
-### Target zip codes by borough
+### Search strategy
 
-**Bronx:**
-10451, 10452, 10453, 10454, 10456, 10457, 10458, 10459, 10460, 10468
+Search ALL zip codes in each borough. The R7+ filter happens later via PLUTO — don't pre-filter by zip.
 
-**Brooklyn (verified R7+ via PLUTO):**
-11226 (Flatbush), 11215 (Park Slope/Windsor Terrace), 11238 (Prospect Heights), 11217 (Boerum Hill/Park Slope), 11225 (Crown Heights/Lefferts Gardens), 11205 (Fort Greene/Clinton Hill), 11220 (Sunset Park), 11230 (Midwood), 11213 (Crown Heights)
+**Bronx** (25 zips):
+10451, 10452, 10453, 10454, 10455, 10456, 10457, 10458, 10459, 10460, 10461, 10462, 10463, 10464, 10465, 10466, 10467, 10468, 10469, 10470, 10471, 10472, 10473, 10474, 10475
 
-**Manhattan:**
-10026 (Harlem), 10027 (Harlem), 10029 (East Harlem), 10030 (Harlem), 10031 (Hamilton Heights), 10032 (Washington Heights), 10033 (Washington Heights), 10034 (Inwood), 10039 (Harlem), 10040 (Washington Heights)
+**Brooklyn** (37 zips):
+11201, 11203, 11204, 11205, 11206, 11207, 11208, 11209, 11210, 11211, 11212, 11213, 11214, 11215, 11216, 11217, 11218, 11219, 11220, 11221, 11222, 11223, 11224, 11225, 11226, 11228, 11229, 11230, 11231, 11232, 11233, 11234, 11235, 11236, 11237, 11238, 11239
 
-**Queens (verified R7+ via PLUTO):**
-11373 (Elmhurst), 11374 (Rego Park), 11435 (Jamaica/Briarwood), 11372 (Jackson Heights), 11433 (Jamaica), 11432 (Jamaica Estates), 11355 (Flushing), 11104 (Sunnyside), 11375 (Forest Hills)
+**Manhattan** (30 zips):
+10001, 10002, 10003, 10009, 10010, 10011, 10012, 10013, 10014, 10016, 10019, 10021, 10022, 10023, 10024, 10025, 10026, 10027, 10028, 10029, 10030, 10031, 10032, 10033, 10034, 10035, 10037, 10039, 10040, 10128
 
-Run a separate Zillow search for each zip code. Do NOT search by borough name — that returns low-density neighborhoods.
+**Queens** (45 zips):
+11101, 11102, 11103, 11104, 11105, 11106, 11109, 11354, 11355, 11356, 11357, 11358, 11359, 11360, 11361, 11362, 11363, 11364, 11365, 11366, 11367, 11368, 11369, 11370, 11372, 11373, 11374, 11375, 11377, 11378, 11379, 11385, 11411, 11412, 11413, 11414, 11415, 11416, 11417, 11418, 11419, 11420, 11421, 11422, 11423
+
+**IMPORTANT: Do NOT search each zip individually.** That's 137 API calls and will exhaust cookies. Instead:
+1. Search by borough name: `--location="Bronx, NY"`, `--location="Brooklyn, NY"`, `--location="Manhattan, NY"`, `--location="Queens, NY"` with `--limit=40`
+2. Then search the top 10 highest-R7+ zip codes per borough individually to catch listings the borough-level search missed
+3. Deduplicate by ZPID before proceeding to PLUTO verification
 
 ### Listing filters
 - Active for sale only
