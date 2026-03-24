@@ -18,6 +18,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
+	"github.com/emdash-projects/agents/internal/providers/nyscef"
 	"github.com/emdash-projects/agents/internal/providers/streeteasy"
 	"github.com/emdash-projects/agents/internal/providers/zillow"
 )
@@ -68,6 +69,9 @@ func main() {
 
 	zillowProvider := zillow.New()
 	zillowProvider.RegisterCommands(cli.RootCmd())
+
+	nyscefProvider := nyscef.New()
+	nyscefProvider.RegisterCommands(cli.RootCmd())
 
 	streeteasyProvider := streeteasy.New()
 	streeteasyProvider.RegisterCommands(cli.RootCmd())
