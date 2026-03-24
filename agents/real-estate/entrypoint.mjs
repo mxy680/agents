@@ -19,7 +19,7 @@ const conversation = query({
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     systemPrompt,
-    maxTurns: 50,
+    maxTurns: 200,
     model: session.model || "claude-sonnet-4-6",
   },
 });

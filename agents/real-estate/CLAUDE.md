@@ -132,19 +132,25 @@ curl -s "https://data.cityofnewyork.us/resource/ipu4-2q9a.json?\$where=borough='
 
 ## Tool 5: HPD — Housing Violations
 
-Open violations dataset on Socrata. No auth needed.
+**IMPORTANT: Use dataset `csn4-vhvf` (Open HPD Violations), NOT `wvxf-dwi5`.**
 
-**Search open violations by BBL:**
+The `csn4-vhvf` dataset contains only currently open violations — no status filter needed.
+
+**Count open violations by BBL:**
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/wvxf-dwi5.json?\$where=boroid='2' AND block='02964' AND lot='0028' AND currentstatus='VIOLATION OPEN'&\$limit=100"
+curl -s -G "https://data.cityofnewyork.us/resource/csn4-vhvf.json" \
+  --data-urlencode "\$select=count(*)" \
+  --data-urlencode "\$where=boroid='2' AND block='02406' AND lot='0108'"
 ```
 
-Returns: `violationid`, `inspectiondate`, `violationstatus`, `class` (A/B/C), `novdescription`.
-
-**Count open violations:**
+**Get violation details:**
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/wvxf-dwi5.json?\$select=count(*)&\$where=boroid='2' AND block='02964' AND lot='0028' AND currentstatus='VIOLATION OPEN'"
+curl -s -G "https://data.cityofnewyork.us/resource/csn4-vhvf.json" \
+  --data-urlencode "\$where=boroid='2' AND block='02406' AND lot='0108'" \
+  --data-urlencode "\$limit=100"
 ```
+
+Returns: `violationid`, `inspectiondate`, `class` (A/B/C), `novdescription`, `currentstatus`.
 
 ### Signal interpretation
 - 0-2 open violations = normal

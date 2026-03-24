@@ -8,7 +8,7 @@ Produce a professional XLSX spreadsheet and PDF report of small residential prop
 
 ### Search strategy
 
-Search ALL zip codes in each borough. The R7+ filter happens later via PLUTO — don't pre-filter by zip.
+Search EVERY zip code in EVERY borough individually. Do not skip any. The R7+ filter happens later via PLUTO.
 
 **Bronx** (25 zips):
 10451, 10452, 10453, 10454, 10455, 10456, 10457, 10458, 10459, 10460, 10461, 10462, 10463, 10464, 10465, 10466, 10467, 10468, 10469, 10470, 10471, 10472, 10473, 10474, 10475
@@ -22,10 +22,26 @@ Search ALL zip codes in each borough. The R7+ filter happens later via PLUTO —
 **Queens** (45 zips):
 11101, 11102, 11103, 11104, 11105, 11106, 11109, 11354, 11355, 11356, 11357, 11358, 11359, 11360, 11361, 11362, 11363, 11364, 11365, 11366, 11367, 11368, 11369, 11370, 11372, 11373, 11374, 11375, 11377, 11378, 11379, 11385, 11411, 11412, 11413, 11414, 11415, 11416, 11417, 11418, 11419, 11420, 11421, 11422, 11423
 
-**IMPORTANT: Do NOT search each zip individually.** That's 137 API calls and will exhaust cookies. Instead:
-1. Search by borough name: `--location="Bronx, NY"`, `--location="Brooklyn, NY"`, `--location="Manhattan, NY"`, `--location="Queens, NY"` with `--limit=40`
-2. Then search the top 10 highest-R7+ zip codes per borough individually to catch listings the borough-level search missed
-3. Deduplicate by ZPID before proceeding to PLUTO verification
+### Exhaustive search procedure
+
+Search each zip code individually:
+```
+integrations zillow properties search --location="Bronx, NY 10451" --limit=40 --json
+```
+
+**Critical: handle the 40-result cap.** Zillow returns max 40 results per query. For any zip that returns exactly 40 results, it's likely truncated. Re-search that zip with price range splits:
+```
+--location="Brooklyn, NY 11226" --max-price=500000
+--location="Brooklyn, NY 11226" --min-price=500001 --max-price=800000
+--location="Brooklyn, NY 11226" --min-price=800001 --max-price=1200000
+--location="Brooklyn, NY 11226" --min-price=1200001
+```
+
+If any price bucket still returns 40, split further by home type (house vs multi_family).
+
+**Batch efficiently:** Run searches in parallel batches of 5-10. Add a 1-second delay between batches to avoid rate limiting. Write a Python script to manage this — do NOT run 137 individual CLI commands sequentially.
+
+**Deduplicate:** Combine all results and deduplicate by ZPID before proceeding to PLUTO.
 
 ### Listing filters
 - Active for sale only
@@ -56,6 +72,8 @@ For each qualifying R7+ property, run ALL of these checks:
 - This detects competitor activity — someone is already assembling or developing on this block
 
 **HPD (housing violations):**
+- **Use dataset `csn4-vhvf` (Open HPD Violations), NOT `wvxf-dwi5`**
+- Use `curl -s -G` with `--data-urlencode` for proper URL encoding
 - Count open violations for the property's BBL
 - Flag properties with 5+ open violations (neglect) or 10+ (severe burnout)
 
@@ -64,10 +82,11 @@ For each qualifying R7+ property, run ALL of these checks:
 - Any hit = strong distress signal
 
 **StreetEasy (price history + listing cycles):**
-- Use `integrations streeteasy listings history --address="ADDRESS" --json`
+- Only run if STREETEASY_COOKIES env var is set (check with `echo $STREETEASY_COOKIES | wc -c`)
+- If available, use `integrations streeteasy listings history --address="ADDRESS" --json` for high-scoring properties only (score 5+) to conserve cookies
 - Check for price drops > 10% from original listing price
 - Check for 3+ listing/delisting cycles (desperate seller signal)
-- Check for recent price drops in the last 30 days (act-now signal)
+- If StreetEasy is unavailable, skip — the other 5 signal sources are sufficient
 
 ### Step 4 — Composite scoring
 
