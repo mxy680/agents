@@ -164,8 +164,9 @@ Verify compilation is clean. Fix LaTeX errors and recompile if needed. Upload PD
 
 ## Execution rules
 - Do NOT spawn sub-agents or delegate to other agents. Execute every step yourself directly.
-- Run all commands yourself using Bash. Do not write wrapper scripts that call other scripts unless processing hundreds of items.
+- If you write a Python script for batch processing, it MUST print progress to stderr after every single zip code or batch (e.g., `print(f"[{i}/{total}] 10451: 12 results", file=sys.stderr)`). Never run a script that produces no output for more than 30 seconds.
 - Show your work: print progress updates after each batch of zip codes.
+- Do NOT reuse data from previous runs in /tmp. Always start fresh.
 
 ## Quality standard
 

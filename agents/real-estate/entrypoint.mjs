@@ -5,7 +5,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 
 const sessionPath = process.argv[2];
 if (!sessionPath) {
-  process.stderr.write("Usage: node entrypoint.mjs <session.json>\n");
+  console.error("Usage: node entrypoint.mjs <session.json>");
   process.exit(1);
 }
 
@@ -24,25 +24,28 @@ const conversation = query({
   },
 });
 
+// Stream everything to stdout so it's visible in the terminal
+const write = (s) => process.stdout.write(s);
+
 for await (const event of conversation) {
   if (event.type === "assistant" && event.message?.content) {
     for (const block of event.message.content) {
       if (block.type === "text") {
-        process.stderr.write(block.text);
+        write(block.text);
       } else if (block.type === "tool_use") {
         const name = block.name || "tool";
         const input = typeof block.input === "string"
-          ? block.input.slice(0, 200)
-          : JSON.stringify(block.input || {}).slice(0, 200);
-        process.stderr.write(`\n[${name}] ${input}\n`);
+          ? block.input.slice(0, 300)
+          : JSON.stringify(block.input || {}).slice(0, 300);
+        write(`\n⚡ [${name}] ${input}\n`);
       }
     }
   } else if (event.type === "tool_result") {
     const output = typeof event.content === "string"
       ? event.content
-      : JSON.stringify(event.content || "").slice(0, 300);
-    process.stderr.write(`  → ${output.slice(0, 300)}\n`);
+      : JSON.stringify(event.content || "").slice(0, 500);
+    write(`  ✓ ${output.slice(0, 500)}\n`);
   } else if (event.type === "result") {
-    process.stderr.write("\n---\nAgent finished.\n");
+    write("\n━━━ Agent finished ━━━\n");
   }
 }
