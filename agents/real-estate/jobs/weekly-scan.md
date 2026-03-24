@@ -58,6 +58,12 @@ For each qualifying R7+ property, run ALL of these checks:
 - Check if the BBL appears on the tax lien sale list
 - Any hit = strong distress signal
 
+**StreetEasy (price history + listing cycles):**
+- Use `integrations streeteasy listings history --address="ADDRESS" --json`
+- Check for price drops > 10% from original listing price
+- Check for 3+ listing/delisting cycles (desperate seller signal)
+- Check for recent price drops in the last 30 days (act-now signal)
+
 ### Step 4 — Composite scoring
 
 Score each property using the model in CLAUDE.md. Assign a composite score and priority tier (Immediate / High / Moderate / Watchlist).
@@ -85,7 +91,7 @@ Fix any issues.
 
 Use Python openpyxl to create a styled spreadsheet with these columns:
 
-| Borough | Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Composite Score | Priority | Tax Lien? | Lis Pendens? | HPD Violations | Demo Permit on Block? | Days on Market | Block Context | Zillow Link | ZoLa Link | Notes |
+| Borough | Property Address | Asking Price | Units | Lot Size (SF) | Building SF | Year Built | Zoning | Composite Score | Priority | Tax Lien? | Lis Pendens? | HPD Violations | Demo Permit on Block? | Price Drop? | Listing Cycles | Days on Market | Block Context | Zillow Link | ZoLa Link | Notes |
 
 Color coding:
 - Green rows = Immediate priority (score 20+)

@@ -169,7 +169,39 @@ Any property appearing on the tax lien list = **strong distress signal**. The ow
 
 ---
 
-## Tool 7: Professional XLSX Spreadsheet (via Python openpyxl)
+## Tool 7: StreetEasy CLI — Price History + Listing Cycles
+
+Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
+
+**Search listings:**
+```bash
+integrations streeteasy listings search --location="Bronx, NY 10452" --status=for_sale --limit=20 --json
+```
+
+**Get price history for a property:**
+```bash
+integrations streeteasy listings history --address="1226 Shakespeare Ave Bronx NY" --json
+```
+
+Returns: array of `{date, event, price}` entries showing every list, delist, relist, and price change.
+
+### Signal interpretation
+- Property listed → delisted → relisted at lower price = **motivated seller**
+- 3+ listing cycles with declining prices = **desperate seller**
+- Price drop > 10% from original listing = **significant negotiation leverage**
+- Fresh price drop (last 7 days) = **act now — make an offer this week**
+
+### Composite scoring additions
+
+| Signal | Points | Source |
+|--------|--------|--------|
+| Price drop > 10% from original | +3 | StreetEasy |
+| 3+ listing/delisting cycles | +4 | StreetEasy |
+| Price drop in last 30 days | +2 | StreetEasy |
+
+---
+
+## Tool 8: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -180,7 +212,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 8: Professional PDF Report (via LaTeX)
+## Tool 9: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -191,7 +223,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 9: Google Drive CLI
+## Tool 10: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -219,6 +251,9 @@ Each qualifying R7+ lot gets a composite score:
 | HPD open violations > 5 | +2 | HPD |
 | HPD open violations > 10 | +4 | HPD |
 | Adjacent lot also for sale | +4 | Zillow + PLUTO |
+| Price drop > 10% from original | +3 | StreetEasy |
+| 3+ listing/delisting cycles | +4 | StreetEasy |
+| Price drop in last 30 days | +2 | StreetEasy |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -239,6 +274,7 @@ Each qualifying R7+ lot gets a composite score:
    - DOB: check for demolition/new building permits on the same block
    - HPD: count open violations
    - NYC Finance: check tax lien list
+   - StreetEasy: check price history for drops and relisting cycles
 6. **For each qualifying block, check for cluster signals:**
    - Multiple Zillow listings on same block?
    - Recent ACRIS deed transfers to LLCs on same block?

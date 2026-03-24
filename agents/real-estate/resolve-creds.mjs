@@ -31,6 +31,9 @@ function credentialsToEnv(provider, creds) {
       if (creds.all_cookies) env.ZILLOW_COOKIES = creds.all_cookies
       if (creds.proxy_url) env.ZILLOW_PROXY_URL = creds.proxy_url
       break
+    case "streeteasy":
+      if (creds.all_cookies) env.STREETEASY_COOKIES = creds.all_cookies
+      break
   }
   return env
 }
