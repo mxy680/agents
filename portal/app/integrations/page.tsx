@@ -20,7 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
-import { ZillowConnectDialog } from "@/components/zillow-connect-dialog"
+import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -106,14 +106,14 @@ const providers = [
     name: "Zillow",
     description: "Properties, Zestimates, Agents, Mortgage Rates",
     icon: IconHome,
-    connectType: "zillow" as const,
+    connectType: "cookie-capture" as const,
   },
   {
     id: "streeteasy",
     name: "StreetEasy",
     description: "Listings, Price History, Market Data",
     icon: IconBuildingSkyscraper,
-    connectType: "playwright" as const,
+    connectType: "cookie-capture" as const,
   },
 ]
 
@@ -228,13 +228,13 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Add server" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
-                    ) : provider.connectType === "zillow" ? (
-                      <ZillowConnectDialog>
+                    ) : provider.connectType === "cookie-capture" ? (
+                      <CookieCaptureButton provider={provider.id}>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
-                      </ZillowConnectDialog>
+                      </CookieCaptureButton>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

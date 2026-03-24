@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { IconLoader2, IconCheck, IconAlertCircle } from "@tabler/icons-react"
 
-interface ZillowConnectDialogProps {
+interface CookieCaptureButtonProps {
+  provider: string
   children: React.ReactNode
 }
 
-export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
+export function CookieCaptureButton({ provider, children }: CookieCaptureButtonProps) {
   const router = useRouter()
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle")
   const [message, setMessage] = useState("")
@@ -20,8 +21,8 @@ export function ZillowConnectDialog({ children }: ZillowConnectDialogProps) {
 
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 180_000) // 3 min
-      const res = await fetch("/api/integrations/zillow/refresh", {
+      const timeout = setTimeout(() => controller.abort(), 180_000)
+      const res = await fetch(`/api/integrations/${provider}/refresh`, {
         method: "POST",
         signal: controller.signal,
       })
