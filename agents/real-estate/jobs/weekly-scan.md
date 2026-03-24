@@ -136,7 +136,20 @@ Sort by composite score descending.
 
 Upload to Google Drive with `--convert` flag. Provide the Google Sheets link.
 
-### Step 8 — Create PDF report
+### Step 8 — Create interactive ECharts dashboard
+
+Create a self-contained HTML file with Apache ECharts visualizations. Include:
+
+1. **Geospatial scatter plot** — every qualifying property plotted by lat/lng, sized and colored by composite score. Tooltip shows address, price, score, and signals on hover.
+2. **Score distribution bar chart** — how many properties in each score tier (0-4, 5-9, 10-14, 15-19, 20+)
+3. **Signal frequency pie chart** — what signals were detected and how often (tax liens, HPD violations, lis pendens, DOM 90+, etc.)
+4. **Borough breakdown stacked bar** — R7+ property count per borough, stacked by priority tier
+5. **Price vs Score scatter** — asking price on X axis, composite score on Y axis, colored by borough. Helps identify high-score/low-price outliers.
+6. Any other chart the data suggests would be useful (e.g., year built histogram, lot size distribution, cluster map)
+
+Use a clean dark navy + white color scheme matching the PDF report. Upload to Google Drive.
+
+### Step 9 — Create PDF report
 
 Write a LaTeX document and compile with pdflatex. Include:
 

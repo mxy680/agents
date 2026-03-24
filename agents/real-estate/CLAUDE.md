@@ -237,7 +237,108 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 9: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 9: Interactive Dashboard (Apache ECharts HTML)
+
+Create a self-contained HTML file with embedded Apache ECharts visualizations. Upload to Google Drive. Use the CDN: `<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>`
+
+### Chart types to include
+
+**1. Geospatial scatter map — property locations colored by score:**
+```javascript
+option = {
+  title: { text: 'NYC Assemblage Targets', left: 'center' },
+  tooltip: { trigger: 'item', formatter: function(p) { return p.name + '<br/>Score: ' + p.value[2]; } },
+  visualMap: { min: 0, max: 20, calculable: true, inRange: { color: ['#ffeda0', '#f03b20'] } },
+  // Use scatter with manual x/y positioning (no geo map registration needed)
+  // Map lat/lng to pixel coords within a container
+  series: [{
+    type: 'scatter',
+    coordinateSystem: 'cartesian2d',  // Use grid, not geo (simpler, no map tiles needed)
+    data: [
+      // [longitude, latitude, score, 'address']
+      [-73.88, 40.85, 9, '1823 Anthony Ave'],
+    ],
+    symbolSize: function(val) { return Math.max(val[2] * 3, 8); },
+    itemStyle: { opacity: 0.8 }
+  }],
+  xAxis: { name: 'Longitude', min: -74.05, max: -73.7 },
+  yAxis: { name: 'Latitude', min: 40.55, max: 40.95 }
+};
+```
+
+**2. Score distribution bar chart:**
+```javascript
+option = {
+  title: { text: 'Score Distribution' },
+  xAxis: { type: 'category', data: ['0-4', '5-9', '10-14', '15-19', '20+'] },
+  yAxis: { type: 'value' },
+  series: [{ type: 'bar', data: [15, 10, 4, 2, 0], itemStyle: { color: '#1F4E79' } }]
+};
+```
+
+**3. Signal frequency pie chart:**
+```javascript
+option = {
+  title: { text: 'Distress Signals Detected' },
+  series: [{ type: 'pie', radius: '60%', data: [
+    { value: 4, name: 'Tax Liens' },
+    { value: 12, name: 'HPD 5+ Violations' },
+    { value: 1, name: 'Lis Pendens' },
+    { value: 17, name: 'DOM 90+' }
+  ]}]
+};
+```
+
+**4. Borough breakdown stacked bar:**
+```javascript
+option = {
+  title: { text: 'R7+ Properties by Borough' },
+  xAxis: { type: 'category', data: ['Bronx', 'Brooklyn', 'Manhattan', 'Queens'] },
+  yAxis: { type: 'value' },
+  series: [
+    { name: 'High', type: 'bar', stack: 'total', data: [5, 3, 2, 1], color: '#27AE60' },
+    { name: 'Moderate', type: 'bar', stack: 'total', data: [8, 6, 4, 3], color: '#F39C12' },
+    { name: 'Watch', type: 'bar', stack: 'total', data: [10, 5, 3, 2], color: '#BDC3C7' }
+  ]
+};
+```
+
+### HTML template structure
+```html
+<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <title>NYC Assemblage Intelligence Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }
+    .chart { width: 100%; height: 500px; background: white; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { color: #1F4E79; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  </style>
+</head><body>
+  <h1>NYC Assemblage Intelligence Dashboard — [DATE]</h1>
+  <div id="map" class="chart" style="height:600px;"></div>
+  <div class="grid">
+    <div id="scores" class="chart"></div>
+    <div id="signals" class="chart"></div>
+    <div id="boroughs" class="chart"></div>
+    <div id="priceVsScore" class="chart"></div>
+  </div>
+  <script>
+    // Initialize all charts
+    var mapChart = echarts.init(document.getElementById('map'));
+    var scoresChart = echarts.init(document.getElementById('scores'));
+    // ... set options for each chart using the data from the scan
+  </script>
+</body></html>
+```
+
+Upload: `integrations drive files upload --path=/tmp/dashboard.html --name="NYC Assemblage Dashboard — 2026-03-24.html" --json`
+
+---
+
+## Tool 10: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -248,7 +349,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 10: Professional PDF Report (via LaTeX)
+## Tool 11: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -259,7 +360,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 11: Google Drive CLI
+## Tool 12: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
