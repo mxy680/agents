@@ -55,14 +55,14 @@ echo "---"
 # Ensure Agent SDK is resolvable
 export NODE_PATH="$(npm root -g):${NODE_PATH:-}"
 
-# Resolve fresh integration credentials from Supabase
-# (doppler has static tokens that may be stale; Supabase has the portal's live credentials)
+# Resolve fresh integration credentials from Supabase and write to a temp env file.
+# doppler run starts a new process, so we can't just eval exports — we need to
+# write them to a file and source them inside the doppler-run context.
 echo "Resolving credentials from Supabase..."
-CRED_EXPORTS=$(doppler run --project agents --config dev -- node "$SCRIPT_DIR/resolve-creds.mjs" 2>/dev/null)
-if [ -n "$CRED_EXPORTS" ]; then
-  eval "$CRED_EXPORTS"
-fi
+CRED_FILE=$(mktemp /tmp/agent-creds-XXXXXXXX)
+trap "rm -f $SESSION_FILE $CRED_FILE" EXIT
+doppler run --project agents --config dev -- node "$SCRIPT_DIR/resolve-creds.mjs" > "$CRED_FILE" 2>/dev/null
 
-# Run with doppler env vars (ANTHROPIC_API_KEY, client IDs, etc.) + fresh Supabase creds
+# Run with doppler env vars + fresh Supabase creds sourced at runtime
 exec doppler run --project agents --config dev -- \
-  node "$SCRIPT_DIR/entrypoint.mjs" "$SESSION_FILE"
+  bash -c "source '$CRED_FILE' && node '$SCRIPT_DIR/entrypoint.mjs' '$SESSION_FILE'"
