@@ -31,9 +31,8 @@ run_phase 4  "StreetEasy Enrichment"               phase4_streeteasy.py
 run_phase 5  "Cluster Detection"                    phase5_clusters.py
 run_phase 6  "Data Verification"                    phase6_verify.py
 run_phase 7  "XLSX Spreadsheet"                     phase7_xlsx.py
-run_phase 8  "ECharts Dashboard"                    phase8_dashboard.py
-run_phase 9  "LaTeX PDF Report"                     phase9_pdf.py
-run_phase 10 "Upload to Google Drive"               phase10_upload.py
+run_phase 8  "LaTeX PDF Report"                     phase9_pdf.py
+run_phase 9  "Upload to Google Drive"               phase10_upload.py
 
 echo ""
 echo "━━━ Pipeline Complete ━━━"

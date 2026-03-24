@@ -63,7 +63,7 @@ def fmt_bool(val):
 
 
 def generate_property_detail(prop, rank):
-    """Generate detailed paragraph for a high-priority property."""
+    """Generate detailed analysis paragraph for a high-priority property."""
     addr = escape_latex(prop.get("address", "N/A"))
     borough = escape_latex(prop.get("_borough", "N/A"))
     score = prop.get("_score", 0)
@@ -79,25 +79,94 @@ def generate_property_detail(prop, rank):
     bbl = prop.get("_bbl", "N/A")
     zillow_url = prop.get("zillowUrl", "")
     zola_url = prop.get("_zola_url", "")
+    tax_lien = prop.get("_tax_lien", False)
+    lis_pendens = prop.get("_acris_lis_pendens", False)
+    estate = prop.get("_acris_estate", False)
+    llc_block = prop.get("_block_llc_deed", False)
+    in_cluster = prop.get("_in_cluster", False)
 
     reasons = prop.get("_score_reasons", [])
     signals_tex = "\n".join(f"  \\item {escape_latex(r)}" for r in reasons if r)
 
     price_str = f"\\${price:,}" if price else "Not stated"
 
+    # Build the "WHY" analysis paragraph
+    why_parts = []
+
+    # Zoning context
+    try:
+        lot_sf = int(float(lot_area)) if lot_area else 0
+        bldg_sf = int(float(bldg_area)) if bldg_area else 0
+        yr = int(float(year_built)) if year_built else 0
+    except (ValueError, TypeError):
+        lot_sf, bldg_sf, yr = 0, 0, 0
+
+    zone_upper = (prop.get("_zoning") or "").upper()
+    if any(zone_upper.startswith(p) for p in ["R8", "R9", "R10"]):
+        why_parts.append(f"This property sits in a \\textbf{{{zoning}}} zone, one of the highest-density residential designations in NYC. The zoning allows substantially more density than the current building provides, making the land far more valuable than the structure.")
+    elif zone_upper.startswith("R7"):
+        why_parts.append(f"Zoned \\textbf{{{zoning}}}, this property is in a medium-to-high density residential district where the city permits significantly larger buildings than what currently exists on the lot.")
+
+    # Age and condition
+    if yr > 0 and yr < 1945:
+        why_parts.append(f"Built in {yr}, this is a {2026-yr}-year-old structure. Pre-war buildings in this condition typically have high maintenance costs and declining structural integrity, making owners more receptive to acquisition offers --- especially when coupled with other distress signals.")
+
+    # HPD analysis
+    if hpd >= 50:
+        why_parts.append(f"\\textbf{{The building has {hpd} open HPD violations}} --- an extraordinary number that indicates severe, sustained neglect. The owner has effectively abandoned maintenance responsibilities. Buildings at this violation level often face HPD emergency repair orders, which add liens to the property. This is one of the strongest indicators of an owner ready to sell.")
+    elif hpd >= 10:
+        why_parts.append(f"With \\textbf{{{hpd} open HPD violations}}, this building shows significant owner neglect. The violations likely include hazardous conditions (Class B/C) that the owner is not addressing. This pattern strongly suggests the owner has lost the ability or willingness to maintain the property --- a classic pre-sale signal.")
+    elif hpd >= 5:
+        why_parts.append(f"The property has {hpd} open HPD violations, indicating moderate neglect. While not at crisis level, this suggests the owner may be experiencing financial strain or disengagement from the property.")
+
+    # Tax lien
+    if tax_lien:
+        why_parts.append("\\textbf{This property appears on the NYC tax lien sale list}, meaning the owner owes multiple years of delinquent property taxes. NYC will auction the lien if unpaid. This is a direct indicator of financial distress --- the owner cannot or will not meet basic obligations. An off-market acquisition offer may be welcomed as a way to resolve the debt.")
+
+    # Lis pendens
+    if lis_pendens:
+        why_parts.append("\\textbf{A lis pendens (foreclosure filing) has been recorded against this property in ACRIS.} The bank or lender has initiated legal proceedings to take the property. The owner is under severe time pressure and is among the most motivated sellers in this dataset.")
+
+    # Estate
+    if estate:
+        why_parts.append("\\textbf{ACRIS party records indicate estate or probate involvement} (party names contain ``ESTATE OF'' or ``EXECUTOR''). The original owner likely died, and the heirs are managing disposition. Estate-held properties frequently sell below market value because heirs want liquidity, not long-term ownership of a Bronx walk-up.")
+
+    # DOM
+    if dom >= 365:
+        why_parts.append(f"At \\textbf{{{dom} days on market}} (over {dom//365} year{'s' if dom >= 730 else ''}), this listing has significantly exceeded the typical marketing period. Extended time on market erodes seller confidence and often leads to below-ask negotiations. The seller has likely already reduced their price expectations.")
+    elif dom >= 180:
+        why_parts.append(f"The property has been on the market for {dom} days --- well beyond the typical 60--90 day sales cycle. This extended exposure suggests pricing or condition issues that make the seller increasingly flexible.")
+
+    # LLC on block
+    if llc_block:
+        why_parts.append("Recent ACRIS records show \\textbf{deed transfers to LLCs on this block}, indicating that developer acquisition activity is already underway in the immediate area. This is both an opportunity (the block is ``in play'') and a competitive signal (other developers may be assembling nearby).")
+
+    # Cluster
+    if in_cluster:
+        cluster_size = prop.get("_cluster_size", 0)
+        why_parts.append(f"This property is part of a \\textbf{{cluster of {cluster_size} qualifying properties on the same block}}. Multiple simultaneous listings on one block create a rare assemblage entry point where 2+ lots can be acquired without cold-calling off-market owners.")
+
+    # Small lot
+    if lot_sf > 0 and lot_sf < 2000:
+        why_parts.append(f"The lot is only {lot_sf:,} SF --- too small for significant standalone development but ideal as an assemblage \\textit{{starter lot}}. Acquiring this parcel and then approaching adjacent owners creates the foundation for a developable site.")
+
+    why_text = "\n\n".join(why_parts) if why_parts else "This property qualifies based on zoning and lot characteristics but has no additional distress signals at this time."
+
     out = f"""
-\\subsection*{{\\textnormal{{\\small #{rank} —}} {addr}}}
-\\begin{{tabular}}{{@{{}}llll@{{}}}}
-\\textbf{{Borough:}} & {borough} & \\textbf{{Zoning:}} & {zoning} \\\\
-\\textbf{{Asking Price:}} & {price_str} & \\textbf{{Score:}} & \\textbf{{{score}}} ({priority}) \\\\
-\\textbf{{Lot Area:}} & {fmt_int(lot_area)} SF & \\textbf{{Building SF:}} & {fmt_int(bldg_area)} SF \\\\
-\\textbf{{Year Built:}} & {fmt_int(year_built)} & \\textbf{{Building Class:}} & {escape_latex(bldg_class)} \\\\
-\\textbf{{HPD Violations:}} & {hpd} & \\textbf{{Days on Market:}} & {dom} \\\\
-\\textbf{{BBL:}} & {escape_latex(bbl)} & & \\\\
+\\subsection*{{\\textnormal{{\\small \\#{rank} ---}} {addr}}}
+
+\\begin{{tabular}}{{@{{}}p{{3.5cm}}p{{3.5cm}}p{{3.5cm}}p{{3.5cm}}@{{}}}}
+\\textbf{{Asking Price:}} {price_str} & \\textbf{{Zoning:}} {zoning} & \\textbf{{Lot:}} {fmt_int(lot_area)} SF & \\textbf{{Score:}} \\textbf{{{score}}} ({priority}) \\\\
+\\textbf{{Year Built:}} {fmt_int(year_built)} & \\textbf{{HPD Violations:}} {hpd} & \\textbf{{DOM:}} {dom} & \\textbf{{Class:}} {escape_latex(bldg_class)} \\\\
 \\end{{tabular}}
 
+\\vspace{{6pt}}
+\\textbf{{Why This Property Stands Out:}}
+
+{why_text}
+
 \\vspace{{4pt}}
-\\textbf{{Distress Signals:}}
+\\textbf{{Scoring Breakdown:}}
 \\begin{{itemize}}[leftmargin=2em,itemsep=1pt,parsep=0pt]
 {signals_tex}
 \\end{{itemize}}
@@ -106,12 +175,12 @@ def generate_property_detail(prop, rank):
     if zillow_url or zola_url:
         out += "\\vspace{2pt}\\small "
         if zillow_url:
-            out += f"\\textbf{{Zillow:}} \\url{{{zillow_url}}}\\quad "
+            out += f"\\href{{{zillow_url}}}{{Zillow Listing}}\\quad "
         if zola_url:
-            out += f"\\textbf{{ZoLa:}} \\url{{{zola_url}}}"
+            out += f"\\href{{{zola_url}}}{{ZoLa Zoning Map}}"
         out += "\n"
 
-    out += "\\vspace{8pt}\\hrule\\vspace{6pt}\n"
+    out += "\\vspace{10pt}\\hrule\\vspace{8pt}\n"
     return out
 
 
@@ -198,13 +267,14 @@ def main():
         max_score = cluster.get("max_score", 0)
         cluster_rows += f"{borough} & {block} & {n_props} & \\small {addresses} & {ask_str} & {lot_str} & {zones} & {max_score} \\\\\n"
 
-    # Immediate priority details
-    immediate_details = ""
-    for rank, prop in enumerate(immediate[:15], 1):
-        immediate_details += generate_property_detail(prop, rank)
+    # Immediate + High priority details (verbose)
+    top_details = ""
+    top_props = immediate + high
+    for rank, prop in enumerate(top_props[:25], 1):
+        top_details += generate_property_detail(prop, rank)
 
-    if not immediate_details:
-        immediate_details = "\\textit{No properties reached the Immediate Priority threshold (score 20+) in this scan.}\n"
+    if not top_details:
+        top_details = "\\textit{No properties reached High Priority or above in this scan.}\n"
 
     # High priority brief table
     high_rows = ""
@@ -383,27 +453,11 @@ SE Price Drop $>$10\% & \textbf{""" + str(n_se_drop) + r"""} \\
 % SECTION 3: IMMEDIATE PRIORITY PROPERTIES
 % ============================================================
 \newpage
-\section*{\color{NavyBlue}\rule[0.5ex]{0.2\textwidth}{1pt}\quad Immediate Priority Properties (Score 20+) \quad\rule[0.5ex]{0.2\textwidth}{1pt}}
+\section*{\color{NavyBlue}\rule[0.5ex]{0.15\textwidth}{1pt}\quad Priority Properties --- Detailed Analysis \quad\rule[0.5ex]{0.15\textwidth}{1pt}}
 
-These properties carry multiple converging distress signals and represent the highest-urgency outreach targets.
+The following properties scored 15 or above in the composite model, indicating multiple converging signals of development potential and owner motivation. Each entry includes a detailed explanation of \textit{why} this property stands out as an assemblage target.
 
-""" + immediate_details + r"""
-
-% ============================================================
-% SECTION 4: HIGH PRIORITY PROPERTIES
-% ============================================================
-\section*{\color{NavyBlue}\rule[0.5ex]{0.25\textwidth}{1pt}\quad High Priority Properties (Score 15--19) \quad\rule[0.5ex]{0.25\textwidth}{1pt}}
-
-\small
-\begin{longtable}{>{\raggedright}p{0.5cm}>{\raggedright}p{5.5cm}p{1.3cm}p{1.0cm}r>{\raggedright}p{5.0cm}}
-\toprule
-\textbf{Bor.} & \textbf{Address} & \textbf{Price} & \textbf{Zone} & \textbf{Score} & \textbf{Key Signals} \\
-\midrule
-\endhead
-""" + high_rows + r"""
-\bottomrule
-\end{longtable}
-\normalsize
+""" + top_details + r"""
 
 % ============================================================
 % SECTION 5: BLOCK CLUSTER OPPORTUNITIES

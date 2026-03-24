@@ -66,9 +66,8 @@ def fmt_int(val):
 def fmt_bool(val):
     if val is True:
         return "Yes"
-    if val is False:
-        return "No"
-    return "Unable to verify"
+    # Treat False, None, 0, and missing values as "No"
+    return "No"
 
 
 def get_block_context(prop, clusters):

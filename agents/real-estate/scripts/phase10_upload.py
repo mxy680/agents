@@ -7,6 +7,10 @@ import json
 import subprocess
 import sys
 import os
+import glob
+from datetime import datetime
+
+DATE = datetime.now().strftime("%Y-%m-%d")
 
 
 def upload_file(path, name, convert=False):
@@ -33,8 +37,8 @@ def upload_file(path, name, convert=False):
 
     try:
         data = json.loads(result.stdout)
-        link = data.get("webViewLink") or data.get("link") or data.get("id", "")
-        print(f"  ✓ Uploaded: {link}", file=sys.stderr)
+        file_id = data.get("id", "")
+        print(f"  ✓ Uploaded: https://drive.google.com/file/d/{file_id}/view", file=sys.stderr)
         return data
     except json.JSONDecodeError:
         print(f"  Raw output: {result.stdout[:300]}", file=sys.stderr)
@@ -44,30 +48,30 @@ def upload_file(path, name, convert=False):
 def main():
     links = {}
 
+    # Find files dynamically
+    xlsx_files = glob.glob("/tmp/nyc_assemblage/NYC_Assemblage_Scan_*.xlsx")
+    pdf_files = glob.glob("/tmp/nyc_assemblage/report.pdf")
+
     # 1. Upload XLSX as Google Sheet
-    xlsx_result = upload_file(
-        "/tmp/nyc_assemblage/NYC_Assemblage_Scan_2026-03-24.xlsx",
-        "NYC Assemblage Scan — 2026-03-24",
-        convert=True  # Convert to Google Sheets
-    )
-    if xlsx_result:
-        links["spreadsheet"] = xlsx_result.get("webViewLink") or xlsx_result.get("link") or str(xlsx_result)
+    if xlsx_files:
+        xlsx_result = upload_file(
+            xlsx_files[0],
+            f"NYC Assemblage Scan — {DATE}",
+            convert=True
+        )
+        if xlsx_result:
+            file_id = xlsx_result.get("id", "")
+            links["spreadsheet"] = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
 
-    # 2. Upload Dashboard HTML
-    dashboard_result = upload_file(
-        "/tmp/nyc_assemblage/NYC_Assemblage_Dashboard_2026-03-24.html",
-        "NYC Assemblage Dashboard — 2026-03-24.html",
-    )
-    if dashboard_result:
-        links["dashboard"] = dashboard_result.get("webViewLink") or dashboard_result.get("link") or str(dashboard_result)
-
-    # 3. Upload PDF Report
-    pdf_result = upload_file(
-        "/tmp/nyc_assemblage/report.pdf",
-        "NYC Assemblage Report — 2026-03-24.pdf",
-    )
-    if pdf_result:
-        links["report"] = pdf_result.get("webViewLink") or pdf_result.get("link") or str(pdf_result)
+    # 2. Upload PDF Report
+    if pdf_files:
+        pdf_result = upload_file(
+            pdf_files[0],
+            f"NYC Assemblage Report — {DATE}.pdf",
+        )
+        if pdf_result:
+            file_id = pdf_result.get("id", "")
+            links["report"] = f"https://drive.google.com/file/d/{file_id}/view"
 
     print("\n=== Upload Summary ===", file=sys.stderr)
     for k, v in links.items():
