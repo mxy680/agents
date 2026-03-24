@@ -39,7 +39,7 @@ fi
 export PATH="$REPO_ROOT/bin:$PATH"
 
 # Create temp session file
-SESSION_FILE=$(mktemp /tmp/agent-session-XXXXXX.json)
+SESSION_FILE=$(mktemp /tmp/agent-session-XXXXXXXX)
 trap "rm -f $SESSION_FILE" EXIT
 
 # Write session.json
