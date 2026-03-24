@@ -48,21 +48,31 @@ NYC's official property document filing system. All data is on Socrata — no au
 
 **Step 1: Get document IDs for a BBL from the Legals table:**
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/8h5j-fqxa.json?borough=2&block=02964&lot=0028&\$limit=500"
+curl -s -G "https://data.cityofnewyork.us/resource/8h5j-fqxa.json" \
+  --data-urlencode "borough=2" \
+  --data-urlencode "block=02964" \
+  --data-urlencode "lot=0028" \
+  --data-urlencode "\$limit=500"
 ```
 Borough codes: 1=Manhattan, 2=Bronx, 3=Brooklyn, 4=Queens, 5=Staten Island.
 
+**CRITICAL: block MUST be zero-padded to 5 digits, lot MUST be zero-padded to 4 digits.** Extract from BBL string, do NOT convert to integer. BBL `2029640028` → borough=`2`, block=`02964`, lot=`0028`.
+
 **Step 2: Get document details from the Master table:**
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/bnx9-e6tj.json?\$where=document_id in('DOC_ID_1','DOC_ID_2')"
+curl -s -G "https://data.cityofnewyork.us/resource/bnx9-e6tj.json" \
+  --data-urlencode "\$where=document_id in('DOC_ID_1','DOC_ID_2')"
 ```
 Returns: `document_id`, `doc_type`, `document_date`, `document_amt`, `recorded_datetime`.
 
 **Step 3 (optional): Get parties (buyer/seller names):**
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/636b-3b5g.json?\$where=document_id in('DOC_ID_1')&party_type=2"
+curl -s -G "https://data.cityofnewyork.us/resource/636b-3b5g.json" \
+  --data-urlencode "\$where=document_id in('DOC_ID_1') AND party_type='2'"
 ```
 `party_type=1` = grantor/seller, `party_type=2` = grantee/buyer.
+
+**ALWAYS use `curl -s -G` with `--data-urlencode` for ALL Socrata queries.** Never inline `$where` in the URL directly — it breaks on spaces and special characters.
 
 ### Key document types to monitor
 
@@ -88,14 +98,15 @@ curl -s "https://data.cityofnewyork.us/resource/bnx9-e6tj.json?\$where=document_
 Filter ACRIS parties for names containing "ESTATE OF" or "AS EXECUTOR":
 ```bash
 curl -s -G "https://data.cityofnewyork.us/resource/636b-3b5g.json" \
-  --data-urlencode "\$where=document_id in('DOC_ID') AND (name like '%25ESTATE OF%25' OR name like '%25EXECUTOR%25')"
+  --data-urlencode "\$where=document_id in('DOC_ID') AND (name like '%ESTATE OF%' OR name like '%EXECUTOR%')"
 ```
 If any party name matches, the property owner likely died and the estate is in probate. This is a strong sell signal — heirs often want to liquidate quickly.
 
 ### Detecting developer activity
 Filter for `doc_type=DEED` where the buyer name contains "LLC":
 ```bash
-curl -s "https://data.cityofnewyork.us/resource/636b-3b5g.json?\$where=document_id='DOC_ID' AND party_type='2' AND name like '%25LLC%25'"
+curl -s -G "https://data.cityofnewyork.us/resource/636b-3b5g.json" \
+  --data-urlencode "\$where=document_id='DOC_ID' AND party_type='2' AND name like '%LLC%'"
 ```
 
 ---
@@ -226,7 +237,7 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 8: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 9: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -237,7 +248,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 9: Professional PDF Report (via LaTeX)
+## Tool 10: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -248,7 +259,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 10: Google Drive CLI
+## Tool 11: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -273,8 +284,8 @@ Each qualifying R7+ lot gets a composite score:
 | Deed transfer to LLC in last 12 months on same block | +3 | ACRIS |
 | Demolition permit on same block in last 6 months | +3 | DOB |
 | New building permit on same block in last 6 months | +2 | DOB |
-| HPD open violations > 5 | +2 | HPD |
-| HPD open violations > 10 | +4 | HPD |
+| HPD open violations 5-9 | +2 | HPD |
+| HPD open violations 10+ | +4 (not cumulative with above) | HPD |
 | Adjacent lot also for sale | +4 | Zillow + PLUTO |
 | Price drop > 10% from original | +3 | StreetEasy |
 | 3+ listing/delisting cycles | +4 | StreetEasy |

@@ -8,6 +8,14 @@
  */
 
 import { createClient } from "@supabase/supabase-js"
+
+// Fail fast if required env vars are missing
+for (const key of ["ENCRYPTION_MASTER_KEY", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  if (!process.env[key]) {
+    process.stderr.write(`ERROR: ${key} is not set. Check Doppler config.\n`)
+    process.exit(1)
+  }
+}
 import crypto from "crypto"
 
 function decrypt(buf) {

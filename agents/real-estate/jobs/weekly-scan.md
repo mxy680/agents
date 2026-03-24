@@ -19,6 +19,8 @@ Search EVERY zip code in EVERY borough individually. Do not skip any. The R7+ fi
 **Manhattan** (30 zips):
 10001, 10002, 10003, 10009, 10010, 10011, 10012, 10013, 10014, 10016, 10019, 10021, 10022, 10023, 10024, 10025, 10026, 10027, 10028, 10029, 10030, 10031, 10032, 10033, 10034, 10035, 10037, 10039, 10040, 10128
 
+**Staten Island:** Excluded — minimal R7+ zoning, negligible assemblage activity.
+
 **Queens** (45 zips):
 11101, 11102, 11103, 11104, 11105, 11106, 11109, 11354, 11355, 11356, 11357, 11358, 11359, 11360, 11361, 11362, 11363, 11364, 11365, 11366, 11367, 11368, 11369, 11370, 11372, 11373, 11374, 11375, 11377, 11378, 11379, 11385, 11411, 11412, 11413, 11414, 11415, 11416, 11417, 11418, 11419, 11420, 11421, 11422, 11423
 
@@ -64,7 +66,8 @@ For each qualifying R7+ property, run ALL of these checks:
 
 **ACRIS (foreclosure + legal filings):**
 - Get document IDs from Legals table using borough/block/lot
-- Check Master table for recent JUDG (judgment/lis pendens), FL (federal lien), TLS (tax lien sale certificate) filings in the last 12 months
+- Check Master table for JUDG (judgment/lis pendens), FL (federal lien), TLS (tax lien sale certificate) filings
+- For scoring: JUDG within last 90 days = +5 points. JUDG older than 90 days = +2 points. FL and TLS = +3 points regardless of date.
 - Check if any recent DEED transfers on the same block went to an LLC (developer buying)
 
 **DOB (permit activity on the block):**
@@ -81,16 +84,22 @@ For each qualifying R7+ property, run ALL of these checks:
 - Check if the BBL appears on the tax lien sale list
 - Any hit = strong distress signal
 
-**StreetEasy (price history + listing cycles):**
-- Only run if STREETEASY_COOKIES env var is set (check with `echo $STREETEASY_COOKIES | wc -c`)
-- If available, use `integrations streeteasy listings history --address="ADDRESS" --json` for high-scoring properties only (score 5+) to conserve cookies
-- Check for price drops > 10% from original listing price
-- Check for 3+ listing/delisting cycles (desperate seller signal)
-- If StreetEasy is unavailable, skip — the other 5 signal sources are sufficient
+### Step 4 — Initial composite scoring
 
-### Step 4 — Composite scoring
+Score each property using the model in CLAUDE.md based on signals from Steps 1-3 (ACRIS, DOB, HPD, NYC Finance). Assign a preliminary composite score.
 
-Score each property using the model in CLAUDE.md. Assign a composite score and priority tier (Immediate / High / Moderate / Watchlist).
+### Step 4b — StreetEasy enrichment (optional)
+
+Only run if STREETEASY_COOKIES env var is set (check with `echo $STREETEASY_COOKIES | wc -c`). If unavailable, skip — the other signal sources are sufficient.
+
+For properties with a preliminary score of 3+ (i.e., at least one signal beyond just zoning):
+- Use `integrations streeteasy listings history --address="ADDRESS" --json`
+- Check for price drops > 10% from original listing price (+3 points)
+- Check for 3+ listing/delisting cycles (+4 points)
+- Check for recent price drops in the last 30 days (+2 points)
+- Update the composite score with any StreetEasy signals found
+
+Assign final priority tier (Immediate / High / Moderate / Watchlist).
 
 ### Step 5 — Cluster detection
 

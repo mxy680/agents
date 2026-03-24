@@ -49,7 +49,7 @@ jq -n \
   '{prompt: $prompt, systemPrompt: $systemPrompt, model: "claude-sonnet-4-6"}' \
   > "$SESSION_FILE"
 
-echo "Starting Bronx Assemblage Scout..."
+echo "Starting Real Estate Agent..."
 echo "---"
 
 # Ensure Agent SDK is resolvable
