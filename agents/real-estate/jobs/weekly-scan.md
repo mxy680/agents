@@ -149,6 +149,11 @@ Write a LaTeX document and compile with pdflatex. Include:
 
 Verify compilation is clean. Fix LaTeX errors and recompile if needed. Upload PDF to Google Drive.
 
+## Execution rules
+- Do NOT spawn sub-agents or delegate to other agents. Execute every step yourself directly.
+- Run all commands yourself using Bash. Do not write wrapper scripts that call other scripts unless processing hundreds of items.
+- Show your work: print progress updates after each batch of zip codes.
+
 ## Quality standard
 
 - Accurate, clean, and useful for brokerage outreach planning
