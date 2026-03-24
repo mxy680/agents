@@ -1,6 +1,6 @@
-name: bronx-assemblage
-display_name: Bronx Assemblage Scout
-description: Identifies starter-lot opportunities for residential assemblages in the Bronx by cross-referencing Zillow listings with NYC ZoLa zoning data.
+name: nyc-assemblage
+display_name: NYC Assemblage Intelligence
+description: Identifies starter-lot opportunities and pre-market distress signals for residential assemblages across all NYC boroughs using Zillow, ACRIS, DOB, HPD, NYC Finance, and PLUTO data.
 git_path: agents/bronx-assemblage
 required_integrations:
   - zillow
