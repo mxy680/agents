@@ -33,6 +33,7 @@ import {
   IconMessage,
   IconSchool,
   IconHome,
+  IconBuildingSkyscraper,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -106,6 +107,13 @@ const providers = [
     description: "Properties, Zestimates, Agents, Mortgage Rates",
     icon: IconHome,
     connectType: "zillow" as const,
+  },
+  {
+    id: "streeteasy",
+    name: "StreetEasy",
+    description: "Listings, Price History, Market Data",
+    icon: IconBuildingSkyscraper,
+    connectType: "playwright" as const,
   },
 ]
 

@@ -60,6 +60,9 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.all_cookies) env.ZILLOW_COOKIES = credJson.all_cookies
       if (credJson.proxy_url) env.ZILLOW_PROXY_URL = credJson.proxy_url
       break
+    case "streeteasy":
+      if (credJson.all_cookies) env.STREETEASY_COOKIES = credJson.all_cookies
+      break
   }
   return env
 }

@@ -112,6 +112,10 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"all_cookies": "ZILLOW_COOKIES",
 			"proxy_url":   "ZILLOW_PROXY_URL",
 		})
+	case "streeteasy":
+		mapCredentials(creds, env, map[string]string{
+			"all_cookies": "STREETEASY_COOKIES",
+		})
 	}
 	return nil
 }
