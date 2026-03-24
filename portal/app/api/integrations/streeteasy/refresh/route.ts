@@ -45,17 +45,9 @@ async function captureCookies(): Promise<string> {
 
   try {
     const page = await context.newPage()
-    await page.goto(STREETEASY_URL, { waitUntil: "networkidle" })
+    await page.goto(STREETEASY_URL, { waitUntil: "domcontentloaded", timeout: 30000 })
 
-    // Navigate to a specific listing to trigger PerimeterX fully
-    // Then wait for the user to close the tab
-    try {
-      await page.click('a[href*="/sale/"]', { timeout: 5000 })
-      await page.waitForLoadState("networkidle")
-    } catch {
-      // If no listing link found, that's fine — stay on current page
-    }
-
+    // Wait for user to browse around and close the tab
     await page.waitForEvent("close", { timeout: MAX_WAIT_MS }).catch(() => {})
 
     const cookies = await context.cookies()
