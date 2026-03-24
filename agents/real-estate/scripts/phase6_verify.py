@@ -115,7 +115,6 @@ def main():
     properties.sort(key=lambda p: p.get("_score", 0), reverse=True)
 
     # Summary
-    from collections import Counter
     priority_counts = Counter(p.get("_priority", "Watchlist") for p in properties)
 
     print(f"\n=== Verification Complete ===", file=sys.stderr)

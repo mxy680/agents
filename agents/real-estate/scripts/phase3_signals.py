@@ -30,7 +30,9 @@ def curl_socrata(url_base, params):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
         if result.returncode != 0:
             return []
-        return json.loads(result.stdout)
+        parsed = json.loads(result.stdout)
+        # Socrata may return a dict on error instead of a list
+        return parsed if isinstance(parsed, list) else []
     except Exception:
         return []
 
@@ -329,7 +331,21 @@ def compute_score(prop):
         score += 2
         reasons.append(f"HPD violations {hpd_count} (+2)")
 
-    prop["_score"] = score
+    # Price penalty — luxury properties are not realistic assemblage targets
+    price = prop.get("price", 0) or 0
+    if price > 5_000_000:
+        score -= 5
+        reasons.append(f"Price penalty >$5M (-5)")
+    elif price > 3_000_000:
+        score -= 3
+        reasons.append(f"Price penalty >$3M (-3)")
+
+    # Price bonus — affordable properties are better starter lots
+    if 0 < price <= 800_000:
+        score += 2
+        reasons.append(f"Affordable price ≤$800K (+2)")
+
+    prop["_score"] = max(score, 0)  # Floor at 0
     prop["_score_reasons"] = reasons
 
     if score >= 20:
@@ -351,17 +367,26 @@ def main():
     print(f"Running signal checks on {len(properties)} R7+ properties...", file=sys.stderr)
 
     # Pre-load NYC Finance tax liens (single API call for efficiency)
+    # Borough codes: 1=Manhattan, 2=Bronx, 3=Brooklyn, 4=Queens, 5=Staten Island
     print("\nLoading NYC Finance tax lien list...", file=sys.stderr)
     all_bbl_liens = set()
-    for borough in ["BRONX", "BROOKLYN", "MANHATTAN", "QUEENS"]:
+    for borough_code in ["2", "3", "1", "4"]:
         results = curl_socrata(
             "https://data.cityofnewyork.us/resource/9rz4-mjek.json",
-            {"$where": f"borough='{borough}'", "$limit": "10000"}
+            {"$where": f"borough='{borough_code}'", "$limit": "10000"}
         )
+        if not isinstance(results, list):
+            continue
         for r in results:
-            bbl = r.get("bbl")
-            if bbl:
-                all_bbl_liens.add(str(bbl))
+            if not isinstance(r, dict):
+                continue
+            # Dataset has no bbl field — construct from borough+block+lot
+            b = str(r.get("borough", "")).zfill(1)
+            blk = str(r.get("block", "")).zfill(5)
+            lt = str(r.get("lot", "")).zfill(4)
+            if b and blk and lt:
+                constructed_bbl = b + blk + lt
+                all_bbl_liens.add(constructed_bbl)
     print(f"  Loaded {len(all_bbl_liens)} properties on tax lien list", file=sys.stderr)
 
     # Cache for block-level signals (avoid redundant API calls)

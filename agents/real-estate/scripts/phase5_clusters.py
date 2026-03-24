@@ -10,7 +10,7 @@ from collections import defaultdict
 
 
 def main():
-    with open("/tmp/nyc_assemblage/final_properties.json") as f:
+    with open("/tmp/nyc_assemblage/scored_properties.json") as f:
         properties = json.load(f)
 
     # Group by (borough, block)
