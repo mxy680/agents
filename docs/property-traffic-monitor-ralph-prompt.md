@@ -190,13 +190,167 @@ On each Ralph loop iteration:
 
 Do NOT try to build everything at once. Build one monitor per iteration, test it, commit it, move on.
 
+### VERIFICATION GATE — MANDATORY BEFORE COMPLETION
+
+You CANNOT declare the system complete until you pass the verification gate. This is not optional. The verification gate requires **live proof** that the system retrieves real traffic/interest data.
+
+#### Step 1: Start the API server
+```bash
+cd services/property-traffic-monitor
+docker compose up -d  # or: uvicorn src.main:app --port 8000
+```
+
+#### Step 2: Seed with known high-traffic NYC addresses
+Use addresses that are guaranteed to have activity — major buildings, recent newsworthy properties, or active development sites:
+- Empire State Building: 350 5th Ave, New York, NY 10118
+- One Vanderbilt: 1 Vanderbilt Ave, New York, NY 10017
+- 432 Park Ave, New York, NY 10022
+- 30 Hudson Yards, New York, NY 10001
+- Any address currently in the news for development/rezoning (search for one)
+
+```bash
+curl -X POST http://localhost:8000/addresses -d '{"address": "350 5th Ave", "borough": "Manhattan"}'
+# ... repeat for all test addresses
+```
+
+#### Step 3: Trigger a full scan and capture results
+```bash
+curl -X POST http://localhost:8000/scan
+# Wait for scan to complete
+curl http://localhost:8000/addresses | python -m json.tool
+```
+
+#### Step 4: Validate REAL data was retrieved
+
+For EACH monitor, verify it returned actual data (not zeros, not mocks, not errors):
+
+```bash
+# For each seeded address, check signals
+curl http://localhost:8000/addresses/1/signals | python -m json.tool
+```
+
+**The validation script:** Create `services/property-traffic-monitor/verify.py` that:
+
+```python
+"""
+Verification gate — runs after all monitors are built.
+Exits 0 ONLY if real traffic data was retrieved from live sources.
+Exits 1 with detailed failure report otherwise.
+"""
+import httpx
+import sys
+import json
+
+API = "http://localhost:8000"
+
+def verify():
+    failures = []
+
+    # 1. API is running
+    try:
+        r = httpx.get(f"{API}/addresses")
+        addresses = r.json()
+        assert len(addresses) >= 3, f"Need >= 3 monitored addresses, got {len(addresses)}"
+    except Exception as e:
+        print(f"FATAL: API not running or no addresses seeded: {e}")
+        sys.exit(1)
+
+    # 2. At least 3 monitors returned non-zero signals from LIVE data
+    monitors_with_live_data = set()
+    addresses_with_signals = 0
+
+    for addr in addresses:
+        signals = httpx.get(f"{API}/addresses/{addr['id']}/signals").json()
+        score = httpx.get(f"{API}/addresses/{addr['id']}/score").json()
+
+        has_signal = False
+        for monitor_name, signal in signals.items():
+            if signal.get("value", 0) > 0 and signal.get("source") == "live":
+                monitors_with_live_data.add(monitor_name)
+                has_signal = True
+                print(f"  ✓ {addr['address']} → {monitor_name}: {signal['value']:.3f} (live)")
+
+        if has_signal:
+            addresses_with_signals += 1
+
+    # 3. Check minimum thresholds
+    if len(monitors_with_live_data) < 3:
+        failures.append(
+            f"Need >= 3 monitors with live data, got {len(monitors_with_live_data)}: "
+            f"{monitors_with_live_data or 'none'}"
+        )
+
+    if addresses_with_signals < 2:
+        failures.append(
+            f"Need >= 2 addresses with real signals, got {addresses_with_signals}"
+        )
+
+    # 4. Verify at least one composite score is non-zero
+    scores = []
+    for addr in addresses:
+        score = httpx.get(f"{API}/addresses/{addr['id']}/score").json()
+        scores.append(score.get("composite_score", 0))
+
+    if max(scores) == 0:
+        failures.append("All composite scores are 0 — no monitor produced real data")
+
+    # 5. Verify signals contain actual data payloads (not just status codes)
+    for addr in addresses[:1]:  # Spot-check first address
+        signals = httpx.get(f"{API}/addresses/{addr['id']}/signals").json()
+        for name, sig in signals.items():
+            if sig.get("value", 0) > 0:
+                if not sig.get("raw_data"):
+                    failures.append(
+                        f"{name} reports value > 0 but has no raw_data — "
+                        f"might be fabricated. Must include actual API response."
+                    )
+
+    # VERDICT
+    if failures:
+        print("\n✗ VERIFICATION FAILED:")
+        for f in failures:
+            print(f"  - {f}")
+        print("\nDo NOT output the completion promise. Fix the issues and re-verify.")
+        sys.exit(1)
+    else:
+        print(f"\n✓ VERIFICATION PASSED")
+        print(f"  Monitors with live data: {monitors_with_live_data}")
+        print(f"  Addresses with signals: {addresses_with_signals}/{len(addresses)}")
+        print(f"  Max composite score: {max(scores):.3f}")
+        print(f"\nYou may now output the completion promise.")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    verify()
+```
+
+#### Step 5: Run the verification script
+```bash
+python verify.py
+```
+
+**If it exits 0** → you may output the completion promise.
+**If it exits 1** → you MUST fix the failing monitors, re-scan, and re-run verify.py. Do NOT output the completion promise.
+
+### ANTI-CHEATING RULES
+
+- Signals must come from LIVE API calls to real external services, not hardcoded values
+- Each signal must include `"source": "live"` and `"raw_data": { ... }` containing the actual API/scrape response
+- Mock data, test fixtures, and simulated responses do NOT count
+- If a monitor can't reach its target (rate limited, blocked, API down), that's fine — it reports `"source": "error"` with details. But you need at least 3 monitors that DO return live data.
+- The verification script itself must not be modified to lower thresholds or skip checks
+
 ### COMPLETION CRITERIA
 
-The system is complete when:
-- [ ] At least 6 monitors are implemented and tested
-- [ ] The Chrome extension is functional
-- [ ] The composite scoring and alerting works
-- [ ] The API is running and queryable
+The system is complete when **verify.py exits 0**, which requires:
+- [ ] API server is running and queryable
+- [ ] At least 3 addresses are seeded and scanned
+- [ ] At least 3 different monitors returned non-zero signals from live external data
+- [ ] At least 2 addresses have real signals
+- [ ] At least one composite score is non-zero
+- [ ] All signals with value > 0 include raw_data from the actual source
+- [ ] The Chrome extension is functional (loadable in developer mode)
+- [ ] All unit tests pass
 - [ ] Docker deployment works
-- [ ] At least one monitor produces a real, non-zero signal for a test NYC address
-- [ ] All tests pass
+
+Only THEN may you output: SYSTEM DEPLOYED AND VERIFIED
