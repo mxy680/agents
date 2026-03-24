@@ -11,14 +11,14 @@ Produce a professional XLSX spreadsheet and PDF report of small residential prop
 **Bronx:**
 10451, 10452, 10453, 10454, 10456, 10457, 10458, 10459, 10460, 10468
 
-**Brooklyn:**
-11206 (Williamsburg/Bushwick), 11207 (East New York), 11208 (East New York), 11212 (Brownsville), 11213 (Crown Heights), 11216 (Bed-Stuy), 11221 (Bushwick), 11233 (Bed-Stuy/Ocean Hill), 11236 (Canarsie)
+**Brooklyn (verified R7+ via PLUTO):**
+11226 (Flatbush), 11215 (Park Slope/Windsor Terrace), 11238 (Prospect Heights), 11217 (Boerum Hill/Park Slope), 11225 (Crown Heights/Lefferts Gardens), 11205 (Fort Greene/Clinton Hill), 11220 (Sunset Park), 11230 (Midwood), 11213 (Crown Heights)
 
 **Manhattan:**
 10026 (Harlem), 10027 (Harlem), 10029 (East Harlem), 10030 (Harlem), 10031 (Hamilton Heights), 10032 (Washington Heights), 10033 (Washington Heights), 10034 (Inwood), 10039 (Harlem), 10040 (Washington Heights)
 
-**Queens:**
-11412 (St. Albans), 11413 (Springfield Gardens), 11422 (Rosedale), 11423 (Hollis), 11433 (Jamaica), 11434 (Jamaica), 11436 (Jamaica)
+**Queens (verified R7+ via PLUTO):**
+11373 (Elmhurst), 11374 (Rego Park), 11435 (Jamaica/Briarwood), 11372 (Jackson Heights), 11433 (Jamaica), 11432 (Jamaica Estates), 11355 (Flushing), 11104 (Sunnyside), 11375 (Forest Hills)
 
 Run a separate Zillow search for each zip code. Do NOT search by borough name — that returns low-density neighborhoods.
 
