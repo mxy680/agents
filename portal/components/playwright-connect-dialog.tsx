@@ -35,8 +35,10 @@ export function PlaywrightConnectDialog({
   const [message, setMessage] = React.useState("")
 
   const needsBaseUrl = provider === "canvas"
+  const skipLabel = provider === "zillow"
 
   const pollRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoLaunched = React.useRef(false)
 
   React.useEffect(() => {
     return () => {
@@ -45,7 +47,7 @@ export function PlaywrightConnectDialog({
   }, [])
 
   async function handleLaunch() {
-    const accountLabel = label.trim() || `${providerName} Account`
+    const accountLabel = skipLabel ? providerName : (label.trim() || `${providerName} Account`)
     setStatus("launching")
     setMessage(`Starting ${providerName} browser session...`)
 
@@ -112,6 +114,14 @@ export function PlaywrightConnectDialog({
     }
   }
 
+  // Auto-launch for providers that skip the label step (e.g. Zillow)
+  React.useEffect(() => {
+    if (open && skipLabel && status === "label" && !autoLaunched.current) {
+      autoLaunched.current = true
+      handleLaunch()
+    }
+  }, [open, skipLabel, status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleOpenChange(next: boolean) {
     if (!next && pollRef.current) {
       clearInterval(pollRef.current)
@@ -121,6 +131,7 @@ export function PlaywrightConnectDialog({
       setMessage("")
       setLabel("")
       setBaseUrl("")
+      autoLaunched.current = false
     }
     setOpen(next)
   }

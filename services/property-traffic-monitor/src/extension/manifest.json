@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Property Traffic Monitor",
+  "version": "1.0.0",
+  "description": "Detects property page visits on NYC real estate sites and reports to the monitoring API",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": [
+    "https://www.propertyshark.com/*",
+    "https://zola.planning.nyc.gov/*",
+    "https://a810-bisweb.nyc.gov/*",
+    "https://a836-acris.nyc.gov/*",
+    "https://propertyinformationportal.nyc.gov/*",
+    "https://www.actovia.com/*",
+    "https://www.costar.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.propertyshark.com/*",
+        "https://zola.planning.nyc.gov/*",
+        "https://a810-bisweb.nyc.gov/*",
+        "https://a836-acris.nyc.gov/*",
+        "https://propertyinformationportal.nyc.gov/*",
+        "https://www.actovia.com/*",
+        "https://www.costar.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

@@ -20,6 +20,7 @@ import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
+import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -31,6 +32,8 @@ import {
   IconBrandSupabase,
   IconMessage,
   IconSchool,
+  IconHome,
+  IconBuildingSkyscraper,
   IconPlus,
 } from "@tabler/icons-react"
 
@@ -97,6 +100,20 @@ const providers = [
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
     connectType: "playwright" as const,
+  },
+  {
+    id: "zillow",
+    name: "Zillow",
+    description: "Properties, Zestimates, Agents, Mortgage Rates",
+    icon: IconHome,
+    connectType: "cookie-capture" as const,
+  },
+  {
+    id: "streeteasy",
+    name: "StreetEasy",
+    description: "Listings, Price History, Market Data",
+    icon: IconBuildingSkyscraper,
+    connectType: "cookie-capture" as const,
   },
 ]
 
@@ -194,23 +211,30 @@ export default async function IntegrationsPage() {
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Refresh session" : "Launch browser"}
+                          {accounts.length > 0 ? "Add account" : "Launch browser"}
                         </Button>
                       </PlaywrightConnectDialog>
                     ) : provider.connectType === "framer" ? (
                       <FramerConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Update" : "Connect"}
+                          {accounts.length > 0 ? "Add project" : "Connect"}
                         </Button>
                       </FramerConnectDialog>
                     ) : provider.connectType === "bluebubbles" ? (
                       <BlueBubblesConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Update" : "Connect"}
+                          {accounts.length > 0 ? "Add server" : "Connect"}
                         </Button>
                       </BlueBubblesConnectDialog>
+                    ) : provider.connectType === "cookie-capture" ? (
+                      <CookieCaptureButton provider={provider.id}>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
+                        </Button>
+                      </CookieCaptureButton>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}
@@ -218,7 +242,7 @@ export default async function IntegrationsPage() {
                       >
                         <Button variant="outline" size="sm" className="w-full">
                           <IconPlus />
-                          {accounts.length > 0 ? "Add another account" : "Connect"}
+                          {accounts.length > 0 ? "Add account" : "Connect"}
                         </Button>
                       </ConnectDialog>
                     )}

@@ -25,6 +25,7 @@ const PROVIDER_ICONS: Record<string, string> = {
   imessage: "IconMessage",
   framer: "IconLayout",
   places: "IconMapPin",
+  zillow: "IconHome",
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ const PROVIDER_LABELS: Record<string, string> = {
   imessage: "iMessage",
   framer: "Framer",
   places: "Google Places",
+  zillow: "Zillow",
 }
 
 const ACTION_LABELS: Record<string, string> = {

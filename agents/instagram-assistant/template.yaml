@@ -1,8 +1,0 @@
-name: instagram-assistant
-display_name: Instagram Assistant
-description: An AI agent that helps manage your Instagram — browsing your feed, managing posts, stories, comments, followers, and DMs.
-git_path: agents/instagram-assistant
-docker_image: ghcr.io/emdash-projects/agent-base:dev
-required_integrations:
-  - instagram
-status: active

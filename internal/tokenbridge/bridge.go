@@ -107,6 +107,15 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"base_url": "CANVAS_BASE_URL",
 			"cookies":  "CANVAS_COOKIES",
 		})
+	case "zillow":
+		mapCredentials(creds, env, map[string]string{
+			"all_cookies": "ZILLOW_COOKIES",
+			"proxy_url":   "ZILLOW_PROXY_URL",
+		})
+	case "streeteasy":
+		mapCredentials(creds, env, map[string]string{
+			"all_cookies": "STREETEASY_COOKIES",
+		})
 	}
 	return nil
 }

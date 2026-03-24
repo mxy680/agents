@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./data/ptm.db
+      - CRUX_API_KEY=${CRUX_API_KEY:-}
+      - ALERT_THRESHOLD=0.3
+      - SCAN_INTERVAL_MINUTES=60
+    restart: unless-stopped

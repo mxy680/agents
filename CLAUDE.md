@@ -1,7 +1,7 @@
 # Emdash Agents — Internal Integration Platform
 
 ## Overview
-Internal admin tool for managing AI agent integrations. Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), iMessage (via BlueBubbles), and Canvas LMS. Includes an admin-only Next.js portal for centralized credential management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
+Internal admin tool for managing AI agent integrations. Go CLI binary (`integrations`) that AI agents call inside Docker containers to interact with external services. Supports Gmail, Google Sheets, Google Calendar, Google Drive, Google Places, GitHub, Instagram, LinkedIn, Framer, Supabase, X (Twitter), iMessage (via BlueBubbles), Canvas LMS, and Zillow. Includes an admin-only Next.js portal for centralized credential management, and a Go orchestrator that deploys Claude Agent SDK containers to Kubernetes.
 
 Mark owns all integrations centrally. Clients get specialized agents configured via the admin dashboard. Session-bound integrations (Instagram, LinkedIn, X, Canvas) use Playwright browser automation for cookie capture — no manual cookie pasting or Chrome extensions.
 
@@ -501,7 +501,7 @@ internal/providers/github/
 - All providers use `ServiceFactory` (or `ClientFactory` for GitHub) for dependency injection
 - Tests use `httptest.NewServer` to mock APIs via `newFullMockServer(t)`
 - Orchestrator uses `sqlmock` + `fake.NewSimpleClientset()` for DB and K8s tests
-- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%, canvas: 80.0%)
+- Coverage target: 80%+ (gmail: 93.2%, sheets: 85.5%, calendar: 92.9%, drive: 88.9%, instagram: 85.0%, github: 85.8%, linkedin: 86.5%, framer: 80.5%, supabase: 82.5%, x: 84.2%, imessage: 83.9%, canvas: 80.0%, zillow: 86.9%)
 
 ## Commands — Framer
 ```
@@ -1478,6 +1478,99 @@ internal/providers/canvas/
   mock_server_test.go     # httptest mock server helpers for all endpoints
 ```
 
+## Commands — Zillow
+```
+# Properties [alias: property, prop]
+integrations zillow properties search --location=TEXT [--status=for_sale|for_rent|sold] [--min-price=N] [--max-price=N] [--min-beds=N] [--max-beds=N] [--min-baths=N] [--max-baths=N] [--min-sqft=N] [--max-sqft=N] [--home-type=house|condo|townhouse|multi_family|land|manufactured|apartment] [--sort=newest|price_low|price_high|beds|baths|sqft|lot_size] [--days-on-zillow=N] [--limit=N] [--page=N] [--json]
+integrations zillow properties search-map --ne-lat=LAT --ne-lng=LNG --sw-lat=LAT --sw-lng=LNG [--status=for_sale|for_rent|sold] [--zoom=N] [--limit=N] [--page=N] [--json]
+integrations zillow properties get --zpid=ID [--json]
+integrations zillow properties get-by-url --url=ZILLOW_URL [--json]
+integrations zillow properties photos --zpid=ID [--json]
+integrations zillow properties price-history --zpid=ID [--json]
+integrations zillow properties tax-history --zpid=ID [--json]
+integrations zillow properties similar --zpid=ID [--limit=N] [--json]
+integrations zillow properties nearby --zpid=ID [--limit=N] [--json]
+
+# Zestimates [alias: zestimate, zest]
+integrations zillow zestimates get --zpid=ID [--json]
+integrations zillow zestimates rent --zpid=ID [--json]
+integrations zillow zestimates chart --zpid=ID [--duration=1y|5y|10y] [--json]
+
+# Agents [alias: agent]
+integrations zillow agents search --location=TEXT [--name=TEXT] [--specialty=buying|selling] [--rating=N] [--limit=N] [--json]
+integrations zillow agents get --agent-id=ID [--json]
+integrations zillow agents reviews --agent-id=ID [--limit=N] [--json]
+integrations zillow agents listings --agent-id=ID [--status=for_sale|for_rent|sold] [--limit=N] [--json]
+
+# Mortgage [alias: mort]
+integrations zillow mortgage rates [--state=ST] [--program=Fixed30Year|Fixed15Year|Fixed20Year|ARM5|ARM7] [--loan-type=Conventional|FHA|VA|USDA|Jumbo] [--credit-score=Low|High|VeryHigh] [--json]
+integrations zillow mortgage rates-history [--state=ST] [--program=Fixed30Year|Fixed15Year] [--duration-days=N] [--aggregation=Daily|Weekly|Monthly] [--json]
+integrations zillow mortgage calculate --price=N [--down-payment=N] [--rate=N] [--term=N] [--json]
+integrations zillow mortgage lender-reviews --nmls-id=ID [--company=TEXT] [--limit=N] [--json]
+
+# Search [alias: find]
+integrations zillow search autocomplete --query=TEXT [--json]
+integrations zillow search by-address --address=TEXT [--json]
+
+# Walk Score [alias: ws]
+integrations zillow walkscore get --zpid=ID [--json]
+
+# Schools [alias: school]
+integrations zillow schools nearby --zpid=ID [--limit=N] [--json]
+
+# Neighborhoods [alias: neighborhood, hood]
+integrations zillow neighborhoods get --region-id=ID [--json]
+integrations zillow neighborhoods search --location=TEXT [--json]
+integrations zillow neighborhoods market-stats --region-id=ID [--json]
+
+# Builders [alias: builder]
+integrations zillow builders search --location=TEXT [--limit=N] [--json]
+integrations zillow builders get --builder-id=ID [--json]
+integrations zillow builders communities --builder-id=ID [--json]
+integrations zillow builders reviews --builder-id=ID [--limit=N] [--json]
+
+# Rentals [alias: rental, rent]
+integrations zillow rentals search --location=TEXT [--min-price=N] [--max-price=N] [--min-beds=N] [--max-beds=N] [--home-type=apartment|house|condo|townhouse] [--limit=N] [--page=N] [--json]
+integrations zillow rentals get --zpid=ID [--json]
+integrations zillow rentals estimate --zpid=ID [--json]
+```
+
+`zillow` has alias `zw`. `properties` has aliases `property`, `prop`. `zestimates` has aliases `zestimate`, `zest`. `agents` has alias `agent`. `mortgage` has alias `mort`. `search` has alias `find`. `walkscore` has alias `ws`. `schools` has alias `school`. `neighborhoods` has aliases `neighborhood`, `hood`. `builders` has alias `builder`. `rentals` has aliases `rental`, `rent`.
+
+Powered by Zillow's internal APIs — no API key or billing required. Uses Zillow's search API, GraphQL property details, autocomplete, and the public mortgage API. Optional proxy support via `ZILLOW_PROXY_URL` for production use.
+
+## Architecture — Zillow Package Layout
+```
+internal/providers/zillow/
+  zillow.go              # Provider struct, RegisterCommands (10 resource subcommand groups)
+  client.go              # HTTP client: search + GraphQL + mortgage APIs, proxy support, rate limit/block detection
+  helpers.go             # Shared types (PropertySummary, PropertyDetail, AgentSummary, etc.) and helpers
+  properties.go          # 9 property commands (search, search-map, get, get-by-url, photos, price-history, tax-history, similar, nearby)
+  zestimates.go          # 3 zestimate commands (get, rent, chart)
+  agents.go              # 4 agent commands (search, get, reviews, listings)
+  mortgage.go            # 4 mortgage commands (rates, rates-history, calculate, lender-reviews)
+  search.go              # 2 search commands (autocomplete, by-address)
+  walkscore.go           # 1 walkscore command (get)
+  schools.go             # 1 schools command (nearby)
+  neighborhoods.go       # 3 neighborhood commands (get, search, market-stats)
+  builders.go            # 4 builder commands (search, get, communities, reviews)
+  rentals.go             # 3 rental commands (search, get, estimate)
+  helpers_test.go        # Unit tests for helpers
+  client_test.go         # Unit tests for client
+  properties_test.go     # Tests for properties commands
+  zestimates_test.go     # Tests for zestimates commands
+  agents_test.go         # Tests for agents commands
+  mortgage_test.go       # Tests for mortgage commands
+  search_test.go         # Tests for search commands
+  walkscore_test.go      # Tests for walkscore commands
+  schools_test.go        # Tests for schools commands
+  neighborhoods_test.go  # Tests for neighborhoods commands
+  builders_test.go       # Tests for builders commands
+  rentals_test.go        # Tests for rentals commands
+  mock_server_test.go    # httptest mock server helpers for all endpoints
+  zillow_test.go         # Provider-level tests (TestProviderNew, TestProviderRegisterCommands)
+```
+
 ## Web Portal (Next.js 15 + Supabase) — Admin Only
 
 ### Architecture
@@ -1654,6 +1747,11 @@ CANVAS_SESSION_COOKIE     # _normandy_session cookie (required)
 CANVAS_CSRF_TOKEN         # _csrf_token cookie (required)
 CANVAS_LOG_SESSION_ID     # log_session_id cookie (optional)
 CANVAS_USER_AGENT         # User-Agent override (optional)
+
+# Zillow (session cookie auth via Playwright, no API key needed)
+ZILLOW_COOKIES            # All cookies from Playwright session capture (required for search/property APIs)
+ZILLOW_PROXY_URL          # HTTP/SOCKS5 proxy URL (optional, recommended for production)
+ZILLOW_USER_AGENT         # User-Agent override (optional)
 
 # Orchestrator
 SUPABASE_DB_URL, ENCRYPTION_MASTER_KEY, SUPABASE_JWT_SECRET

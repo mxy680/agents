@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.emdash.zillow-refresh</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>cd /Users/markshteyn/emdash-projects/agents/portal &amp;&amp; /opt/homebrew/bin/doppler run --project agents --config dev -- npx tsx scripts/refresh-zillow-cookies.ts >> /tmp/zillow-refresh.log 2>&amp;1</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>43200</integer>
+    <key>StandardOutPath</key>
+    <string>/tmp/zillow-refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/zillow-refresh.log</string>
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
