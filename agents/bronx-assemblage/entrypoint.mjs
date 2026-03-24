@@ -19,7 +19,7 @@ const conversation = query({
     permissionMode: "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     systemPrompt,
-    maxTurns: 30,
+    maxTurns: 50,
     model: session.model || "claude-sonnet-4-6",
   },
 });
@@ -29,8 +29,19 @@ for await (const event of conversation) {
     for (const block of event.message.content) {
       if (block.type === "text") {
         process.stderr.write(block.text);
+      } else if (block.type === "tool_use") {
+        const name = block.name || "tool";
+        const input = typeof block.input === "string"
+          ? block.input.slice(0, 200)
+          : JSON.stringify(block.input || {}).slice(0, 200);
+        process.stderr.write(`\n[${name}] ${input}\n`);
       }
     }
+  } else if (event.type === "tool_result") {
+    const output = typeof event.content === "string"
+      ? event.content
+      : JSON.stringify(event.content || "").slice(0, 300);
+    process.stderr.write(`  → ${output.slice(0, 300)}\n`);
   } else if (event.type === "result") {
     process.stderr.write("\n---\nAgent finished.\n");
   }
