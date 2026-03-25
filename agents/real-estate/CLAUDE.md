@@ -258,6 +258,34 @@ curl -s -G "https://data.cityofnewyork.us/resource/n5mv-nfpy.json" \
 ```
 Active rezoning applications near target zone = properties may be upzoned soon. Current R6 lots in a pending R7+ upzone are undervalued.
 
+### Certificate of Occupancy — Use Changes + New Buildings
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/pkdm-hqz6.json" \
+  --data-urlencode "\$where=borough='BRONX' AND block='02964'" \
+  --data-urlencode "\$order=c_of_o_issuance_date DESC" \
+  --data-urlencode "\$limit=20"
+```
+Returns: `c_of_o_filing_type`, `c_of_o_issuance_date`, `number_of_dwelling_units`, `house_no`, `street_name`. A new CO on the same block = active development. CO type change (e.g. residential to commercial) = owner repositioning.
+
+### FDNY Vacate Orders — Fire-Damaged / Unsafe Buildings
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/frax-hfgs.json" \
+  --data-urlencode "\$where=borough='BRONX' AND block='02964'" \
+  --data-urlencode "\$order=vacate_date DESC" \
+  --data-urlencode "\$limit=20"
+```
+Vacated buildings = uninhabitable. Owner faces costly repairs or demolition. Very strong motivated seller signal, especially on R7+ lots.
+
+### DOB Complaints — Active Building Issues
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/eabe-havv.json" \
+  --data-urlencode "\$where=community_board='202' AND status='OPEN'" \
+  --data-urlencode "\$select=complaint_category,count(*)" \
+  --data-urlencode "\$group=complaint_category" \
+  --data-urlencode "\$limit=50"
+```
+Open DOB complaints (illegal conversion, unsafe structure, construction without permit) add to the distress picture alongside HPD violations.
+
 ---
 
 ## Tool 8: Citi Bike CLI — Transit Density Signal
@@ -480,6 +508,9 @@ Each qualifying R7+ lot gets a composite score:
 | Google Trends momentum > +15% (rising) | +3 | Trends |
 | Obituary name matches ACRIS property owner | +5 | Obituaries + ACRIS |
 | 5+ new liquor licenses in ZIP in 6 months | +3 | NY SLA |
+| FDNY vacate order on building | +5 | FDNY |
+| New CO issued on same block (active development) | +2 | DOB CO |
+| Open DOB complaints (unsafe/illegal) | +2 | DOB Complaints |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -516,6 +547,9 @@ Each qualifying R7+ lot gets a composite score:
    - Google Trends: neighborhood momentum (rising/stable/declining)?
    - NY SLA: new liquor license count in ZIP (gentrification signal)
    - Obituaries: cross-ref recent deaths with ACRIS property ownership
+   - FDNY: vacate orders on building
+   - DOB CO: new certificates of occupancy on same block
+   - DOB Complaints: open complaints (unsafe, illegal conversion)
 7. Calculate composite score for each property
 8. **Verify data:** Check for duplicates, mismatched URLs, inconsistent scoring. Fix issues.
 9. Create professional XLSX with all properties, signals, and scores. Upload to Drive with --convert.
