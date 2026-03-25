@@ -18,6 +18,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/sheets"
 	supabaseprovider "github.com/emdash-projects/agents/internal/providers/supabase"
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
+	"github.com/emdash-projects/agents/internal/providers/census"
 	"github.com/emdash-projects/agents/internal/providers/citibike"
 	"github.com/emdash-projects/agents/internal/providers/hmda"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
@@ -80,6 +81,9 @@ func main() {
 
 	streeteasyProvider := streeteasy.New()
 	streeteasyProvider.RegisterCommands(cli.RootCmd())
+
+	censusProvider := census.New()
+	censusProvider.RegisterCommands(cli.RootCmd())
 
 	citibikeProvider := citibike.New()
 	citibikeProvider.RegisterCommands(cli.RootCmd())

@@ -400,7 +400,34 @@ integrations nysla licenses density --borough=bronx --zip=10451 --json
 
 ---
 
-## Tool 13: NYSCEF CLI — Court Records (direct lookup)
+## Tool 13: Census ACS CLI — Demographic Trends
+
+ACS 5-year estimates by census tract. Rising rent burden + population growth = development demand.
+
+**Tract profile (key command):**
+```bash
+integrations census tracts profile --tract=36005000100 --json
+```
+Returns: `population`, `median_income`, `median_rent`, `median_home_value`, `vacancy_rate`, `owner_occupied_pct`, `renter_occupied_pct`.
+
+**Compare tracts in a borough:**
+```bash
+integrations census tracts compare --borough=bronx --sort=vacancy --limit=20 --json
+```
+
+**Borough-wide summary:**
+```bash
+integrations census tracts summary --borough=bronx --json
+```
+
+### Signal interpretation
+- Vacancy > 10% = weak demand or transitional area (context-dependent)
+- Rent burden > 30% (median_rent / monthly_income) = tenants stretched, development demand for new supply (+2 points)
+- Population growth (compare years) = rising demand
+
+---
+
+## Tool 14: NYSCEF CLI — Court Records (direct lookup)
 
 Look up a specific court case by docket ID (no CAPTCHA required):
 ```bash
@@ -411,7 +438,7 @@ Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party n
 
 ---
 
-## Tool 14: StreetEasy CLI — Price History + Listing Cycles
+## Tool 15: StreetEasy CLI — Price History + Listing Cycles
 
 Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
 
@@ -443,7 +470,7 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 15: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 16: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -454,7 +481,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 16: Professional PDF Report (via LaTeX)
+## Tool 17: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -465,7 +492,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 17: Google Drive CLI
+## Tool 18: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -511,6 +538,7 @@ Each qualifying R7+ lot gets a composite score:
 | FDNY vacate order on building | +5 | FDNY |
 | New CO issued on same block (active development) | +2 | DOB CO |
 | Open DOB complaints (unsafe/illegal) | +2 | DOB Complaints |
+| Census tract rent burden > 30% | +2 | Census ACS |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -550,6 +578,7 @@ Each qualifying R7+ lot gets a composite score:
    - FDNY: vacate orders on building
    - DOB CO: new certificates of occupancy on same block
    - DOB Complaints: open complaints (unsafe, illegal conversion)
+   - Census ACS: tract demographics (rent burden, vacancy, income)
 7. Calculate composite score for each property
 8. **Verify data:** Check for duplicates, mismatched URLs, inconsistent scoring. Fix issues.
 9. Create professional XLSX with all properties, signals, and scores. Upload to Drive with --convert.
