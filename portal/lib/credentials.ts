@@ -63,9 +63,6 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
     case "streeteasy":
       if (credJson.all_cookies) env.STREETEASY_COOKIES = credJson.all_cookies
       break
-    case "yelp":
-      if (credJson.api_key) env.YELP_API_KEY = credJson.api_key
-      break
   }
   return env
 }

@@ -12,14 +12,12 @@ import {
   canvasConfig,
   zillowConfig,
   streeteasyConfig,
-  yelpConfig,
   mapInstagramCookies,
   mapLinkedinCookies,
   mapXCookies,
   mapCanvasCookies,
   mapZillowCookies,
   mapStreetEasyCookies,
-  mapYelpCookies,
   type ProviderConfig,
 } from "@/lib/playwright";
 import { encrypt, decrypt } from "@/lib/crypto";
@@ -42,7 +40,6 @@ const PROVIDER_CONFIGS: Record<string, ProviderEntry> = {
   },
   zillow: { config: () => zillowConfig, mapCookies: mapZillowCookies },
   streeteasy: { config: () => streeteasyConfig, mapCookies: mapStreetEasyCookies },
-  yelp: { config: () => yelpConfig, mapCookies: mapYelpCookies },
 };
 
 export async function POST(request: NextRequest) {

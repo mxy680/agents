@@ -116,10 +116,6 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		mapCredentials(creds, env, map[string]string{
 			"all_cookies": "STREETEASY_COOKIES",
 		})
-	case "yelp":
-		mapCredentials(creds, env, map[string]string{
-			"api_key": "YELP_API_KEY",
-		})
 	}
 	return nil
 }

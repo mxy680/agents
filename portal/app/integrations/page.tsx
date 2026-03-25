@@ -22,7 +22,6 @@ import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { CookiePasteDialog } from "@/components/cookie-paste-dialog"
-import { YelpConnectDialog } from "@/components/yelp-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -37,7 +36,6 @@ import {
   IconHome,
   IconBuildingSkyscraper,
   IconPlus,
-  IconStar,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -117,13 +115,6 @@ const providers = [
     description: "Listings, Price History, Market Data",
     icon: IconBuildingSkyscraper,
     connectType: "cookie-paste" as const,
-  },
-  {
-    id: "yelp",
-    name: "Yelp",
-    description: "Businesses, Reviews, Events, Categories",
-    icon: IconStar,
-    connectType: "yelp" as const,
   },
 ]
 
@@ -257,13 +248,6 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Refresh cookies" : "Paste cookies"}
                         </Button>
                       </CookiePasteDialog>
-                    ) : provider.connectType === "yelp" ? (
-                      <YelpConnectDialog>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <IconPlus />
-                          {accounts.length > 0 ? "Add API key" : "Connect"}
-                        </Button>
-                      </YelpConnectDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

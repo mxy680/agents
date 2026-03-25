@@ -11,7 +11,6 @@ import {
   mapCanvasCookies,
   mapZillowCookies,
   mapStreetEasyCookies,
-  mapYelpCookies,
 } from "@/lib/playwright"
 
 // Optional cookie mappers keyed by provider. If no mapper exists for a
@@ -23,7 +22,6 @@ const COOKIE_MAPPERS: Record<string, (c: Record<string, string>) => Record<strin
   canvas: mapCanvasCookies,
   zillow: mapZillowCookies,
   streeteasy: mapStreetEasyCookies,
-  yelp: mapYelpCookies,
 }
 
 export async function POST(request: NextRequest) {
