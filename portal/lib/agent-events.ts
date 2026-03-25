@@ -82,6 +82,30 @@ export function mapAgentEvent(
     }
 
     // Agent SDK sends tool results as {type: "user", tool_use_result: {...}}
+    // Agent SDK query() emits complete assistant messages (not streaming deltas).
+    // Extract text and tool_use blocks from the full message.
+    case "assistant": {
+      const msg = raw.message as Record<string, unknown> | undefined
+      if (!msg) return []
+      const content = (msg.content as Array<Record<string, unknown>>) ?? []
+      const events: ChatSSEEvent[] = []
+      for (const block of content) {
+        if (block.type === "text") {
+          events.push({ event: "delta", data: block.text as string })
+        } else if (block.type === "tool_use") {
+          const id = block.id as string
+          const name = block.name as string
+          toolIdRef.currentToolId = id
+          events.push({ event: "tool_start", data: JSON.stringify({ name, id }) })
+          // Emit tool input as a single chunk
+          const inputStr = typeof block.input === "string" ? block.input : JSON.stringify(block.input ?? {})
+          toolInputAccum[id] = inputStr
+          events.push({ event: "tool_input", data: JSON.stringify({ id, input_delta: inputStr }) })
+        }
+      }
+      return events
+    }
+
     case "user": {
       const toolResult = raw.tool_use_result as Record<string, unknown> | undefined
       if (!toolResult) return []

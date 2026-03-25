@@ -71,6 +71,11 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
 
   const agentCwd = path.join(REPO_ROOT, "agents", agentName)
 
+  console.log("[local-runner] Spawning:", entrypointPath, sessionFile)
+  console.log("[local-runner] CWD:", agentCwd)
+  console.log("[local-runner] PATH includes bin:", env.PATH?.includes("/bin"))
+  console.log("[local-runner] NODE_PATH:", env.NODE_PATH)
+
   const proc = spawn("node", [entrypointPath, sessionFile], {
     stdio: ["ignore", "pipe", "pipe"],
     env,
@@ -114,6 +119,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   const stderrChunks: Buffer[] = []
   proc.stderr.on("data", (chunk: Buffer) => {
     stderrChunks.push(chunk)
+    console.log("[local-runner] STDERR:", chunk.toString("utf8").slice(0, 200))
   })
 
   // Track tool input accumulation per tool use id.
@@ -123,6 +129,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   // Parse NDJSON stdout line by line.
   let lineBuffer = ""
   proc.stdout.on("data", (chunk: Buffer) => {
+    console.log("[local-runner] STDOUT chunk:", chunk.toString("utf8").slice(0, 200))
     lineBuffer += chunk.toString("utf8")
     const lines = lineBuffer.split("\n")
     lineBuffer = lines.pop() ?? ""
