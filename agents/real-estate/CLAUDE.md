@@ -260,7 +260,45 @@ Active rezoning applications near target zone = properties may be upzoned soon. 
 
 ---
 
-## Tool 8: NYSCEF CLI — Court Records (direct lookup)
+## Tool 8: Citi Bike CLI — Transit Density Signal
+
+Station density near a property = transit accessibility = value signal.
+
+**Search nearby stations:**
+```bash
+integrations citibike stations search --lat=40.8176 --lng=-73.9209 --radius=500 --json
+```
+
+**Get density metrics for scoring:**
+```bash
+integrations citibike stations density --lat=40.8176 --lng=-73.9209 --radius=1000 --json
+```
+Returns: `count`, `avg_capacity`, `total_capacity`, `radius_m`.
+
+### Signal interpretation
+- 5+ stations within 1km = excellent transit access (+2 points)
+- 0 stations within 1km = poor transit, skip unless other signals are very strong
+
+---
+
+## Tool 9: HMDA CLI — Mortgage Origination Intelligence
+
+CFPB mortgage data reveals where institutional investors are buying.
+
+**County-level summary:**
+```bash
+integrations hmda loans summary --county=bronx --year=2023 --json
+```
+
+**Census tract detail:**
+```bash
+integrations hmda loans tract --tract=36005000100 --year=2023 --json
+```
+Returns: total originations, dollar volume, avg loan size, top tracts. A spike in non-owner-occupied loans = institutional money moving in.
+
+---
+
+## Tool 10: NYSCEF CLI — Court Records (direct lookup)
 
 Look up a specific court case by docket ID (no CAPTCHA required):
 ```bash
@@ -271,7 +309,7 @@ Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party n
 
 ---
 
-## Tool 8: StreetEasy CLI — Price History + Listing Cycles
+## Tool 11: StreetEasy CLI — Price History + Listing Cycles
 
 Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
 
@@ -303,7 +341,7 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 9: Interactive Dashboard (Apache ECharts HTML)
+## Tool 12: Interactive Dashboard (Apache ECharts HTML)
 
 Create a self-contained HTML file with embedded Apache ECharts visualizations. Upload to Google Drive. Use the CDN: `<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>`
 
@@ -404,7 +442,7 @@ Upload: `integrations drive files upload --path=/tmp/dashboard.html --name="NYC 
 
 ---
 
-## Tool 10: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 13: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -415,7 +453,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 11: Professional PDF Report (via LaTeX)
+## Tool 14: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -426,7 +464,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 12: Google Drive CLI
+## Tool 15: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -464,6 +502,8 @@ Each qualifying R7+ lot gets a composite score:
 | Eviction filings in last 12 months | +2 | Housing Court |
 | Scaffolding permit 3+ years old | +2 | DOB |
 | Active ULURP rezoning nearby (upzone) | +3 | City Planning |
+| Citi Bike 5+ stations within 1km | +2 | Citi Bike |
+| HMDA investor loan spike in census tract | +2 | HMDA |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -490,6 +530,8 @@ Each qualifying R7+ lot gets a composite score:
    - ECB/OATH: defaulted environmental violations
    - Housing Court: recent eviction filings
    - DOB sidewalk sheds: scaffolding permits 3+ years old
+   - Citi Bike: station density within 1km (transit signal)
+   - HMDA: investor loan activity in census tract
 6. **For each qualifying block, check for cluster signals:**
    - Multiple Zillow listings on same block?
    - Recent ACRIS deed transfers to LLCs on same block?
