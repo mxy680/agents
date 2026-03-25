@@ -267,6 +267,138 @@ def check_nyc_finance_lien(bbl):
     return len(results) > 0
 
 
+def check_311_complaints(address, borough):
+    """Count 311 complaints at an address in last 12 months."""
+    date_12mo = (TODAY - timedelta(days=365)).strftime("%Y-%m-%d")
+    borough_upper = borough.upper()
+    # 311 uses full address, uppercase
+    addr_upper = address.upper().split(",")[0].strip()  # Just street address
+    records = curl_socrata(
+        "https://data.cityofnewyork.us/resource/erm2-nwe9.json",
+        {
+            "$select": "count(*)",
+            "$where": f"upper(incident_address)='{addr_upper}' AND upper(borough)='{borough_upper}' AND created_date > '{date_12mo}'"
+        }
+    )
+    if records and isinstance(records, list) and len(records) > 0:
+        try:
+            return int(records[0].get("count", 0))
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
+def check_ecb_violations(address):
+    """Count defaulted ECB/OATH violations at an address."""
+    # Parse house number and street from address
+    parts = address.split(",")[0].strip().split(" ", 1)
+    if len(parts) < 2:
+        return 0
+    house_num = parts[0]
+    street = parts[1].strip().upper()
+    # Remove borough/state suffix
+    for suffix in [" BRONX", " BROOKLYN", " MANHATTAN", " QUEENS", " NEW YORK", " NY"]:
+        street = street.replace(suffix, "").strip()
+
+    records = curl_socrata(
+        "https://data.cityofnewyork.us/resource/6bgk-3dad.json",
+        {
+            "$select": "count(*)",
+            "$where": f"respondent_house_number='{house_num}' AND upper(respondent_street) like '%{street[:20]}%' AND violation_status='DEFAULT'"
+        }
+    )
+    if records and isinstance(records, list) and len(records) > 0:
+        try:
+            return int(records[0].get("count", 0))
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
+def check_fdny_vacate(borough_digit, block):
+    """Check for FDNY vacate orders on the block."""
+    block_padded = str(block).zfill(5)
+    records = curl_socrata(
+        "https://data.cityofnewyork.us/resource/frax-hfgs.json",
+        {
+            "$where": f"borough='{borough_digit}' AND block='{block_padded}'",
+            "$limit": "5"
+        }
+    )
+    return len(records) > 0
+
+
+def check_dob_complaints(bbl):
+    """Count open DOB complaints for a property."""
+    records = curl_socrata(
+        "https://data.cityofnewyork.us/resource/eabe-havv.json",
+        {
+            "$select": "count(*)",
+            "$where": f"bbl='{bbl}' AND status='OPEN'"
+        }
+    )
+    if records and isinstance(records, list) and len(records) > 0:
+        try:
+            return int(records[0].get("count", 0))
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
+def check_co_on_block(borough_digit, block):
+    """Check for new Certificates of Occupancy on the block in last 12 months."""
+    block_padded = str(block).zfill(5)
+    date_12mo = (TODAY - timedelta(days=365)).strftime("%Y-%m-%dT00:00:00.000")
+    # DOB borough names
+    borough_names = {"1": "MANHATTAN", "2": "BRONX", "3": "BROOKLYN", "4": "QUEENS", "5": "STATEN ISLAND"}
+    borough_name = borough_names.get(str(borough_digit), "")
+    records = curl_socrata(
+        "https://data.cityofnewyork.us/resource/pkdm-hqz6.json",
+        {
+            "$where": f"borough='{borough_name}' AND block='{block_padded}' AND c_of_o_issuance_date > '{date_12mo}'",
+            "$limit": "5"
+        }
+    )
+    return len(records) > 0
+
+
+def check_citibike_density(lat, lng):
+    """Get Citi Bike station count within 1km."""
+    if not lat or not lng:
+        return 0
+    cmd = [
+        "integrations", "citibike", "stations", "density",
+        f"--lat={lat}", f"--lng={lng}", "--radius=1000", "--json"
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return 0
+        data = json.loads(result.stdout)
+        return data.get("count", 0)
+    except Exception:
+        return 0
+
+
+def check_nysla_licenses(borough, zip_code):
+    """Count new liquor licenses in ZIP in last 6 months."""
+    if not zip_code:
+        return 0
+    date_6mo = (TODAY - timedelta(days=180)).strftime("%Y-%m-%d")
+    cmd = [
+        "integrations", "nysla", "licenses", "count",
+        f"--borough={borough.lower()}", f"--since={date_6mo}", "--json"
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            return 0
+        data = json.loads(result.stdout)
+        return data.get("new_licenses", 0)
+    except Exception:
+        return 0
+
+
 def compute_score(prop):
     """Compute composite score for a property."""
     score = 0
@@ -355,6 +487,46 @@ def compute_score(prop):
         score += 2
         reasons.append(f"HPD violations {hpd_count} (+2)")
 
+    # 311 complaints (10+ in 12 months)
+    complaints_311 = prop.get("_311_complaints", 0) or 0
+    if complaints_311 >= 10:
+        score += 3
+        reasons.append(f"311 complaints {complaints_311} in 12mo (+3)")
+
+    # ECB/OATH violations (defaulted)
+    ecb = prop.get("_ecb_violations", 0) or 0
+    if ecb > 0:
+        score += 2
+        reasons.append(f"Defaulted ECB violations {ecb} (+2)")
+
+    # FDNY vacate order
+    if prop.get("_fdny_vacate"):
+        score += 5
+        reasons.append("FDNY vacate order on block (+5)")
+
+    # DOB complaints (open)
+    dob_complaints = prop.get("_dob_complaints", 0) or 0
+    if dob_complaints >= 3:
+        score += 2
+        reasons.append(f"Open DOB complaints {dob_complaints} (+2)")
+
+    # Certificate of Occupancy on block
+    if prop.get("_block_co"):
+        score += 2
+        reasons.append("New CO on block (active development) (+2)")
+
+    # Citi Bike density
+    cb_stations = prop.get("_citibike_stations", 0) or 0
+    if cb_stations >= 5:
+        score += 2
+        reasons.append(f"Citi Bike {cb_stations} stations within 1km (+2)")
+
+    # NY SLA liquor licenses
+    nysla_count = prop.get("_nysla_new_licenses", 0) or 0
+    if nysla_count >= 5:
+        score += 3
+        reasons.append(f"NY SLA {nysla_count} new licenses in borough (+3)")
+
     # Price penalty — luxury properties are not realistic assemblage targets
     price = prop.get("price", 0) or 0
     if price > 5_000_000:
@@ -427,6 +599,9 @@ def main():
     # Cache for block-level signals (avoid redundant API calls)
     block_llc_cache = {}  # (borough_digit, block) -> bool
     block_dob_cache = {}  # (borough, block) -> (has_demo, has_nb)
+    fdny_cache = {}  # (borough_digit, block) -> bool
+    co_cache = {}  # (borough_digit, block) -> bool
+    nysla_cache = {}  # borough_lower -> int
 
     for i, prop in enumerate(properties, 1):
         bbl = prop.get("_bbl", "")
@@ -480,6 +655,65 @@ def main():
         else:
             prop["_hpd_violations"] = 0
 
+        # 311 complaints
+        try:
+            complaints_311 = check_311_complaints(address, borough)
+            prop["_311_complaints"] = complaints_311
+        except Exception:
+            prop["_311_complaints"] = 0
+
+        # ECB/OATH violations
+        try:
+            ecb_count = check_ecb_violations(address)
+            prop["_ecb_violations"] = ecb_count
+        except Exception:
+            prop["_ecb_violations"] = 0
+
+        # FDNY vacate orders (cached per block)
+        fdny_key = (borough_digit, block)
+        if fdny_key not in fdny_cache:
+            try:
+                fdny_cache[fdny_key] = check_fdny_vacate(borough_digit, block)
+            except Exception:
+                fdny_cache[fdny_key] = False
+        prop["_fdny_vacate"] = fdny_cache.get(fdny_key, False)
+
+        # DOB complaints
+        if bbl:
+            try:
+                dob_complaints = check_dob_complaints(bbl)
+                prop["_dob_complaints"] = dob_complaints
+            except Exception:
+                prop["_dob_complaints"] = 0
+
+        # Certificate of Occupancy on block (cached)
+        co_key = (borough_digit, block)
+        if co_key not in co_cache:
+            try:
+                co_cache[co_key] = check_co_on_block(borough_digit, block)
+            except Exception:
+                co_cache[co_key] = False
+        prop["_block_co"] = co_cache.get(co_key, False)
+
+        # Citi Bike density
+        lat = prop.get("latitude")
+        lng = prop.get("longitude")
+        if lat and lng:
+            try:
+                cb_count = check_citibike_density(lat, lng)
+                prop["_citibike_stations"] = cb_count
+            except Exception:
+                prop["_citibike_stations"] = 0
+
+        # NY SLA liquor licenses (cached per borough)
+        nysla_key = borough.lower()
+        if nysla_key not in nysla_cache:
+            try:
+                nysla_cache[nysla_key] = check_nysla_licenses(borough, prop.get("_zip", ""))
+            except Exception:
+                nysla_cache[nysla_key] = 0
+        prop["_nysla_new_licenses"] = nysla_cache.get(nysla_key, 0)
+
         # Compute score
         compute_score(prop)
 
@@ -510,6 +744,13 @@ def main():
         "block_nb": sum(1 for p in properties if p.get("_block_new_building")),
         "block_llc": sum(1 for p in properties if p.get("_block_llc_deed")),
         "dom_180plus": sum(1 for p in properties if (p.get("daysOnMarket") or 0) > 180),
+        "311_10plus": sum(1 for p in properties if (p.get("_311_complaints") or 0) >= 10),
+        "ecb_defaulted": sum(1 for p in properties if (p.get("_ecb_violations") or 0) > 0),
+        "fdny_vacate": sum(1 for p in properties if p.get("_fdny_vacate")),
+        "dob_complaints_3plus": sum(1 for p in properties if (p.get("_dob_complaints") or 0) >= 3),
+        "block_co": sum(1 for p in properties if p.get("_block_co")),
+        "citibike_5plus": sum(1 for p in properties if (p.get("_citibike_stations") or 0) >= 5),
+        "nysla_5plus": sum(1 for p in properties if (p.get("_nysla_new_licenses") or 0) >= 5),
     }
 
     print(f"\n=== Scoring Results ===", file=sys.stderr)

@@ -1,8 +1,15 @@
 name: real-estate
 display_name: Real Estate Agent
-description: Automated real estate intelligence — identifies assemblage opportunities, pre-market distress signals, and development site candidates across NYC using Zillow, ACRIS, DOB, HPD, StreetEasy, NYC Finance, and PLUTO data.
+description: Automated real estate intelligence — identifies assemblage opportunities, pre-market distress signals, and development site candidates across NYC using Zillow, StreetEasy, ACRIS, DOB, HPD, NYC Finance, PLUTO, Citi Bike, HMDA, Google Trends, obituaries, NY SLA, Census ACS, and 10 additional NYC Open Data signals.
 git_path: agents/real-estate
 required_integrations:
   - zillow
   - google
+  - streeteasy
+  - citibike
+  - hmda
+  - trends
+  - obituaries
+  - nysla
+  - census
 status: active

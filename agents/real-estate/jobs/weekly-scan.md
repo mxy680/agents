@@ -10,17 +10,16 @@ The pipeline scripts are pre-built in `agents/real-estate/scripts/`. Do NOT rewr
 bash agents/real-estate/scripts/run_pipeline.sh
 ```
 
-This runs 10 phases in sequence:
+This runs 9 phases in sequence:
 1. Zillow search across 137 NYC zip codes (handles 40-result cap with price splits)
 2. PLUTO geocoding + R7+ zoning filter
-3. Signal checks (ACRIS, DOB, HPD, NYC Finance)
+3. Signal checks — ACRIS, DOB, HPD, NYC Finance, 311, ECB/OATH, FDNY vacate, DOB complaints, Certificates of Occupancy, Citi Bike density, NY SLA liquor licenses
 4. StreetEasy price history enrichment (if cookies available)
 5. Cluster detection (same-block groupings)
 6. Data verification (duplicates, missing fields, scoring)
 7. XLSX spreadsheet generation
-8. ECharts interactive dashboard
-9. LaTeX PDF report
-10. Upload all deliverables to Google Drive
+8. LaTeX PDF report
+9. Upload all deliverables to Google Drive
 
 ### Step 2 — Monitor and fix errors
 
@@ -40,7 +39,7 @@ After the pipeline completes, summarize:
 - Score distribution (Immediate / High / Moderate / Watchlist)
 - Top 3 properties and why
 - Cluster opportunities
-- Links to all deliverables (Google Sheet, PDF, Dashboard)
+- Links to all deliverables (Google Sheet, PDF)
 
 ## Execution rules
 - Do NOT rewrite the pipeline scripts. They are permanent and tested.

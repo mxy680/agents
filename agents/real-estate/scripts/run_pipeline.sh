@@ -26,7 +26,7 @@ run_phase() {
 
 run_phase 1  "Zillow Search (137 zip codes)"     phase1_zillow_search.py
 run_phase 2  "PLUTO Geocoding + Zoning Filter"    phase2_pluto.py
-run_phase 3  "Signal Checks (ACRIS/DOB/HPD/Tax)"  phase3_signals.py
+run_phase 3  "Signal Checks (ACRIS/DOB/HPD/Tax + 311/ECB/FDNY/CitiBike/NYSLA)" phase3_signals.py
 run_phase 4  "StreetEasy Enrichment"               phase4_streeteasy.py
 run_phase 5  "Cluster Detection"                    phase5_clusters.py
 run_phase 6  "Data Verification"                    phase6_verify.py
