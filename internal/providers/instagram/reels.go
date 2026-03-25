@@ -79,13 +79,12 @@ func toReelSummary(item rawMediaItem) ReelSummary {
 func newReelsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "reels",
-		Short:   "View and manage reels",
+		Short:   "View reels",
 		Aliases: []string{"reel"},
 	}
 	cmd.AddCommand(newReelsListCmd(factory))
 	cmd.AddCommand(newReelsGetCmd(factory))
 	cmd.AddCommand(newReelsFeedCmd(factory))
-	cmd.AddCommand(newReelsDeleteCmd(factory))
 	return cmd
 }
 
@@ -339,55 +338,6 @@ func containsAny(s string, substrs ...string) bool {
 		}
 	}
 	return false
-}
-
-func newReelsDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a reel",
-		Long:  "Permanently delete one of your own reels.",
-		RunE:  makeRunReelsDelete(factory),
-	}
-	cmd.Flags().String("reel-id", "", "Reel ID to delete")
-	_ = cmd.MarkFlagRequired("reel-id")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion (required)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunReelsDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		reelID, _ := cmd.Flags().GetString("reel-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("delete reel %s", reelID), map[string]string{"reel_id": reelID})
-		}
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(reelID)+"/delete/?media_type=REELS", nil)
-		if err != nil {
-			return fmt.Errorf("deleting reel %s: %w", reelID, err)
-		}
-
-		var result mediaDeleteResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding delete response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Deleted reel %s\n", reelID)
-		return nil
-	}
 }
 
 // printReelSummaries outputs reel summaries as JSON or a formatted text table.

@@ -29,20 +29,14 @@ type rawActivityItem struct {
 	} `json:"args"`
 }
 
-// activityMarkCheckedResponse is the response for POST /api/v1/news/inbox_seen/.
-type activityMarkCheckedResponse struct {
-	Status string `json:"status"`
-}
-
 // newActivityCmd builds the `activity` subcommand group.
 func newActivityCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "activity",
-		Short:   "View and manage activity notifications",
+		Short:   "View activity notifications",
 		Aliases: []string{"notifications", "notif"},
 	}
 	cmd.AddCommand(newActivityFeedCmd(factory))
-	cmd.AddCommand(newActivityMarkCheckedCmd(factory))
 	return cmd
 }
 
@@ -120,37 +114,4 @@ func makeRunActivityFeed(factory ClientFactory) func(*cobra.Command, []string) e
 	}
 }
 
-func newActivityMarkCheckedCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "mark-checked",
-		Short: "Mark activity feed as seen",
-		RunE:  makeRunActivityMarkChecked(factory),
-	}
-	return cmd
-}
 
-func makeRunActivityMarkChecked(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/news/inbox_seen/", nil)
-		if err != nil {
-			return fmt.Errorf("marking activity as seen: %w", err)
-		}
-
-		var result activityMarkCheckedResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding mark-checked response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Println("Activity feed marked as seen.")
-		return nil
-	}
-}

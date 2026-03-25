@@ -38,7 +38,6 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 		Aliases: []string{"prof"},
 	}
 	profileCmd.AddCommand(newProfileGetCmd(p.ClientFactory))
-	profileCmd.AddCommand(newProfileEditFormCmd(p.ClientFactory))
 	igCmd.AddCommand(profileCmd)
 
 	igCmd.AddCommand(newMediaCmd(p.ClientFactory))

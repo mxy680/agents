@@ -49,18 +49,6 @@ type liveHeartbeatResponse struct {
 	Status      string `json:"status"`
 }
 
-// liveLikeResponse is the response for POST /api/v1/live/{id}/like/.
-type liveLikeResponse struct {
-	LikeTs int64  `json:"like_ts"`
-	Status string `json:"status"`
-}
-
-// liveCommentResponse is the response for POST /api/v1/live/{id}/comment/.
-type liveCommentResponse struct {
-	Comment rawLiveComment `json:"comment"`
-	Status  string         `json:"status"`
-}
-
 // newLiveCmd builds the `live` subcommand group.
 func newLiveCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -72,8 +60,6 @@ func newLiveCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newLiveGetCmd(factory))
 	cmd.AddCommand(newLiveCommentsCmd(factory))
 	cmd.AddCommand(newLiveHeartbeatCmd(factory))
-	cmd.AddCommand(newLiveLikeCmd(factory))
-	cmd.AddCommand(newLivePostCommentCmd(factory))
 	return cmd
 }
 
@@ -285,98 +271,4 @@ func makeRunLiveHeartbeat(factory ClientFactory) func(*cobra.Command, []string) 
 	}
 }
 
-func newLiveLikeCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "like",
-		Short: "Like a live broadcast",
-		RunE:  makeRunLiveLike(factory),
-	}
-	cmd.Flags().String("broadcast-id", "", "Broadcast ID")
-	_ = cmd.MarkFlagRequired("broadcast-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
 
-func makeRunLiveLike(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		broadcastID, _ := cmd.Flags().GetString("broadcast-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("like broadcast %s", broadcastID),
-				map[string]string{"broadcast_id": broadcastID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/live/"+url.PathEscape(broadcastID)+"/like/", nil)
-		if err != nil {
-			return fmt.Errorf("liking broadcast %s: %w", broadcastID, err)
-		}
-
-		var result liveLikeResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding like response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Liked broadcast %s\n", broadcastID)
-		return nil
-	}
-}
-
-func newLivePostCommentCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "post-comment",
-		Short: "Post a comment on a live broadcast",
-		RunE:  makeRunLivePostComment(factory),
-	}
-	cmd.Flags().String("broadcast-id", "", "Broadcast ID")
-	_ = cmd.MarkFlagRequired("broadcast-id")
-	cmd.Flags().String("text", "", "Comment text")
-	_ = cmd.MarkFlagRequired("text")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunLivePostComment(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		broadcastID, _ := cmd.Flags().GetString("broadcast-id")
-		text, _ := cmd.Flags().GetString("text")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("post comment on broadcast %s", broadcastID),
-				map[string]string{"broadcast_id": broadcastID, "text": text})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := url.Values{}
-		body.Set("comment_text", text)
-
-		resp, err := client.MobilePost(ctx, "/api/v1/live/"+url.PathEscape(broadcastID)+"/comment/", body)
-		if err != nil {
-			return fmt.Errorf("posting comment on broadcast %s: %w", broadcastID, err)
-		}
-
-		var result liveCommentResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding post comment response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Posted comment on broadcast %s\n", broadcastID)
-		return nil
-	}
-}

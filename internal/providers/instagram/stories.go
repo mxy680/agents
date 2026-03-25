@@ -82,14 +82,13 @@ type storiesTrayEntry struct {
 func newStoriesCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "stories",
-		Short:   "View and manage stories",
+		Short:   "View stories",
 		Aliases: []string{"story", "st"},
 	}
 	cmd.AddCommand(newStoriesListCmd(factory))
 	cmd.AddCommand(newStoriesGetCmd(factory))
 	cmd.AddCommand(newStoriesViewersCmd(factory))
 	cmd.AddCommand(newStoriesFeedCmd(factory))
-	cmd.AddCommand(newStoriesDeleteCmd(factory))
 	return cmd
 }
 
@@ -321,54 +320,6 @@ func makeRunStoriesFeed(factory ClientFactory) func(*cobra.Command, []string) er
 			))
 		}
 		cli.PrintText(lines)
-		return nil
-	}
-}
-
-func newStoriesDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a story item",
-		RunE:  makeRunStoriesDelete(factory),
-	}
-	cmd.Flags().String("story-id", "", "Story item ID to delete")
-	_ = cmd.MarkFlagRequired("story-id")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion (required)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunStoriesDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		storyID, _ := cmd.Flags().GetString("story-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("delete story %s", storyID), map[string]string{"story_id": storyID})
-		}
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(storyID)+"/delete/?media_type=STORY", nil)
-		if err != nil {
-			return fmt.Errorf("deleting story %s: %w", storyID, err)
-		}
-
-		var result mediaDeleteResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding delete response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Deleted story %s\n", storyID)
 		return nil
 	}
 }

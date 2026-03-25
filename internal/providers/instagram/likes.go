@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -17,113 +16,16 @@ type likedFeedResponse struct {
 	Status        string         `json:"status"`
 }
 
-// likeActionResponse is a generic response for like/unlike actions.
-type likeActionResponse struct {
-	Status string `json:"status"`
-}
-
 // newLikesCmd builds the `likes` subcommand group.
 func newLikesCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "likes",
-		Short:   "Manage post likes",
+		Short:   "View post likes",
 		Aliases: []string{"like"},
 	}
-	cmd.AddCommand(newLikesLikeCmd(factory))
-	cmd.AddCommand(newLikesUnlikeCmd(factory))
 	cmd.AddCommand(newLikesListCmd(factory))
 	cmd.AddCommand(newLikesLikedCmd(factory))
 	return cmd
-}
-
-func newLikesLikeCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "like",
-		Short: "Like a post",
-		RunE:  makeRunLikesLike(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to like")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunLikesLike(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("like media %s", mediaID),
-				map[string]string{"media_id": mediaID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/like/", nil)
-		if err != nil {
-			return fmt.Errorf("liking media %s: %w", mediaID, err)
-		}
-
-		var result likeActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding like response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Liked media %s\n", mediaID)
-		return nil
-	}
-}
-
-func newLikesUnlikeCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unlike",
-		Short: "Unlike a post",
-		RunE:  makeRunLikesUnlike(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to unlike")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunLikesUnlike(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("unlike media %s", mediaID),
-				map[string]string{"media_id": mediaID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/unlike/", nil)
-		if err != nil {
-			return fmt.Errorf("unliking media %s: %w", mediaID, err)
-		}
-
-		var result likeActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding unlike response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Unliked media %s\n", mediaID)
-		return nil
-	}
 }
 
 func newLikesListCmd(factory ClientFactory) *cobra.Command {
