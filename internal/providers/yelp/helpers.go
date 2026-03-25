@@ -1,6 +1,7 @@
 package yelp
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -291,6 +292,162 @@ func printEventSummaries(cmd *cobra.Command, events []EventSummary) error {
 	}
 	cli.PrintText(lines)
 	return nil
+}
+
+// --- Search snippet parser ---
+
+// searchSnippetResult represents the structure of Yelp's /search/snippet response.
+// The response nests search results under searchPageProps.mainContentComponentsListProps.
+type searchSnippetResult struct {
+	BizID       string  `json:"bizId"`
+	Alias       string  `json:"alias"`
+	Name        string  `json:"name"`
+	Rating      float64 `json:"rating"`
+	ReviewCount int     `json:"reviewCount"`
+	PriceRange  string  `json:"priceRange,omitempty"`
+	Phone       string  `json:"phone,omitempty"`
+	Neighborhoods []string `json:"neighborhoods,omitempty"`
+	Address     string  `json:"formattedAddress,omitempty"`
+	City        string  `json:"city,omitempty"`
+	State       string  `json:"state,omitempty"`
+	ZipCode     string  `json:"zipCode,omitempty"`
+	Categories  []struct {
+		Alias string `json:"alias"`
+		Title string `json:"title"`
+	} `json:"categories"`
+	IsClosed bool   `json:"isClosed"`
+	BizURL   string `json:"businessUrl,omitempty"`
+}
+
+// parseSearchSnippet extracts BusinessSummary items from Yelp's /search/snippet JSON response.
+func parseSearchSnippet(body []byte) ([]BusinessSummary, error) {
+	// The snippet response is a complex nested structure. Try multiple extraction strategies.
+
+	// Strategy 1: Look for searchPageProps.mainContentComponentsListProps
+	var topLevel map[string]json.RawMessage
+	if err := json.Unmarshal(body, &topLevel); err != nil {
+		return nil, fmt.Errorf("parse top-level: %w", err)
+	}
+
+	// Try to find the search results in the nested structure
+	var results []BusinessSummary
+
+	// Check if this is a direct array of businesses (some endpoints)
+	if rawProps, ok := topLevel["searchPageProps"]; ok {
+		var pageProps map[string]json.RawMessage
+		if err := json.Unmarshal(rawProps, &pageProps); err == nil {
+			if rawComponents, ok := pageProps["mainContentComponentsListProps"]; ok {
+				results = extractBusinessesFromComponents(rawComponents)
+			}
+		}
+	}
+
+	// Fallback: try to find bizId-containing objects anywhere in the response
+	if len(results) == 0 {
+		results = extractBusinessesFromRaw(body)
+	}
+
+	return results, nil
+}
+
+// extractBusinessesFromComponents extracts businesses from the mainContentComponentsListProps array.
+func extractBusinessesFromComponents(raw json.RawMessage) []BusinessSummary {
+	var components []json.RawMessage
+	if err := json.Unmarshal(raw, &components); err != nil {
+		return nil
+	}
+
+	var results []BusinessSummary
+	for _, comp := range components {
+		var item struct {
+			SearchResultLayoutType string              `json:"searchResultLayoutType"`
+			BizID                  string              `json:"bizId"`
+			SearchResultBusiness   searchSnippetResult `json:"searchResultBusiness"`
+		}
+		if err := json.Unmarshal(comp, &item); err != nil {
+			continue
+		}
+		if item.SearchResultLayoutType != "iaResult" && item.BizID == "" {
+			continue
+		}
+
+		biz := item.SearchResultBusiness
+		if biz.Name == "" {
+			continue
+		}
+
+		cats := make([]BusinessCategory, 0, len(biz.Categories))
+		for _, c := range biz.Categories {
+			cats = append(cats, BusinessCategory{Alias: c.Alias, Title: c.Title})
+		}
+
+		results = append(results, BusinessSummary{
+			ID:          biz.BizID,
+			Alias:       biz.Alias,
+			Name:        biz.Name,
+			Rating:      biz.Rating,
+			ReviewCount: biz.ReviewCount,
+			Price:       biz.PriceRange,
+			Phone:       biz.Phone,
+			Location: BusinessLocation{
+				Address1: biz.Address,
+				City:     biz.City,
+				State:    biz.State,
+				ZipCode:  biz.ZipCode,
+			},
+			Categories: cats,
+			IsClosed:   biz.IsClosed,
+			URL:        biz.BizURL,
+		})
+	}
+	return results
+}
+
+// extractBusinessesFromRaw attempts to find business data in a raw JSON response
+// by looking for objects with "bizId" keys.
+func extractBusinessesFromRaw(body []byte) []BusinessSummary {
+	// Simple heuristic: unmarshal as a generic structure and look for business patterns
+	var generic map[string]json.RawMessage
+	if err := json.Unmarshal(body, &generic); err != nil {
+		return nil
+	}
+
+	// Try to find any array that contains objects with business-like fields
+	var results []BusinessSummary
+	for _, val := range generic {
+		var arr []searchSnippetResult
+		if err := json.Unmarshal(val, &arr); err != nil {
+			continue
+		}
+		for _, biz := range arr {
+			if biz.Name == "" {
+				continue
+			}
+			cats := make([]BusinessCategory, 0, len(biz.Categories))
+			for _, c := range biz.Categories {
+				cats = append(cats, BusinessCategory{Alias: c.Alias, Title: c.Title})
+			}
+			results = append(results, BusinessSummary{
+				ID:          biz.BizID,
+				Alias:       biz.Alias,
+				Name:        biz.Name,
+				Rating:      biz.Rating,
+				ReviewCount: biz.ReviewCount,
+				Price:       biz.PriceRange,
+				Phone:       biz.Phone,
+				Location: BusinessLocation{
+					Address1: biz.Address,
+					City:     biz.City,
+					State:    biz.State,
+					ZipCode:  biz.ZipCode,
+				},
+				Categories: cats,
+				IsClosed:   biz.IsClosed,
+				URL:        biz.BizURL,
+			})
+		}
+	}
+	return results
 }
 
 // printCategoryList outputs categories as JSON or a formatted text table.

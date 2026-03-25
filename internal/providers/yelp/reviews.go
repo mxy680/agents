@@ -65,7 +65,7 @@ func makeRunReviewList(factory ClientFactory) func(*cobra.Command, []string) err
 			params.Set("offset", strconv.Itoa(offset))
 		}
 
-		body, err := client.doYelp(ctx, "GET", "/businesses/"+id+"/reviews", params)
+		body, err := client.doYelp(ctx, "GET", "/biz/"+id+"/review_feed", params)
 		if err != nil {
 			return fmt.Errorf("list reviews: %w", err)
 		}

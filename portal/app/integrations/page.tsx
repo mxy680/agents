@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button"
 import { ConnectDialog } from "@/components/connect-dialog"
 import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
-import { YelpConnectDialog } from "@/components/yelp-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { AccountItem } from "@/components/account-item"
@@ -35,8 +34,8 @@ import {
   IconSchool,
   IconHome,
   IconBuildingSkyscraper,
-  IconStar,
   IconPlus,
+  IconStar,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -120,9 +119,9 @@ const providers = [
   {
     id: "yelp",
     name: "Yelp",
-    description: "Businesses, Reviews, Events, Categories",
+    description: "Businesses, Reviews, Collections, Reservations",
     icon: IconStar,
-    connectType: "yelp" as const,
+    connectType: "playwright" as const,
   },
 ]
 
@@ -232,13 +231,6 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Add project" : "Connect"}
                         </Button>
                       </FramerConnectDialog>
-                    ) : provider.connectType === "yelp" ? (
-                      <YelpConnectDialog>
-                        <Button variant="outline" size="sm" className="w-full">
-                          <IconPlus />
-                          {accounts.length > 0 ? "Add account" : "Connect"}
-                        </Button>
-                      </YelpConnectDialog>
                     ) : provider.connectType === "bluebubbles" ? (
                       <BlueBubblesConnectDialog>
                         <Button variant="outline" size="sm" className="w-full">

@@ -14,7 +14,7 @@ import (
 
 // newTestClient creates a Client pointing at the given test server.
 func newTestClient(server *httptest.Server) *Client {
-	return newClientWithBase(server.Client(), server.URL, "test-api-key")
+	return newClientWithBase(server.Client(), server.URL)
 }
 
 // newTestClientFactory returns a ClientFactory pointing at the given test server.
@@ -123,66 +123,65 @@ func sampleBusinessDetail() map[string]any {
 	return b
 }
 
-// withBusinessSearchMock adds the business search endpoint mock.
-// The client base URL is server.URL (no /v3 prefix), and paths start with /businesses/...
+// sampleSearchSnippetResponse returns a /search/snippet style response containing one business.
+func sampleSearchSnippetResponse() map[string]any {
+	return map[string]any{
+		"searchPageProps": map[string]any{
+			"mainContentComponentsListProps": []map[string]any{
+				{
+					"searchResultLayoutType": "iaResult",
+					"bizId":                  "gary-danko-san-francisco",
+					"searchResultBusiness": map[string]any{
+						"bizId":            "gary-danko-san-francisco",
+						"alias":            "gary-danko-san-francisco",
+						"name":             "Gary Danko",
+						"rating":           4.5,
+						"reviewCount":      5500,
+						"priceRange":       "$$$$",
+						"phone":            "+14157492060",
+						"formattedAddress": "800 N Point St",
+						"city":             "San Francisco",
+						"state":            "CA",
+						"zipCode":          "94109",
+						"categories": []map[string]any{
+							{"alias": "newamerican", "title": "American (New)"},
+							{"alias": "french", "title": "French"},
+						},
+						"isClosed":    false,
+						"businessUrl": "https://www.yelp.com/biz/gary-danko-san-francisco",
+					},
+				},
+			},
+		},
+	}
+}
+
+// withBusinessSearchMock adds the search snippet endpoint mock.
 func withBusinessSearchMock(mux *http.ServeMux) {
-	mux.HandleFunc("/businesses/search", func(w http.ResponseWriter, r *http.Request) {
-		// Verify auth header
-		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+	mux.HandleFunc("/search/snippet", func(w http.ResponseWriter, r *http.Request) {
+		// Verify session cookie
+		if !strings.Contains(r.Header.Get("Cookie"), "bse=") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]any{
-			"total": 1,
-			"businesses": []map[string]any{
-				sampleBusiness(),
-			},
-			"region": map[string]any{
-				"center": map[string]any{
-					"latitude":  37.8051,
-					"longitude": -122.4212,
-				},
-			},
-		}
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(sampleSearchSnippetResponse())
 	})
 }
 
-// withBusinessPhoneSearchMock adds the phone search endpoint mock.
+// withBusinessPhoneSearchMock adds the phone search endpoint mock (uses same /search/snippet).
 func withBusinessPhoneSearchMock(mux *http.ServeMux) {
-	mux.HandleFunc("/businesses/search/phone", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]any{
-			"total": 1,
-			"businesses": []map[string]any{
-				sampleBusiness(),
-			},
-		}
-		json.NewEncoder(w).Encode(resp)
-	})
+	// Already handled by withBusinessSearchMock — /search/snippet
 }
 
-// withBusinessMatchMock adds the business match endpoint mock.
+// withBusinessMatchMock adds the business match endpoint mock (uses same /search/snippet).
 func withBusinessMatchMock(mux *http.ServeMux) {
-	mux.HandleFunc("/businesses/matches", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]any{
-			"businesses": []map[string]any{
-				sampleBusiness(),
-			},
-		}
-		json.NewEncoder(w).Encode(resp)
-	})
+	// Already handled by withBusinessSearchMock — /search/snippet
 }
 
 // withBusinessGetMock adds the business detail endpoint mock.
 func withBusinessGetMock(mux *http.ServeMux) {
-	mux.HandleFunc("/businesses/gary-danko-san-francisco", func(w http.ResponseWriter, r *http.Request) {
-		// Return reviews if reviews path
-		if strings.HasSuffix(r.URL.Path, "/reviews") {
-			return
-		}
+	mux.HandleFunc("/biz/gary-danko-san-francisco/props", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(sampleBusinessDetail())
 	})
@@ -190,7 +189,7 @@ func withBusinessGetMock(mux *http.ServeMux) {
 
 // withBusinessReviewsMock adds the business reviews endpoint mock.
 func withBusinessReviewsMock(mux *http.ServeMux) {
-	mux.HandleFunc("/businesses/gary-danko-san-francisco/reviews", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/biz/gary-danko-san-francisco/review_feed", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		resp := map[string]any{
 			"total": 3,
