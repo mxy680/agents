@@ -156,6 +156,7 @@ export default function LocalJobRunPage({
   const [deliverables, setDeliverables] = useState<Deliverables>({})
   const [liveStatus, setLiveStatus] = useState<string>("")
   const [rerunning, setRerunning] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     async function fetchRun() {
@@ -180,6 +181,25 @@ export default function LocalJobRunPage({
       .then((data: LocalJobRun) => setRun(data))
       .catch(() => {})
   }, [id])
+
+  async function handleCancel() {
+    if (cancelling) return
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setLiveStatus("failed")
+        // Refresh run metadata
+        const refreshRes = await fetch(`/api/jobs/${id}`)
+        if (refreshRes.ok) {
+          const data = await refreshRes.json() as LocalJobRun
+          setRun(data)
+        }
+      }
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   async function handleRerun() {
     if (rerunning) return
@@ -237,19 +257,35 @@ export default function LocalJobRunPage({
                 Back to Jobs
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRerun}
-              disabled={rerunning || currentStatus === "running" || currentStatus === "pending"}
-            >
-              {rerunning ? (
-                <IconLoader2 className="size-4 animate-spin" />
-              ) : (
-                <IconRefresh className="size-4" />
+            <div className="flex items-center gap-2">
+              {(currentStatus === "running" || currentStatus === "pending") && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                >
+                  {cancelling ? (
+                    <IconLoader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Cancel"
+                  )}
+                </Button>
               )}
-              Rerun
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRerun}
+                disabled={rerunning || currentStatus === "running" || currentStatus === "pending"}
+              >
+                {rerunning ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  <IconRefresh className="size-4" />
+                )}
+                Rerun
+              </Button>
+            </div>
           </div>
 
           {loading ? (
