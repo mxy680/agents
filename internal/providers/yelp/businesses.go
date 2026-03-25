@@ -104,26 +104,7 @@ func makeRunBusinessSearch(factory ClientFactory) func(*cobra.Command, []string)
 			params.Set("offset", strconv.Itoa(offset))
 		}
 
-		params.Set("request_origin", "user")
-		params.Set("ns", "1")
-		if term != "" {
-			params.Set("find_desc", term)
-			params.Del("term")
-		}
-		if location != "" {
-			params.Set("find_loc", location)
-			params.Del("location")
-		}
-		if sortBy != "" {
-			params.Set("sortby", sortBy)
-			params.Del("sort_by")
-		}
-		if offset > 0 {
-			params.Set("start", strconv.Itoa(offset))
-			params.Del("offset")
-		}
-
-		body, err := client.doYelp(ctx, "GET", "/search/snippet", params)
+		body, err := client.doYelp(ctx, "GET", "/businesses/search", params)
 		if err != nil {
 			return fmt.Errorf("business search: %w", err)
 		}
@@ -136,12 +117,15 @@ func makeRunBusinessSearch(factory ClientFactory) func(*cobra.Command, []string)
 			return cli.PrintJSON(raw)
 		}
 
-		businesses, err := parseSearchSnippet(body)
-		if err != nil {
-			return fmt.Errorf("parse search results: %w", err)
+		var resp struct {
+			Businesses []BusinessSummary `json:"businesses"`
+			Total      int               `json:"total"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return fmt.Errorf("parse response: %w", err)
 		}
 
-		return printBusinessSummaries(cmd, businesses)
+		return printBusinessSummaries(cmd, resp.Businesses)
 	}
 }
 
@@ -169,10 +153,7 @@ func makeRunBusinessPhoneSearch(factory ClientFactory) func(*cobra.Command, []st
 		params := url.Values{}
 		params.Set("phone", phone)
 
-		params.Set("find_desc", phone)
-		params.Set("request_origin", "user")
-		params.Set("ns", "1")
-		body, err := client.doYelp(ctx, "GET", "/search/snippet", params)
+		body, err := client.doYelp(ctx, "GET", "/businesses/search/phone", params)
 		if err != nil {
 			return fmt.Errorf("phone search: %w", err)
 		}
@@ -185,12 +166,14 @@ func makeRunBusinessPhoneSearch(factory ClientFactory) func(*cobra.Command, []st
 			return cli.PrintJSON(raw)
 		}
 
-		businesses, err := parseSearchSnippet(body)
-		if err != nil {
-			return fmt.Errorf("parse search results: %w", err)
+		var resp struct {
+			Businesses []BusinessSummary `json:"businesses"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return fmt.Errorf("parse response: %w", err)
 		}
 
-		return printBusinessSummaries(cmd, businesses)
+		return printBusinessSummaries(cmd, resp.Businesses)
 	}
 }
 
@@ -235,13 +218,7 @@ func makeRunBusinessMatch(factory ClientFactory) func(*cobra.Command, []string) 
 			params.Set("address1", address1)
 		}
 
-		params.Set("find_desc", name)
-		if city != "" {
-			params.Set("find_loc", city+", "+state+", "+country)
-		}
-		params.Set("request_origin", "user")
-		params.Set("ns", "1")
-		body, err := client.doYelp(ctx, "GET", "/search/snippet", params)
+		body, err := client.doYelp(ctx, "GET", "/businesses/matches", params)
 		if err != nil {
 			return fmt.Errorf("business match: %w", err)
 		}
@@ -254,12 +231,14 @@ func makeRunBusinessMatch(factory ClientFactory) func(*cobra.Command, []string) 
 			return cli.PrintJSON(raw)
 		}
 
-		businesses, err := parseSearchSnippet(body)
-		if err != nil {
-			return fmt.Errorf("parse search results: %w", err)
+		var resp struct {
+			Businesses []BusinessSummary `json:"businesses"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return fmt.Errorf("parse response: %w", err)
 		}
 
-		return printBusinessSummaries(cmd, businesses)
+		return printBusinessSummaries(cmd, resp.Businesses)
 	}
 }
 
@@ -284,7 +263,7 @@ func makeRunBusinessGet(factory ClientFactory) func(*cobra.Command, []string) er
 
 		id, _ := cmd.Flags().GetString("id")
 
-		body, err := client.doYelp(ctx, "GET", "/biz/"+id+"/props", nil)
+		body, err := client.doYelp(ctx, "GET", "/businesses/"+id, nil)
 		if err != nil {
 			return fmt.Errorf("get business: %w", err)
 		}

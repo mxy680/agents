@@ -118,10 +118,7 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		})
 	case "yelp":
 		mapCredentials(creds, env, map[string]string{
-			"all_cookies": "YELP_COOKIES",
-			"bse":         "YELP_BSE",
-			"zss":         "YELP_ZSS",
-			"csrftok":     "YELP_CSRF_TOKEN",
+			"api_key": "YELP_API_KEY",
 		})
 	}
 	return nil

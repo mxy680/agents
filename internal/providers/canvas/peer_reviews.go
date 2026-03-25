@@ -3,7 +3,6 @@ package canvas
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"

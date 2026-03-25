@@ -37,8 +37,8 @@ func TestBusinessSearch(t *testing.T) {
 		if !strings.Contains(out, "gary-danko-san-francisco") {
 			t.Errorf("expected business id in JSON output, got: %s", out)
 		}
-		if !strings.Contains(out, `"searchPageProps"`) {
-			t.Errorf("expected searchPageProps field in JSON output, got: %s", out)
+		if !strings.Contains(out, `"businesses"`) {
+			t.Errorf("expected businesses field in JSON output, got: %s", out)
 		}
 	})
 }
@@ -268,12 +268,11 @@ func newCustomMockServer(mux *http.ServeMux) *httptest.Server {
 
 func newEmptyBusinessMuxInternal() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/search/snippet", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/businesses/search", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		resp := map[string]any{
-			"searchPageProps": map[string]any{
-				"mainContentComponentsListProps": []map[string]any{},
-			},
+			"total":      0,
+			"businesses": []map[string]any{},
 		}
 		json.NewEncoder(w).Encode(resp)
 	})
