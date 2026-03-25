@@ -194,7 +194,73 @@ Any property appearing on the tax lien list = **strong distress signal**. The ow
 
 ---
 
-## Tool 7: NYSCEF CLI — Court Records (direct lookup)
+## Tool 7: Additional Socrata Signals (no auth)
+
+All use the same `curl -s -G` + `--data-urlencode` pattern as PLUTO/ACRIS/DOB/HPD.
+
+### 311 Complaints — Neighborhood Neglect Trajectory
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/erm2-nwe9.json" \
+  --data-urlencode "\$where=incident_address='1776 SEMINOLE AVE' AND borough='BRONX'" \
+  --data-urlencode "\$select=complaint_type,count(*)" \
+  --data-urlencode "\$group=complaint_type" \
+  --data-urlencode "\$limit=50"
+```
+Key types: HEAT/HOT WATER (landlord neglect), Rodent (building decay), Noise - Residential (overcrowding). 10+ complaints in 12 months = distress signal.
+
+### Local Law 97 — Energy Grades (buildings >25k sqft)
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/7x5e-2fxh.json" \
+  --data-urlencode "\$where=borough_block_lot='2029640028'" \
+  --data-urlencode "\$select=energy_star_score,source_eui_kbtu_ft,letter_grade"
+```
+Grade D or F = owner faces carbon fines starting 2024. Expensive retrofit or sell — strong distress signal for large buildings.
+
+### DOF Rolling Sales — Actual Closed Sale Prices
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/usep-8jbt.json" \
+  --data-urlencode "\$where=borough=2 AND block=2964 AND lot=28" \
+  --data-urlencode "\$order=sale_date DESC" \
+  --data-urlencode "\$limit=5"
+```
+Returns: `sale_price`, `sale_date`, `building_class_at_time_of_sale`. Compare last sale price to current Zillow listing — large gaps reveal motivation.
+
+### ECB/OATH Violations — Environmental Fines
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/6bgk-3dad.json" \
+  --data-urlencode "\$where=respondent_house_number='1776' AND respondent_street='SEMINOLE AVE' AND violation_status='DEFAULT'" \
+  --data-urlencode "\$limit=50"
+```
+Defaulted environmental violations = unpaid fines accumulating. Combined with HPD violations, signals total owner disinvestment.
+
+### Eviction Filings (Housing Court)
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/6z8x-wfk4.json" \
+  --data-urlencode "\$where=borough='BRONX' AND street_address like '%SEMINOLE%'" \
+  --data-urlencode "\$order=executed_date DESC" \
+  --data-urlencode "\$limit=20"
+```
+Multiple eviction filings = problem tenants or landlord trying to clear building. Either way, signals a building the owner wants to exit.
+
+### Scaffolding / Sidewalk Sheds — Stalled Projects
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/ipu4-2q9a.json" \
+  --data-urlencode "\$where=bbl='2029640028' AND job_type='SH'" \
+  --data-urlencode "\$order=issuance_date DESC"
+```
+Scaffolding up 3+ years = stalled repair, owner can't afford to fix or remove. Uses same DOB permits endpoint (job_type `SH`).
+
+### ULURP / City Planning — Rezoning Pipeline
+```bash
+curl -s -G "https://data.cityofnewyork.us/resource/n5mv-nfpy.json" \
+  --data-urlencode "\$where=borough='BX' AND ulurp_status='Active'" \
+  --data-urlencode "\$limit=50"
+```
+Active rezoning applications near target zone = properties may be upzoned soon. Current R6 lots in a pending R7+ upzone are undervalued.
+
+---
+
+## Tool 8: NYSCEF CLI — Court Records (direct lookup)
 
 Look up a specific court case by docket ID (no CAPTCHA required):
 ```bash
@@ -392,6 +458,12 @@ Each qualifying R7+ lot gets a composite score:
 | 3+ listing/delisting cycles | +4 | StreetEasy |
 | Price drop in last 30 days | +2 | StreetEasy |
 | ACRIS party name contains "ESTATE OF" or "EXECUTOR" | +5 | ACRIS |
+| 311 complaints 10+ in 12 months | +3 | 311 |
+| Local Law 97 grade D or F | +3 | LL97 Energy |
+| Defaulted ECB/OATH violations | +2 | ECB |
+| Eviction filings in last 12 months | +2 | Housing Court |
+| Scaffolding permit 3+ years old | +2 | DOB |
+| Active ULURP rezoning nearby (upzone) | +3 | City Planning |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -413,10 +485,16 @@ Each qualifying R7+ lot gets a composite score:
    - HPD: count open violations
    - NYC Finance: check tax lien list
    - StreetEasy: check price history for drops and relisting cycles
+   - 311: complaint volume at address in last 12 months
+   - LL97 energy grade (if building >25k sqft)
+   - ECB/OATH: defaulted environmental violations
+   - Housing Court: recent eviction filings
+   - DOB sidewalk sheds: scaffolding permits 3+ years old
 6. **For each qualifying block, check for cluster signals:**
    - Multiple Zillow listings on same block?
    - Recent ACRIS deed transfers to LLCs on same block?
    - DOB permits on same block?
+   - Active ULURP rezoning applications in the area?
 7. Calculate composite score for each property
 8. **Verify data:** Check for duplicates, mismatched URLs, inconsistent scoring. Fix issues.
 9. Create professional XLSX with all properties, signals, and scores. Upload to Drive with --convert.
