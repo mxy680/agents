@@ -190,8 +190,8 @@ func TestNewClientWithBase(t *testing.T) {
 	if client.userAgent != "TestAgent/1.0" {
 		t.Errorf("expected userAgent 'TestAgent/1.0', got %q", client.userAgent)
 	}
-	if client.http != httpClient {
-		t.Error("expected http client to be the one passed in")
+	if client.testHTTP != httpClient {
+		t.Error("expected testHTTP client to be the one passed in")
 	}
 }
 
