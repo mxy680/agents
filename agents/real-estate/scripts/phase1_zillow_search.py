@@ -259,6 +259,14 @@ def main():
     with open(output_path, "w") as f:
         json.dump(qualifying, f, indent=2)
 
+    # #3: Check for suspiciously low results — likely a sign of expired Zillow cookies
+    total_zips = sum(len(zips) for _, zips in BOROUGH_ZIPS.values())
+    if len(all_properties) == 0:
+        print(f"\nERROR: 0 listings found across {total_zips} zips. Zillow cookies may be expired.", file=sys.stderr)
+        sys.exit(1)
+    elif len(all_properties) < 10:
+        print(f"\nWARNING: Only {len(all_properties)} listings found across {total_zips} zips. Zillow cookies may be expired.", file=sys.stderr)
+
     print(f"\n✓ Saved {len(qualifying)} qualifying listings to {output_path}", file=sys.stderr)
     print(json.dumps({"count": len(qualifying), "path": output_path}))
 

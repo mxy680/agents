@@ -60,9 +60,22 @@ export NODE_PATH="$(npm root -g):${NODE_PATH:-}"
 # write them to a file and source them inside the doppler-run context.
 echo "Resolving credentials from Supabase..."
 CRED_FILE=$(mktemp /tmp/agent-creds-XXXXXXXX)
+# #14: Use trap without exec so this EXIT trap fires for cleanup
 trap "rm -f $SESSION_FILE $CRED_FILE" EXIT
-doppler run --project agents --config dev -- node "$SCRIPT_DIR/resolve-creds.mjs" > "$CRED_FILE" 2>/dev/null
 
-# Run with doppler env vars + fresh Supabase creds sourced at runtime
-exec doppler run --project agents --config dev -- \
+# #2: Remove 2>/dev/null so credential errors are visible
+doppler run --project agents --config dev -- node "$SCRIPT_DIR/resolve-creds.mjs" > "$CRED_FILE"
+if [ $? -ne 0 ]; then
+  echo "ERROR: credential resolution failed — aborting" >&2
+  exit 1
+fi
+
+# #2: Check that the creds file is non-empty before sourcing
+if [ ! -s "$CRED_FILE" ]; then
+  echo "ERROR: no credentials were resolved — aborting" >&2
+  exit 1
+fi
+
+# #14: Use a regular call (not exec) so the EXIT trap above fires for cleanup
+doppler run --project agents --config dev -- \
   bash -c "source '$CRED_FILE' && node '$SCRIPT_DIR/entrypoint.mjs' '$SESSION_FILE'"

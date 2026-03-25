@@ -234,6 +234,7 @@ export async function POST(
             systemPrompt,
             sessionId,
             signal: abortController.signal,
+            timeoutMs: 300_000, // #6: 5-minute timeout for chat conversations
           })
 
           for await (const sseEvent of localGen) {

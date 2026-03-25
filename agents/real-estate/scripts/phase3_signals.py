@@ -20,15 +20,39 @@ TODAY = datetime.now()
 DATE_90_DAYS_AGO = (TODAY - timedelta(days=90)).strftime("%Y-%m-%d")
 DATE_180_DAYS_AGO = (TODAY - timedelta(days=180)).strftime("%Y-%m-%d")
 
+# #8: Simple rate limiter for Socrata (limit ~900/hr = ~15/min)
+_socrata_call_times: list = []
+_SOCRATA_MAX_PER_MIN = 14  # stay just under 15/min
+
+
+def _socrata_rate_limit():
+    """Block if we're approaching the Socrata rate limit."""
+    now = time.monotonic()
+    # Keep only calls within the last 60 seconds
+    _socrata_call_times[:] = [t for t in _socrata_call_times if now - t < 60.0]
+    if len(_socrata_call_times) >= _SOCRATA_MAX_PER_MIN:
+        sleep_for = 60.0 - (now - _socrata_call_times[0]) + 0.1
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+    _socrata_call_times.append(time.monotonic())
+
 
 def curl_socrata(url_base, params):
     """Make a Socrata API call using subprocess curl with proper encoding."""
+    # #8: Apply rate limiting before each call
+    _socrata_rate_limit()
+
     cmd = ["curl", "-s", "-G", url_base]
     for key, val in params.items():
         cmd.extend(["--data-urlencode", f"{key}={val}"])
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
+            return []
+        # #8: Detect HTTP 429 responses embedded in curl output
+        if '"error"' in result.stdout and "429" in result.stdout:
+            print("  [WARN] Socrata rate limit hit (429) — backing off 60s", file=sys.stderr)
+            time.sleep(60)
             return []
         parsed = json.loads(result.stdout)
         # Socrata may return a dict on error instead of a list
@@ -108,8 +132,8 @@ def get_acris_block_deeds(borough_digit, block):
     if not doc_ids:
         return False
 
-    # Get masters, filter to recent DEEDs
-    masters = get_acris_masters(doc_ids[:100])  # limit to 100 docs
+    # Get masters, filter to recent DEEDs — #10: increased limit from 100 to 500
+    masters = get_acris_masters(doc_ids[:500])
     deed_ids = [
         m.get("document_id") for m in masters
         if m.get("doc_type") == "DEED"
@@ -366,27 +390,38 @@ def main():
 
     print(f"Running signal checks on {len(properties)} R7+ properties...", file=sys.stderr)
 
-    # Pre-load NYC Finance tax liens (single API call for efficiency)
+    # Pre-load NYC Finance tax liens using pagination to avoid truncation
     # Borough codes: 1=Manhattan, 2=Bronx, 3=Brooklyn, 4=Queens, 5=Staten Island
     print("\nLoading NYC Finance tax lien list...", file=sys.stderr)
     all_bbl_liens = set()
+    BATCH_SIZE = 50000  # Socrata allows up to 50K per request
     for borough_code in ["2", "3", "1", "4"]:
-        results = curl_socrata(
-            "https://data.cityofnewyork.us/resource/9rz4-mjek.json",
-            {"$where": f"borough='{borough_code}'", "$limit": "10000"}
-        )
-        if not isinstance(results, list):
-            continue
-        for r in results:
-            if not isinstance(r, dict):
-                continue
-            # Dataset has no bbl field — construct from borough+block+lot
-            b = str(r.get("borough", "")).zfill(1)
-            blk = str(r.get("block", "")).zfill(5)
-            lt = str(r.get("lot", "")).zfill(4)
-            if b and blk and lt:
-                constructed_bbl = b + blk + lt
-                all_bbl_liens.add(constructed_bbl)
+        # #9: Use pagination with $offset to avoid truncation
+        offset = 0
+        while True:
+            results = curl_socrata(
+                "https://data.cityofnewyork.us/resource/9rz4-mjek.json",
+                {
+                    "$where": f"borough='{borough_code}'",
+                    "$limit": str(BATCH_SIZE),
+                    "$offset": str(offset),
+                }
+            )
+            if not isinstance(results, list) or len(results) == 0:
+                break
+            for r in results:
+                if not isinstance(r, dict):
+                    continue
+                # Dataset has no bbl field — construct from borough+block+lot
+                b = str(r.get("borough", "")).zfill(1)
+                blk = str(r.get("block", "")).zfill(5)
+                lt = str(r.get("lot", "")).zfill(4)
+                if b and blk and lt:
+                    constructed_bbl = b + blk + lt
+                    all_bbl_liens.add(constructed_bbl)
+            if len(results) < BATCH_SIZE:
+                break  # last page
+            offset += BATCH_SIZE
     print(f"  Loaded {len(all_bbl_liens)} properties on tax lien list", file=sys.stderr)
 
     # Cache for block-level signals (avoid redundant API calls)
@@ -448,7 +483,8 @@ def main():
         # Compute score
         compute_score(prop)
 
-        # Rate limit
+        # #8: Rate limit — 0.5s between every property, extra pause every 5
+        time.sleep(0.5)
         if i % 5 == 0:
             time.sleep(0.5)
 

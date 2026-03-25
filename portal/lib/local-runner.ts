@@ -1,5 +1,5 @@
 import { spawn } from "child_process"
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
 import path from "path"
 import os from "os"
 import { type ChatSSEEvent, mapAgentEvent } from "@/lib/agent-events"
@@ -188,6 +188,12 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   } finally {
     if (timeoutHandle) clearTimeout(timeoutHandle)
     if (!proc.killed) proc.kill("SIGTERM")
+    // #7: Clean up the temp directory on every exit path
+    try {
+      rmSync(tmpDir, { recursive: true, force: true })
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 

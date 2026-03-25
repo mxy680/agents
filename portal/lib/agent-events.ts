@@ -149,7 +149,20 @@ export function mapAgentEvent(
       return events
     }
 
+    // #12: Forward system events as session events — they contain the session_id
+    case "system": {
+      const sessionId = (raw.session_id ?? event.session_id) as string | undefined
+      if (sessionId) {
+        return [{ event: "session", data: sessionId }]
+      }
+      return []
+    }
+
     default:
+      // #12: Log unrecognized event types so they don't silently disappear
+      if (type) {
+        console.warn(`[agent-events] Unrecognized event type: ${type}`, JSON.stringify(raw).slice(0, 200))
+      }
       return []
   }
 }

@@ -51,11 +51,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-const { data: integrations } = await supabase
+const { data: integrations, error: queryError } = await supabase
   .from("user_integrations")
   .select("provider, credentials")
   .eq("status", "active")
 
+// #2: Check for Supabase query errors
+if (queryError) {
+  process.stderr.write(`ERROR: Supabase query failed: ${queryError.message}\n`)
+  process.exit(1)
+}
+
+let emittedCount = 0
 for (const row of integrations ?? []) {
   try {
     const hex = row.credentials.startsWith("\\x") ? row.credentials.slice(2) : row.credentials
@@ -66,8 +73,15 @@ for (const row of integrations ?? []) {
       // Escape single quotes in values for shell safety
       const escaped = v.replace(/'/g, "'\\''")
       console.log(`export ${k}='${escaped}'`)
+      emittedCount++
     }
   } catch {
     // Skip providers that fail to decrypt
   }
+}
+
+// #2: Warn and exit non-zero if no credentials were resolved
+if (emittedCount === 0) {
+  process.stderr.write(`ERROR: No credentials resolved from Supabase. Check that user_integrations rows exist with status=active.\n`)
+  process.exit(1)
 }

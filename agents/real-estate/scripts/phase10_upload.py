@@ -29,7 +29,12 @@ def upload_file(path, name, convert=False):
         cmd.append("--convert")
 
     print(f"  Uploading {name}...", file=sys.stderr)
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    # #4: Handle TimeoutExpired explicitly
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        print(f"  ✗ Upload timed out after 120s: {name}", file=sys.stderr)
+        return None
 
     if result.returncode != 0:
         print(f"  ✗ Upload failed: {result.stderr[:200]}", file=sys.stderr)
@@ -76,6 +81,13 @@ def main():
     print("\n=== Upload Summary ===", file=sys.stderr)
     for k, v in links.items():
         print(f"  {k}: {v}", file=sys.stderr)
+
+    # #4: Exit non-zero if files were expected but nothing was uploaded
+    files_expected = bool(xlsx_files or pdf_files)
+    if files_expected and not links:
+        print("  ✗ ERROR: Files were found but all uploads failed.", file=sys.stderr)
+        print(json.dumps(links))
+        sys.exit(1)
 
     print(json.dumps(links))
 
