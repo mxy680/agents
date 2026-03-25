@@ -32,9 +32,12 @@ export function CookiePasteDialog({
   const [open, setOpen] = React.useState(false)
   const [label, setLabel] = React.useState("")
   const [cookieText, setCookieText] = React.useState("")
+  const [baseUrl, setBaseUrl] = React.useState("")
   const [status, setStatus] = React.useState<Status>("idle")
   const [message, setMessage] = React.useState("")
   const [parseError, setParseError] = React.useState("")
+
+  const needsBaseUrl = provider === "canvas"
 
   function handleOpenChange(next: boolean) {
     if (!next) {
@@ -42,6 +45,7 @@ export function CookiePasteDialog({
       setMessage("")
       setLabel("")
       setCookieText("")
+      setBaseUrl("")
       setParseError("")
     }
     setOpen(next)
@@ -85,6 +89,11 @@ export function CookiePasteDialog({
       return
     }
 
+    if (needsBaseUrl && !baseUrl.trim()) {
+      setParseError("Canvas base URL is required")
+      return
+    }
+
     const accountLabel = label.trim() || `${providerName} Account`
     setStatus("saving")
     setMessage("Saving credentials...")
@@ -93,7 +102,12 @@ export function CookiePasteDialog({
       const res = await fetch("/api/integrations/save-cookies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, label: accountLabel, cookies }),
+        body: JSON.stringify({
+          provider,
+          label: accountLabel,
+          cookies,
+          ...(needsBaseUrl && baseUrl.trim() ? { baseUrl: baseUrl.trim() } : {}),
+        }),
       })
 
       const data = await res.json()
@@ -132,6 +146,29 @@ export function CookiePasteDialog({
           <>
             <div className="flex flex-col gap-4 py-2">
               <FieldGroup>
+                {needsBaseUrl && (
+                  <Field>
+                    <FieldLabel htmlFor="cookie-base-url">Canvas URL</FieldLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        id="cookie-base-url"
+                        placeholder="https://canvas.university.edu"
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0"
+                        onClick={() => setBaseUrl("https://canvas.case.edu")}
+                      >
+                        CWRU
+                      </Button>
+                    </div>
+                  </Field>
+                )}
                 <Field>
                   <FieldLabel htmlFor="cookie-label">Account name</FieldLabel>
                   <Input

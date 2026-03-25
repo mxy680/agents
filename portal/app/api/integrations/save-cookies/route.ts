@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: { provider?: unknown; label?: unknown; cookies?: unknown }
+  let body: { provider?: unknown; label?: unknown; cookies?: unknown; baseUrl?: unknown }
   try {
     body = await request.json()
   } catch {
@@ -68,6 +68,15 @@ export async function POST(request: NextRequest) {
   // Apply provider-specific mapper if one exists; otherwise store as-is
   const mapper = COOKIE_MAPPERS[provider]
   const mapped = mapper ? mapper(rawCookies) : rawCookies
+
+  // Canvas needs the base URL stored alongside cookies
+  if (provider === "canvas" && typeof body.baseUrl === "string" && body.baseUrl.trim()) {
+    let normalizedUrl = body.baseUrl.trim().replace(/\/+$/, "")
+    if (!/^https?:\/\//i.test(normalizedUrl)) {
+      normalizedUrl = `https://${normalizedUrl}`
+    }
+    mapped.base_url = normalizedUrl
+  }
 
   const encrypted = encrypt(JSON.stringify(mapped))
   const credHex = `\\x${Buffer.from(encrypted).toString("hex")}`
