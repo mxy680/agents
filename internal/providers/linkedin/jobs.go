@@ -85,8 +85,6 @@ func newJobsCmd(factory ClientFactory) *cobra.Command {
 	}
 	cmd.AddCommand(newJobsSearchCmd(factory))
 	cmd.AddCommand(newJobsGetCmd(factory))
-	cmd.AddCommand(newJobsSaveCmd(factory))
-	cmd.AddCommand(newJobsUnsaveCmd(factory))
 	cmd.AddCommand(newJobsSavedCmd(factory))
 	cmd.AddCommand(newJobsRecommendedCmd(factory))
 	return cmd
@@ -214,100 +212,6 @@ func makeRunJobsGet(factory ClientFactory) func(*cobra.Command, []string) error 
 
 		summary := toJobSummaryFromDetail(raw)
 		return printJobDetail(cmd, summary, raw.Description.Text)
-	}
-}
-
-// newJobsSaveCmd builds the "jobs save" command.
-func newJobsSaveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "save",
-		Short: "Save a job posting",
-		RunE:  makeRunJobsSave(factory),
-	}
-	cmd.Flags().String("job-id", "", "Job posting ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without saving")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("job-id")
-	return cmd
-}
-
-func makeRunJobsSave(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		jobID, _ := cmd.Flags().GetString("job-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would save job %s", jobID), map[string]any{
-				"action": "save",
-				"job_id": jobID,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := map[string]any{
-			"jobPosting": fmt.Sprintf("urn:li:fs_normalized_jobPosting:%s", jobID),
-		}
-		resp, err := client.PostJSON(ctx, "/voyager/api/jobs/savedJobs", body)
-		if err != nil {
-			return fmt.Errorf("saving job %s: %w", jobID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"saved": true, "job_id": jobID})
-		}
-		fmt.Printf("Saved job %s\n", jobID)
-		return nil
-	}
-}
-
-// newJobsUnsaveCmd builds the "jobs unsave" command.
-func newJobsUnsaveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unsave",
-		Short: "Remove a job from saved jobs",
-		RunE:  makeRunJobsUnsave(factory),
-	}
-	cmd.Flags().String("job-id", "", "Saved job ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without unsaving")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("job-id")
-	return cmd
-}
-
-func makeRunJobsUnsave(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		jobID, _ := cmd.Flags().GetString("job-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would unsave job %s", jobID), map[string]any{
-				"action": "unsave",
-				"job_id": jobID,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/jobs/savedJobs/" + url.PathEscape(jobID)
-		resp, err := client.Delete(ctx, path)
-		if err != nil {
-			return fmt.Errorf("unsaving job %s: %w", jobID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"unsaved": true, "job_id": jobID})
-		}
-		fmt.Printf("Removed job %s from saved jobs\n", jobID)
-		return nil
 	}
 }
 

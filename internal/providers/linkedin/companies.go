@@ -121,8 +121,6 @@ func newCompaniesCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newCompaniesGetCmd(factory))
 	cmd.AddCommand(newCompaniesSearchCmd(factory))
 	cmd.AddCommand(newCompaniesEmployeesCmd(factory))
-	cmd.AddCommand(newCompaniesFollowCmd(factory))
-	cmd.AddCommand(newCompaniesUnfollowCmd(factory))
 	cmd.AddCommand(newCompaniesJobsCmd(factory))
 	return cmd
 }
@@ -313,100 +311,6 @@ func makeRunCompaniesEmployees(factory ClientFactory) func(*cobra.Command, []str
 			}
 		}
 		return printSearchResults(cmd, results)
-	}
-}
-
-// newCompaniesFollowCmd builds the "companies follow" command.
-func newCompaniesFollowCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "follow",
-		Short: "Follow a company",
-		RunE:  makeRunCompaniesFollow(factory),
-	}
-	cmd.Flags().String("company-id", "", "Company ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without following")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("company-id")
-	return cmd
-}
-
-func makeRunCompaniesFollow(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		companyID, _ := cmd.Flags().GetString("company-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would follow company %s", companyID), map[string]any{
-				"action":     "follow",
-				"company_id": companyID,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := map[string]any{
-			"urn": fmt.Sprintf("urn:li:company:%s", companyID),
-		}
-		resp, err := client.PostJSON(ctx, "/voyager/api/feed/follows", body)
-		if err != nil {
-			return fmt.Errorf("following company %s: %w", companyID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"followed": true, "company_id": companyID})
-		}
-		fmt.Printf("Now following company %s\n", companyID)
-		return nil
-	}
-}
-
-// newCompaniesUnfollowCmd builds the "companies unfollow" command.
-func newCompaniesUnfollowCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unfollow",
-		Short: "Unfollow a company",
-		RunE:  makeRunCompaniesUnfollow(factory),
-	}
-	cmd.Flags().String("company-id", "", "Company ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without unfollowing")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("company-id")
-	return cmd
-}
-
-func makeRunCompaniesUnfollow(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		companyID, _ := cmd.Flags().GetString("company-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would unfollow company %s", companyID), map[string]any{
-				"action":     "unfollow",
-				"company_id": companyID,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := fmt.Sprintf("/voyager/api/feed/follows/urn:li:company:%s", url.PathEscape(companyID))
-		resp, err := client.Delete(ctx, path)
-		if err != nil {
-			return fmt.Errorf("unfollowing company %s: %w", companyID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"unfollowed": true, "company_id": companyID})
-		}
-		fmt.Printf("Unfollowed company %s\n", companyID)
-		return nil
 	}
 }
 
