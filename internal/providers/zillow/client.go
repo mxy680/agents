@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -56,31 +55,11 @@ func DefaultClientFactory() ClientFactory {
 		cookies := os.Getenv("ZILLOW_COOKIES")
 		proxyURL := os.Getenv("ZILLOW_PROXY_URL")
 
-		// When using a proxy service (ScraperAPI, Bright Data, etc.), use
-		// standard net/http — the proxy handles TLS fingerprinting and
-		// anti-bot bypass. azuretls can interfere with proxy TLS.
-		if proxyURL != "" {
-			parsed, err := url.Parse(proxyURL)
-			if err != nil {
-				return nil, fmt.Errorf("parse ZILLOW_PROXY_URL: %w", err)
-			}
-
-			transport := http.DefaultTransport.(*http.Transport).Clone()
-			transport.Proxy = http.ProxyURL(parsed)
-
-			return &Client{
-				baseURL:   zillowBaseURL,
-				staticURL: zillowStaticURL,
-				mortURL:   mortgageAPIURL,
-				userAgent: userAgent,
-				cookies:   cookies,
-				testHTTP:  &http.Client{Timeout: 60 * time.Second, Transport: transport},
-			}, nil
-		}
-
-		// No proxy — use azuretls with Chrome TLS fingerprinting
+		// Use azuretls with Chrome TLS fingerprinting.
+		// If a proxy is set, route azuretls through it — this gives us
+		// residential IP + Chrome TLS fingerprint, which is what Zillow requires.
 		session := azuretls.NewSession()
-		session.SetTimeout(30 * time.Second)
+		session.SetTimeout(60 * time.Second)
 
 		if err := session.ApplyJa3(chromeJA3, azuretls.Chrome); err != nil {
 			return nil, fmt.Errorf("apply chrome JA3: %w", err)
@@ -88,6 +67,12 @@ func DefaultClientFactory() ClientFactory {
 
 		if err := session.ApplyHTTP2(chromeHTTP2); err != nil {
 			return nil, fmt.Errorf("apply chrome HTTP/2: %w", err)
+		}
+
+		if proxyURL != "" {
+			if err := session.SetProxy(proxyURL); err != nil {
+				return nil, fmt.Errorf("set proxy: %w", err)
+			}
 		}
 
 		session.OrderedHeaders = azuretls.OrderedHeaders{

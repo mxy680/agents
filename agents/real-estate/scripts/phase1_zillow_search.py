@@ -226,6 +226,33 @@ def search_borough(borough_key):
 def main():
     os.makedirs("/tmp/nyc_assemblage", exist_ok=True)
 
+    # Check if extension already scraped results (pre-populated by Chrome extension)
+    prescrape_path = "/tmp/nyc_assemblage/zillow_results.json"
+    if os.path.exists(prescrape_path):
+        try:
+            with open(prescrape_path) as f:
+                prescrape = json.load(f)
+            if isinstance(prescrape, list) and len(prescrape) > 0:
+                # Check if this is a fresh scrape (has _borough field from extension)
+                if prescrape[0].get("_borough"):
+                    print(f"\n=== Using pre-scraped results from Chrome extension ===", file=sys.stderr)
+                    print(f"  {len(prescrape)} listings found", file=sys.stderr)
+
+                    # Filter to qualifying home types
+                    qualifying = [p for p in prescrape if is_qualifying(p)]
+                    print(f"  {len(qualifying)} qualifying after filter", file=sys.stderr)
+
+                    # Save (overwrite with filtered version)
+                    output_path = "/tmp/nyc_assemblage/zillow_results.json"
+                    with open(output_path, "w") as f:
+                        json.dump(qualifying, f, indent=2)
+
+                    print(f"\n✓ Saved {len(qualifying)} qualifying listings from extension scrape", file=sys.stderr)
+                    print(json.dumps({"count": len(qualifying), "path": output_path, "source": "extension"}))
+                    return
+        except (json.JSONDecodeError, KeyError):
+            pass  # Fall through to CLI search
+
     all_properties = {}  # zpid -> prop (deduped across boroughs)
 
     for borough_key in ["Bronx", "Brooklyn", "Manhattan", "Queens"]:

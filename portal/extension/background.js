@@ -146,3 +146,171 @@ chrome.runtime.onInstalled.addListener(() => {
     syncCookies(domain);
   }
 });
+
+// ============================================================
+// Zillow Scraper — triggered by portal via external message
+// ============================================================
+
+const SCRAPE_DELAY_MS = 3000;
+const SCRAPE_PAGE_WAIT_MS = 6000;
+
+/**
+ * Content script function injected into Zillow pages to extract listings.
+ */
+function extractZillowListings() {
+  const el = document.getElementById("__NEXT_DATA__");
+  if (!el) return null;
+  try {
+    const data = JSON.parse(el.textContent);
+    const results =
+      data?.props?.pageProps?.searchPageState?.cat1?.searchResults
+        ?.listResults || [];
+    return results.map((r) => ({
+      zpid: r.zpid || r.id,
+      address: r.address || r.statusText,
+      price: r.unformattedPrice || r.price,
+      beds: r.beds,
+      baths: r.baths,
+      sqft: r.area,
+      homeType: r.homeType,
+      status: r.statusType || r.homeStatus,
+      zillowUrl: r.detailUrl
+        ? "https://www.zillow.com" + r.detailUrl
+        : undefined,
+      latitude: r.latLong?.latitude,
+      longitude: r.latLong?.longitude,
+      daysOnMarket: r.variableData?.text
+        ? parseInt(r.variableData.text)
+        : undefined,
+    }));
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Listen for messages from the portal to start a scrape job.
+ * The portal sends: { action: "start-scrape", zipCodes: [{borough, zip}] }
+ */
+chrome.runtime.onMessageExternal.addListener(
+  (message, sender, sendResponse) => {
+    if (message.action === "start-scrape" && message.zipCodes) {
+      console.log(
+        `[emdash] Starting scrape job: ${message.zipCodes.length} ZIP codes`
+      );
+      runScrape(message.zipCodes)
+        .then((result) => sendResponse(result))
+        .catch((err) => sendResponse({ ok: false, error: err.message }));
+      return true; // Keep message channel open for async response
+    }
+
+    if (message.action === "ping") {
+      sendResponse({ ok: true, version: "2.1.0" });
+      return;
+    }
+  }
+);
+
+/**
+ * Also listen for internal messages (from popup).
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "start-scrape" && message.zipCodes) {
+    runScrape(message.zipCodes)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true;
+  }
+});
+
+async function runScrape(zipCodes) {
+  const portalURL = await getPortalURL();
+
+  // Create a tab for scraping (inactive)
+  const tab = await chrome.tabs.create({
+    url: "https://www.zillow.com",
+    active: false,
+  });
+
+  // Wait for initial Zillow load (PerimeterX session init)
+  await new Promise((r) => setTimeout(r, 8000));
+
+  const allResults = {};
+  let processed = 0;
+
+  for (const { borough, zip } of zipCodes) {
+    processed++;
+
+    // Navigate the tab
+    await chrome.tabs.update(tab.id, {
+      url: `https://www.zillow.com/homes/${borough}-NY-${zip}_rb/`,
+    });
+
+    // Wait for page load
+    await new Promise((resolve) => {
+      function listener(tabId, info) {
+        if (tabId === tab.id && info.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          resolve();
+        }
+      }
+      chrome.tabs.onUpdated.addListener(listener);
+      setTimeout(() => {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }, 25000);
+    });
+
+    // Wait for JS rendering
+    await new Promise((r) => setTimeout(r, SCRAPE_PAGE_WAIT_MS));
+
+    // Extract listings
+    try {
+      const [result] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: extractZillowListings,
+      });
+
+      const listings = result?.result;
+      if (listings && listings.length > 0) {
+        for (const l of listings) {
+          if (l.zpid) {
+            l._zip = zip;
+            l._borough = borough;
+            allResults[l.zpid] = l;
+          }
+        }
+        console.log(`[emdash] ${processed}/${zipCodes.length} ${borough} ${zip}: ${listings.length} results`);
+      } else {
+        console.log(`[emdash] ${processed}/${zipCodes.length} ${borough} ${zip}: 0 results`);
+      }
+    } catch (e) {
+      console.error(`[emdash] ${zip} script error:`, e);
+    }
+
+    // Rate limit
+    await new Promise((r) => setTimeout(r, SCRAPE_DELAY_MS));
+  }
+
+  // Close scraping tab
+  try {
+    await chrome.tabs.remove(tab.id);
+  } catch {}
+
+  // Post results to portal
+  const listings = Object.values(allResults);
+  try {
+    await fetch(`${portalURL}/api/integrations/zillow/scrape-results`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listings }),
+      credentials: "include",
+    });
+  } catch (e) {
+    console.error("[emdash] Failed to post results:", e);
+  }
+
+  // Also save to a file the pipeline can read
+  console.log(`[emdash] Scrape complete: ${listings.length} unique listings`);
+  return { ok: true, count: listings.length, listings };
+}

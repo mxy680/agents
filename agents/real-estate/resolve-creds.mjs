@@ -92,7 +92,8 @@ for (const row of integrations ?? []) {
 // (from Doppler) and not already emitted from creds.
 if (process.env.SCRAPERAPI_KEY && !process.env.ZILLOW_PROXY_URL) {
   const key = process.env.SCRAPERAPI_KEY
-  const proxyUrl = `http://scraperapi:${key}@proxy-server.scraperapi.com:8001`
+  // ultra_premium=true required for Zillow (PerimeterX-protected site)
+  const proxyUrl = `http://scraperapi.ultra_premium=true:${key}@proxy-server.scraperapi.com:8001`
   console.log(`export ZILLOW_PROXY_URL='${proxyUrl}'`)
   emittedCount++
 }
