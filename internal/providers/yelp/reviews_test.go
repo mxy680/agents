@@ -93,7 +93,7 @@ func TestReviewsAlias(t *testing.T) {
 
 func TestReviewsEmptyList(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/businesses/empty-biz/reviews", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/biz/empty-biz/review_feed", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		resp := map[string]any{
 			"total":   0,
