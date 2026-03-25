@@ -298,7 +298,33 @@ Returns: total originations, dollar volume, avg loan size, top tracts. A spike i
 
 ---
 
-## Tool 10: NYSCEF CLI — Court Records (direct lookup)
+## Tool 10: Google Trends CLI — Neighborhood Momentum
+
+Rising search interest for a neighborhood predicts price appreciation 12-18 months out.
+
+**Get momentum score (key metric):**
+```bash
+integrations trends interest momentum --keyword="mott haven apartments" --json
+```
+Returns: `recent_avg`, `earlier_avg`, `momentum_pct`, `trend` (rising/stable/declining). Compares last 3 months vs first 3 months of a 12-month window.
+
+**Compare neighborhoods:**
+```bash
+integrations trends interest compare --keywords="mott haven,east new york,bed stuy" --json
+```
+
+**Raw interest over time:**
+```bash
+integrations trends interest search --keyword="mott haven" --time="today 12-m" --json
+```
+
+### Signal interpretation
+- Momentum > +15% = "rising" → neighborhood is gaining attention before prices move (+3 points)
+- Momentum < -15% = "declining" → skip or discount other signals
+
+---
+
+## Tool 11: NYSCEF CLI — Court Records (direct lookup)
 
 Look up a specific court case by docket ID (no CAPTCHA required):
 ```bash
@@ -309,7 +335,7 @@ Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party n
 
 ---
 
-## Tool 11: StreetEasy CLI — Price History + Listing Cycles
+## Tool 12: StreetEasy CLI — Price History + Listing Cycles
 
 Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
 
@@ -341,7 +367,7 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 12: Interactive Dashboard (Apache ECharts HTML)
+## Tool 13: Interactive Dashboard (Apache ECharts HTML)
 
 Create a self-contained HTML file with embedded Apache ECharts visualizations. Upload to Google Drive. Use the CDN: `<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>`
 
@@ -442,7 +468,7 @@ Upload: `integrations drive files upload --path=/tmp/dashboard.html --name="NYC 
 
 ---
 
-## Tool 13: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 14: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -453,7 +479,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 14: Professional PDF Report (via LaTeX)
+## Tool 15: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -464,7 +490,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 15: Google Drive CLI
+## Tool 16: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -504,6 +530,7 @@ Each qualifying R7+ lot gets a composite score:
 | Active ULURP rezoning nearby (upzone) | +3 | City Planning |
 | Citi Bike 5+ stations within 1km | +2 | Citi Bike |
 | HMDA investor loan spike in census tract | +2 | HMDA |
+| Google Trends momentum > +15% (rising) | +3 | Trends |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -537,6 +564,7 @@ Each qualifying R7+ lot gets a composite score:
    - Recent ACRIS deed transfers to LLCs on same block?
    - DOB permits on same block?
    - Active ULURP rezoning applications in the area?
+   - Google Trends: neighborhood momentum (rising/stable/declining)?
 7. Calculate composite score for each property
 8. **Verify data:** Check for duplicates, mismatched URLs, inconsistent scoring. Fix issues.
 9. Create professional XLSX with all properties, signals, and scores. Upload to Drive with --convert.
