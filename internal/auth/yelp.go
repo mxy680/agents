@@ -11,33 +11,38 @@ const (
 
 // YelpEnvConfig holds the environment variable names for Yelp session auth.
 var YelpEnvConfig = struct {
-	BSE       string
-	ZSS       string
-	CSRFToken string
-	UserAgent string
+	AllCookies string
+	BSE        string
+	ZSS        string
+	CSRFToken  string
+	UserAgent  string
 }{
-	BSE:       "YELP_BSE",
-	ZSS:       "YELP_ZSS",
-	CSRFToken: "YELP_CSRF_TOKEN",
-	UserAgent: "YELP_USER_AGENT",
+	AllCookies: "YELP_COOKIES",
+	BSE:        "YELP_BSE",
+	ZSS:        "YELP_ZSS",
+	CSRFToken:  "YELP_CSRF_TOKEN",
+	UserAgent:  "YELP_USER_AGENT",
 }
 
 // YelpSession holds the cookie-based credentials required to authenticate
 // requests to the Yelp web API.
 type YelpSession struct {
-	BSE       string // bse cookie (primary session token)
-	ZSS       string // zss cookie (secondary session token)
-	CSRFToken string // csrftok cookie
-	UserAgent string
+	AllCookies string // all cookies as semicolon-separated string (includes DataDome etc.)
+	BSE        string // bse cookie (primary session token)
+	ZSS        string // zss cookie (secondary session token)
+	CSRFToken  string // csrftok cookie
+	UserAgent  string
 }
 
 // NewYelpSession reads Yelp session credentials from environment variables.
-// Required: YELP_BSE.
+// Required: YELP_COOKIES or YELP_BSE.
 // Optional: YELP_ZSS, YELP_CSRF_TOKEN, YELP_USER_AGENT.
 func NewYelpSession() (*YelpSession, error) {
-	bse, err := readEnv(YelpEnvConfig.BSE)
-	if err != nil {
-		return nil, err
+	allCookies := os.Getenv(YelpEnvConfig.AllCookies)
+	bse := os.Getenv(YelpEnvConfig.BSE)
+
+	if allCookies == "" && bse == "" {
+		return nil, fmt.Errorf("required environment variable %s or %s is not set", YelpEnvConfig.AllCookies, YelpEnvConfig.BSE)
 	}
 
 	zss := os.Getenv(YelpEnvConfig.ZSS)
@@ -49,15 +54,21 @@ func NewYelpSession() (*YelpSession, error) {
 	}
 
 	return &YelpSession{
-		BSE:       bse,
-		ZSS:       zss,
-		CSRFToken: csrfToken,
-		UserAgent: userAgent,
+		AllCookies: allCookies,
+		BSE:        bse,
+		ZSS:        zss,
+		CSRFToken:  csrfToken,
+		UserAgent:  userAgent,
 	}, nil
 }
 
 // CookieString builds the Cookie header value from the session fields.
+// Prefers AllCookies (full browser cookie string) when available,
+// falls back to individual cookies.
 func (s *YelpSession) CookieString() string {
+	if s.AllCookies != "" {
+		return s.AllCookies
+	}
 	cookie := "bse=" + s.BSE
 	if s.ZSS != "" {
 		cookie += "; zss=" + s.ZSS

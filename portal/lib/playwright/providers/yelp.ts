@@ -28,11 +28,19 @@ export const yelpConfig: ProviderConfig = {
   },
 };
 
-/** Map captured cookies to integration credential keys */
+/** Map captured cookies to integration credential keys.
+ * Stores ALL cookies as a semicolon-separated string (like Zillow/StreetEasy)
+ * because Yelp's DataDome CAPTCHA protection requires the datadome cookie
+ * and other tracking cookies to be present.
+ */
 export function mapYelpCookies(
   cookies: Record<string, string>
 ): Record<string, string> {
+  const allPairs = Object.entries(cookies)
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
   return {
+    all_cookies: allPairs,
     bse: cookies.bse || "",
     zss: cookies.zss || "",
     csrftok: cookies.csrftok || "",

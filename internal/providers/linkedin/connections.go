@@ -28,7 +28,6 @@ func newConnectionsCmd(factory ClientFactory) *cobra.Command {
 	}
 	connectionsCmd.AddCommand(newConnectionsListCmd(factory))
 	connectionsCmd.AddCommand(newConnectionsGetCmd(factory))
-	connectionsCmd.AddCommand(newConnectionsRemoveCmd(factory))
 	return connectionsCmd
 }
 
@@ -55,20 +54,6 @@ func newConnectionsGetCmd(factory ClientFactory) *cobra.Command {
 		RunE:  makeRunConnectionsGet(factory),
 	}
 	cmd.Flags().String("urn", "", "Connection member URN (e.g. urn:li:fs_miniProfile:...)")
-	return cmd
-}
-
-// newConnectionsRemoveCmd builds the "connections remove" command.
-func newConnectionsRemoveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "remove",
-		Short: "Remove a LinkedIn connection",
-		Long:  "Remove a first-degree LinkedIn connection by their member URN.",
-		RunE:  makeRunConnectionsRemove(factory),
-	}
-	cmd.Flags().String("urn", "", "Connection member URN (e.g. urn:li:fs_miniProfile:...)")
-	cmd.Flags().Bool("confirm", false, "Confirm removal (required for destructive action)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without making changes")
 	return cmd
 }
 
@@ -178,49 +163,6 @@ func makeRunConnectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 			Location:  entity.GeoLocationName,
 		}
 		return printProfileDetail(cmd, detail)
-	}
-}
-
-func makeRunConnectionsRemove(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		urn, _ := cmd.Flags().GetString("urn")
-		if urn == "" {
-			return fmt.Errorf("--urn is required")
-		}
-
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		if dryRun {
-			return dryRunResult(cmd, fmt.Sprintf("Remove connection: %s", urn), map[string]string{"urn": urn})
-		}
-
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := map[string]any{
-			"action":    "delete",
-			"memberUrn": urn,
-		}
-		resp, err := client.PostJSON(ctx, "/voyager/api/relationships/dash/connections", body)
-		if err != nil {
-			return fmt.Errorf("removing connection %s: %w", urn, err)
-		}
-
-		if err := client.DecodeJSON(resp, &struct{}{}); err != nil {
-			return fmt.Errorf("removing connection: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{"status": "removed", "urn": urn})
-		}
-		fmt.Printf("Connection removed: %s\n", urn)
-		return nil
 	}
 }
 
