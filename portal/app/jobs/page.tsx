@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { AppSidebar } from "@/components/app-sidebar"
 
 import {
@@ -15,9 +16,21 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import { IconCalendarEvent } from "@tabler/icons-react"
 import { getNextRun, toHumanReadable } from "@/lib/cron"
 import { JobCard } from "./job-card"
+import { RunScanButton } from "./run-scan-button"
+
+interface LocalJobRun {
+  id: string
+  agent_name: string
+  job_slug: string
+  status: string
+  started_at: string | null
+  completed_at: string | null
+  created_at: string
+}
 
 interface AgentTemplate {
   id: string
@@ -46,6 +59,75 @@ interface EnrichedJob {
   agentName: string
   lastRun: JobRun | null
   nextRun: Date
+}
+
+function formatDateShort(iso: string | null): string {
+  if (!iso) return "—"
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
+function formatDuration(startedAt: string | null, completedAt: string | null): string {
+  if (!startedAt || !completedAt) return "—"
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
+  const seconds = Math.round(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remaining = seconds % 60
+  return `${minutes}m ${remaining}s`
+}
+
+function LocalRunStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case "completed":
+      return (
+        <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+          Completed
+        </Badge>
+      )
+    case "failed":
+      return (
+        <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
+          Failed
+        </Badge>
+      )
+    case "running":
+      return (
+        <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+          Running
+        </Badge>
+      )
+    case "pending":
+    default:
+      return (
+        <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
+          Pending
+        </Badge>
+      )
+  }
+}
+
+function LocalRunRow({ run }: { run: LocalJobRun }) {
+  return (
+    <Link
+      href={`/jobs/local/${run.id}`}
+      className="flex items-center justify-between py-2.5 px-1 hover:bg-muted/40 rounded transition-colors text-sm"
+    >
+      <div className="flex items-center gap-3">
+        <LocalRunStatusBadge status={run.status} />
+        <span className="text-muted-foreground">
+          {formatDateShort(run.started_at ?? run.created_at)}
+        </span>
+      </div>
+      <span className="text-muted-foreground text-xs">
+        {formatDuration(run.started_at, run.completed_at)}
+      </span>
+    </Link>
+  )
 }
 
 export default async function JobsPage() {
@@ -90,6 +172,16 @@ export default async function JobsPage() {
     })
   )
 
+  // Fetch recent local job runs (real-estate pipeline)
+  const { data: localRuns } = await admin
+    .from("local_job_runs")
+    .select("id, agent_name, job_slug, status, started_at, completed_at, created_at")
+    .eq("agent_name", "real-estate")
+    .order("created_at", { ascending: false })
+    .limit(20)
+
+  const recentLocalRuns = (localRuns ?? []) as LocalJobRun[]
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -119,6 +211,30 @@ export default async function JobsPage() {
             <p className="text-sm text-muted-foreground">
               Scheduled tasks that run automatically on your connected integrations.
             </p>
+          </div>
+
+          {/* NYC Assemblage Scan — manual trigger */}
+          <div className="flex flex-col gap-4 border border-border rounded-lg p-4">
+            <div>
+              <h2 className="text-base font-semibold">NYC Assemblage Scan</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Run the full NYC assemblage intelligence pipeline locally with live log streaming.
+              </p>
+            </div>
+            <RunScanButton />
+
+            {recentLocalRuns.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Recent Runs
+                </h3>
+                <div className="flex flex-col divide-y divide-border">
+                  {recentLocalRuns.map((run) => (
+                    <LocalRunRow key={run.id} run={run} />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {enrichedJobs.length === 0 ? (
