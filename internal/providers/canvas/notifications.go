@@ -18,7 +18,6 @@ func newNotificationsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newNotificationsListCmd(factory))
 	cmd.AddCommand(newNotificationsPreferencesCmd(factory))
-	cmd.AddCommand(newNotificationsUpdatePreferenceCmd(factory))
 
 	return cmd
 }
@@ -113,69 +112,3 @@ func newNotificationsPreferencesCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func newNotificationsUpdatePreferenceCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update-preference",
-		Short: "Update a notification preference category",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			category, _ := cmd.Flags().GetString("category")
-			if category == "" {
-				return fmt.Errorf("--category is required")
-			}
-			frequency, _ := cmd.Flags().GetString("frequency")
-			if frequency == "" {
-				return fmt.Errorf("--frequency is required")
-			}
-
-			validFrequencies := map[string]bool{
-				"immediately": true,
-				"daily":       true,
-				"weekly":      true,
-				"never":       true,
-			}
-			if !validFrequencies[frequency] {
-				return fmt.Errorf("--frequency must be one of: immediately, daily, weekly, never")
-			}
-
-			body := map[string]any{
-				"notification_preferences": map[string]any{
-					"frequency": frequency,
-				},
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update notification preference %q to %s", category, frequency), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			path := "/users/self/communication_channels/email/self/notification_preferences/" + category
-			data, err := client.Put(ctx, path, body)
-			if err != nil {
-				return err
-			}
-
-			var result map[string]any
-			if err := json.Unmarshal(data, &result); err != nil {
-				return fmt.Errorf("parse update response: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(result)
-			}
-			fmt.Printf("Notification preference %q updated to %s.\n", category, frequency)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("category", "", "Notification category name (required)")
-	cmd.Flags().String("frequency", "", "Frequency: immediately, daily, weekly, or never (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}

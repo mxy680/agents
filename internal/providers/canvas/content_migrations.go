@@ -20,7 +20,6 @@ func newContentMigrationsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newContentMigrationsListCmd(factory))
 	cmd.AddCommand(newContentMigrationsGetCmd(factory))
-	cmd.AddCommand(newContentMigrationsCreateCmd(factory))
 	cmd.AddCommand(newContentMigrationsProgressCmd(factory))
 	cmd.AddCommand(newContentMigrationsContentListCmd(factory))
 
@@ -131,70 +130,6 @@ func newContentMigrationsGetCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("migration-id", "", "Canvas content migration ID (required)")
-	return cmd
-}
-
-func newContentMigrationsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new content migration for a course",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			migrationType, _ := cmd.Flags().GetString("type")
-			if migrationType == "" {
-				return fmt.Errorf("--type is required")
-			}
-
-			sourceCourseID, _ := cmd.Flags().GetString("source-course-id")
-
-			body := map[string]any{
-				"migration_type": migrationType,
-			}
-			if sourceCourseID != "" {
-				body["settings"] = map[string]any{
-					"source_course_id": sourceCourseID,
-				}
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create content migration type %q in course %s", migrationType, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/content_migrations", body)
-			if err != nil {
-				return err
-			}
-
-			var migration map[string]any
-			if err := json.Unmarshal(data, &migration); err != nil {
-				return fmt.Errorf("parse created content migration: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(migration)
-			}
-			id, _ := migration["id"]
-			workflowState, _ := migration["workflow_state"]
-			fmt.Printf("Content migration created: id=%v  state=%v\n", id, workflowState)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("type", "", "Migration type: course_copy_importer, canvas_cartridge_importer, or zip_file_importer (required)")
-	cmd.Flags().String("source-course-id", "", "Source course ID (for course_copy_importer)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }
 
