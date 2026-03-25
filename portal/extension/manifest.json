@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Emdash Cookie Copier",
+  "description": "Copy session cookies for the current site to clipboard",
+  "version": "1.0.0",
+  "permissions": ["cookies", "activeTab", "clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Emdash Cookie Copier"
+  }
+}

@@ -21,6 +21,7 @@ import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
+import { CookiePasteDialog } from "@/components/cookie-paste-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -121,7 +122,7 @@ const providers = [
     name: "Yelp",
     description: "Businesses, Reviews, Collections, Reservations",
     icon: IconStar,
-    connectType: "playwright" as const,
+    connectType: "cookie-paste" as const,
   },
 ]
 
@@ -245,6 +246,16 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
                       </CookieCaptureButton>
+                    ) : provider.connectType === "cookie-paste" ? (
+                      <CookiePasteDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Refresh cookies" : "Paste cookies"}
+                        </Button>
+                      </CookiePasteDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}
