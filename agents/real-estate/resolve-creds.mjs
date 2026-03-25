@@ -88,6 +88,15 @@ for (const row of integrations ?? []) {
   }
 }
 
+// Pass through ScraperAPI key as ZILLOW_PROXY_URL if set in environment
+// (from Doppler) and not already emitted from creds.
+if (process.env.SCRAPERAPI_KEY && !process.env.ZILLOW_PROXY_URL) {
+  const key = process.env.SCRAPERAPI_KEY
+  const proxyUrl = `http://scraperapi:${key}@proxy-server.scraperapi.com:8001`
+  console.log(`export ZILLOW_PROXY_URL='${proxyUrl}'`)
+  emittedCount++
+}
+
 // #2: Warn and exit non-zero if no credentials were resolved
 if (emittedCount === 0) {
   process.stderr.write(`ERROR: No credentials resolved from Supabase. Check that user_integrations rows exist with status=active.\n`)
