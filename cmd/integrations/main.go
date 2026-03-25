@@ -20,6 +20,7 @@ import (
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
 	"github.com/emdash-projects/agents/internal/providers/streeteasy"
+	"github.com/emdash-projects/agents/internal/providers/yelp"
 	"github.com/emdash-projects/agents/internal/providers/zillow"
 )
 
@@ -66,6 +67,9 @@ func main() {
 
 	docsProvider := docs.New()
 	docsProvider.RegisterCommands(cli.RootCmd())
+
+	yelpProvider := yelp.New()
+	yelpProvider.RegisterCommands(cli.RootCmd())
 
 	zillowProvider := zillow.New()
 	zillowProvider.RegisterCommands(cli.RootCmd())
