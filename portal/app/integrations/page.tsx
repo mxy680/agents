@@ -200,6 +200,8 @@ export default async function IntegrationsPage() {
                             id={account.id}
                             label={account.label}
                             status={account.status}
+                            provider={provider.id}
+                            connectType={provider.connectType}
                           />
                         ))}
                       </div>
