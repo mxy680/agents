@@ -7,7 +7,15 @@
  * Usage: eval "$(node resolve-creds.mjs)"
  */
 
-import { createClient } from "@supabase/supabase-js"
+// Resolve @supabase/supabase-js from portal/node_modules since this script
+// runs outside of a Node project. ESM ignores NODE_PATH, so we compute
+// the absolute path relative to this file's location.
+import { fileURLToPath } from "url"
+import { dirname, join } from "path"
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { createClient } = await import(
+  join(__dirname, "..", "..", "portal", "node_modules", "@supabase", "supabase-js", "dist", "index.mjs")
+)
 
 // Fail fast if required env vars are missing
 for (const key of ["ENCRYPTION_MASTER_KEY", "NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"]) {
