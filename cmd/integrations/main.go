@@ -20,7 +20,9 @@ import (
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
 	"github.com/emdash-projects/agents/internal/providers/citibike"
 	"github.com/emdash-projects/agents/internal/providers/hmda"
+	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
+	"github.com/emdash-projects/agents/internal/providers/obituaries"
 	"github.com/emdash-projects/agents/internal/providers/trends"
 	"github.com/emdash-projects/agents/internal/providers/streeteasy"
 	"github.com/emdash-projects/agents/internal/providers/zillow"
@@ -87,6 +89,12 @@ func main() {
 
 	trendsProvider := trends.New()
 	trendsProvider.RegisterCommands(cli.RootCmd())
+
+	obituariesProvider := obituaries.New()
+	obituariesProvider.RegisterCommands(cli.RootCmd())
+
+	nyslaProvider := nysla.New()
+	nyslaProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

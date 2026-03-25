@@ -324,7 +324,55 @@ integrations trends interest search --keyword="mott haven" --time="today 12-m" -
 
 ---
 
-## Tool 11: NYSCEF CLI — Court Records (direct lookup)
+## Tool 11: Obituaries CLI — Estate Property Detection
+
+Cross-reference deceased names with ACRIS property ownership to find estate properties before they hit the market.
+
+**Extract names for ACRIS cross-ref (key command):**
+```bash
+integrations obituaries names --city=Bronx --date-range=Last30Days --json
+```
+Returns: `[{first, last, full, publish_date}]`. Pipe `last` names into ACRIS party search to find properties.
+
+**Full obituary search:**
+```bash
+integrations obituaries search --city=Bronx --state="New York" --date-range=Last30Days --limit=50 --json
+```
+
+### Workflow
+1. Run `obituaries names --city=<borough>` for each target borough
+2. For each last name, search ACRIS parties: `curl ... name like '%LASTNAME%'`
+3. If ACRIS match found with "ESTATE OF" or "EXECUTOR" → property is in probate → strong acquisition signal
+
+---
+
+## Tool 12: NY SLA CLI — Liquor License Gentrification Signal
+
+New bar/restaurant licenses precede residential price appreciation by 2-3 years.
+
+**Count new licenses (key command):**
+```bash
+integrations nysla licenses count --borough=bronx --since=2025-09-01 --json
+```
+Returns: `{new_licenses, breakdown: [{type, count}]}`. A spike vs prior period = gentrification signal.
+
+**Search licenses:**
+```bash
+integrations nysla licenses search --borough=bronx --zip=10451 --since=2025-01-01 --json
+```
+
+**License density by ZIP:**
+```bash
+integrations nysla licenses density --borough=bronx --zip=10451 --json
+```
+
+### Signal interpretation
+- 5+ new restaurant/bar licenses in a ZIP in 6 months = strong gentrification signal (+3 points)
+- High existing density = established commercial area (neutral — already priced in)
+
+---
+
+## Tool 13: NYSCEF CLI — Court Records (direct lookup)
 
 Look up a specific court case by docket ID (no CAPTCHA required):
 ```bash
@@ -335,7 +383,7 @@ Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party n
 
 ---
 
-## Tool 12: StreetEasy CLI — Price History + Listing Cycles
+## Tool 14: StreetEasy CLI — Price History + Listing Cycles
 
 Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
 
@@ -367,7 +415,7 @@ Returns: array of `{date, event, price}` entries showing every list, delist, rel
 
 ---
 
-## Tool 13: Interactive Dashboard (Apache ECharts HTML)
+## Tool 15: Interactive Dashboard (Apache ECharts HTML)
 
 Create a self-contained HTML file with embedded Apache ECharts visualizations. Upload to Google Drive. Use the CDN: `<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>`
 
@@ -468,7 +516,7 @@ Upload: `integrations drive files upload --path=/tmp/dashboard.html --name="NYC 
 
 ---
 
-## Tool 14: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 16: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -479,7 +527,7 @@ Use openpyxl with: dark blue headers, color-coded potential scores (green=High, 
 
 ---
 
-## Tool 15: Professional PDF Report (via LaTeX)
+## Tool 17: Professional PDF Report (via LaTeX)
 
 Write a .tex file, compile with `pdflatex -interaction=nonstopmode`, upload to Drive:
 ```bash
@@ -490,7 +538,7 @@ Use booktabs tables, navy section headers, fancyhdr, hyperlinked URLs. Escape `$
 
 ---
 
-## Tool 16: Google Drive CLI
+## Tool 18: Google Drive CLI
 
 ```bash
 integrations drive files upload --path=/tmp/file --name="Name" [--convert] --json
@@ -531,6 +579,8 @@ Each qualifying R7+ lot gets a composite score:
 | Citi Bike 5+ stations within 1km | +2 | Citi Bike |
 | HMDA investor loan spike in census tract | +2 | HMDA |
 | Google Trends momentum > +15% (rising) | +3 | Trends |
+| Obituary name matches ACRIS property owner | +5 | Obituaries + ACRIS |
+| 5+ new liquor licenses in ZIP in 6 months | +3 | NY SLA |
 
 **Priority tiers:**
 - **20+** = Immediate outreach (multiple strong signals converging)
@@ -565,6 +615,8 @@ Each qualifying R7+ lot gets a composite score:
    - DOB permits on same block?
    - Active ULURP rezoning applications in the area?
    - Google Trends: neighborhood momentum (rising/stable/declining)?
+   - NY SLA: new liquor license count in ZIP (gentrification signal)
+   - Obituaries: cross-ref recent deaths with ACRIS property ownership
 7. Calculate composite score for each property
 8. **Verify data:** Check for duplicates, mismatched URLs, inconsistent scoring. Fix issues.
 9. Create professional XLSX with all properties, signals, and scores. Upload to Drive with --convert.
