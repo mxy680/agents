@@ -78,11 +78,13 @@ export async function POST(request: NextRequest) {
   const wrapperScript = `/tmp/job_wrapper_${runId}.sh`
 
   // Escape runId for use in the heredoc (it's a UUID so alphanumeric + hyphens only)
+  const portalNodeModules = path.join(REPO_ROOT, "portal", "node_modules")
   const wrapperContents = `#!/bin/bash
 set -uo pipefail
 CREDS_FILE="${credsFile}"
 LOG_FILE="${logFile}"
 RUN_ID="${runId}"
+export NODE_PATH="${portalNodeModules}:\${NODE_PATH:-}"
 
 # Always clean up creds file on exit
 trap 'rm -f "$CREDS_FILE"' EXIT
