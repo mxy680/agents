@@ -10,6 +10,7 @@ import (
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 	api "google.golang.org/api/drive/v3"
+	"google.golang.org/api/googleapi"
 )
 
 func newFilesListCmd(factory ServiceFactory) *cobra.Command {
@@ -303,7 +304,19 @@ func makeRunFilesUpload(factory ServiceFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		createCall := svc.Files.Create(fileMeta).Media(f).SupportsAllDrives(true)
+		var mediaOpts []googleapi.MediaOption
+		if convert {
+			// Set source content type so Drive knows what to convert FROM
+			switch {
+			case strings.HasSuffix(strings.ToLower(path), ".xlsx"):
+				mediaOpts = append(mediaOpts, googleapi.ContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+			case strings.HasSuffix(strings.ToLower(path), ".csv"):
+				mediaOpts = append(mediaOpts, googleapi.ContentType("text/csv"))
+			case strings.HasSuffix(strings.ToLower(path), ".docx"):
+				mediaOpts = append(mediaOpts, googleapi.ContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+			}
+		}
+		createCall := svc.Files.Create(fileMeta).Media(f, mediaOpts...).SupportsAllDrives(true)
 
 		created, err := createCall.Do()
 		if err != nil {

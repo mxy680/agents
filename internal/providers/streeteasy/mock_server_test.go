@@ -52,36 +52,126 @@ func captureStdout(t *testing.T, f func()) string {
 	return string(buf[:n])
 }
 
-// buildListingsPage builds a mock __NEXT_DATA__ page response containing listings.
+// buildListingsPage builds a mock JSON-LD page response containing listings.
+// Each listing map should have keys: streetAddress, addressLocality, addressRegion,
+// price (string like "$1,500,000"), url (optional), and type (optional, defaults to "ApartmentComplex").
 func buildListingsPage(listings []map[string]any) []byte {
-	nextData := map[string]any{
-		"props": map[string]any{
-			"pageProps": map[string]any{
-				"listings": listings,
-			},
-		},
+	var graphItems []map[string]any
+	for _, l := range listings {
+		itemType := "ApartmentComplex"
+		if t, ok := l["type"].(string); ok && t != "" {
+			itemType = t
+		}
+		item := map[string]any{
+			"@type": itemType,
+		}
+		// Build address
+		addr := map[string]any{
+			"@type": "PostalAddress",
+		}
+		if v, ok := l["streetAddress"]; ok {
+			addr["streetAddress"] = v
+		}
+		if v, ok := l["addressLocality"]; ok {
+			addr["addressLocality"] = v
+		}
+		if v, ok := l["addressRegion"]; ok {
+			addr["addressRegion"] = v
+		}
+		if v, ok := l["postalCode"]; ok {
+			addr["postalCode"] = v
+		}
+		// Allow a flat "address" string for backward-compat in tests.
+		if flatAddr, ok := l["address"].(string); ok && flatAddr != "" {
+			// Store it in the item directly so extractListingSummary can find it,
+			// but for JSON-LD we must parse it into components. For test simplicity
+			// we set streetAddress to the full flat string.
+			addr["streetAddress"] = flatAddr
+		}
+		item["address"] = addr
+
+		// Build additionalProperty for price.
+		if price, ok := l["price"]; ok {
+			var priceStr string
+			switch p := price.(type) {
+			case string:
+				priceStr = p
+			case float64:
+				// Format as "$X,XXX,XXX" — use json encoding for simplicity.
+				priceStr = formatPriceString(int64(p))
+			case int:
+				priceStr = formatPriceString(int64(p))
+			case int64:
+				priceStr = formatPriceString(p)
+			}
+			if priceStr != "" {
+				item["additionalProperty"] = map[string]any{
+					"@type": "PropertyValue",
+					"value": priceStr,
+				}
+			}
+		}
+
+		// URL
+		if u, ok := l["url"].(string); ok && u != "" {
+			item["url"] = u
+		}
+
+		graphItems = append(graphItems, item)
 	}
-	nextDataJSON, _ := json.Marshal(nextData)
+
+	graph := map[string]any{
+		"@context": "http://schema.org",
+		"@graph":   graphItems,
+	}
+	if graphItems == nil {
+		graph["@graph"] = []map[string]any{}
+	}
+	graphJSON, _ := json.Marshal(graph)
 	page := `<!DOCTYPE html><html><head></head><body>` +
-		`<script id="__NEXT_DATA__" type="application/json">` +
-		string(nextDataJSON) +
+		`<script type="application/ld+json">` +
+		string(graphJSON) +
 		`</script></body></html>`
 	return []byte(page)
 }
 
-// buildListingDetailPage builds a mock listing detail page with price history.
+// formatPriceString formats an int64 price as "$X,XXX,XXX".
+func formatPriceString(price int64) string {
+	if price == 0 {
+		return ""
+	}
+	s := formatPrice(price)
+	return s
+}
+
+// buildListingDetailPage builds a mock listing detail page.
+// Price history is not available in JSON-LD, so this returns a minimal page.
+// The history command will return an empty array (parsePriceHistory always returns empty).
 func buildListingDetailPage(priceHistory []map[string]any) []byte {
-	nextData := map[string]any{
-		"props": map[string]any{
-			"pageProps": map[string]any{
-				"priceHistory": priceHistory,
+	// Build a minimal JSON-LD page — price history is not in JSON-LD.
+	graph := map[string]any{
+		"@context": "http://schema.org",
+		"@graph": []map[string]any{
+			{
+				"@type": "ApartmentComplex",
+				"address": map[string]any{
+					"@type":         "PostalAddress",
+					"streetAddress": "100 Riverside Blvd",
+					"addressLocality": "New York",
+					"addressRegion": "NY",
+				},
+				"additionalProperty": map[string]any{
+					"@type": "PropertyValue",
+					"value": "$2,500,000",
+				},
+				"url": "/nyc/real_estate/12345678",
 			},
 		},
 	}
-	nextDataJSON, _ := json.Marshal(nextData)
+	graphJSON, _ := json.Marshal(graph)
 	page := `<!DOCTYPE html><html><head></head><body>` +
-		`<script id="__NEXT_DATA__" type="application/json">` +
-		string(nextDataJSON) +
+		`<script type="application/ld+json">` +
+		string(graphJSON) +
 		`</script></body></html>`
 	return []byte(page)
 }
@@ -100,44 +190,35 @@ func newFullMockServer(t *testing.T) *httptest.Server {
 func withSearchMock(mux *http.ServeMux) {
 	listings := []map[string]any{
 		{
-			"id":           "12345678",
-			"address":      "100 Riverside Blvd, New York, NY 10069",
-			"price":        2500000,
-			"bedrooms":     3,
-			"bathrooms":    2.5,
-			"sqft":         1800,
-			"daysOnMarket": 14,
-			"status":       "for_sale",
-			"url":          "/nyc/real_estate/12345678",
+			"streetAddress":   "100 Riverside Blvd",
+			"addressLocality": "New York",
+			"addressRegion":   "NY",
+			"price":           float64(2500000),
+			"url":             "/nyc/real_estate/12345678",
 		},
 		{
-			"id":           "87654321",
-			"address":      "200 Central Park West, New York, NY 10024",
-			"price":        4750000,
-			"bedrooms":     4,
-			"bathrooms":    3.0,
-			"sqft":         2400,
-			"daysOnMarket": 7,
-			"status":       "for_sale",
-			"url":          "/nyc/real_estate/87654321",
+			"streetAddress":   "200 Central Park West",
+			"addressLocality": "New York",
+			"addressRegion":   "NY",
+			"price":           float64(4750000),
+			"url":             "/nyc/real_estate/87654321",
 		},
 	}
 
-	// Match any /for-sale/* or /for-rent/* path that isn't a specific listing
+	// Match any /for-sale/* or /for-rent/* path that isn't a specific listing.
 	mux.HandleFunc("/for-sale/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(buildListingsPage(listings))
 	})
 	mux.HandleFunc("/for-rent/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		// Return empty listings for rent (different status)
 		rentListings := []map[string]any{
 			{
-				"id":      "11111111",
-				"address": "300 West 23rd St, New York, NY 10011",
-				"price":   4500,
-				"status":  "for_rent",
-				"url":     "/nyc/real_estate/11111111",
+				"streetAddress":   "300 West 23rd St",
+				"addressLocality": "New York",
+				"addressRegion":   "NY",
+				"price":           float64(4500),
+				"url":             "/nyc/real_estate/11111111",
 			},
 		}
 		w.Write(buildListingsPage(rentListings))
@@ -146,30 +227,12 @@ func withSearchMock(mux *http.ServeMux) {
 
 // withListingDetailMock adds a listing detail endpoint mock.
 func withListingDetailMock(mux *http.ServeMux) {
-	priceHistory := []map[string]any{
-		{
-			"date":  "2024-01-15",
-			"event": "Listed",
-			"price": 2750000,
-		},
-		{
-			"date":  "2024-03-01",
-			"event": "Price Change",
-			"price": 2600000,
-		},
-		{
-			"date":  "2024-06-10",
-			"event": "Price Change",
-			"price": 2500000,
-		},
-	}
-
 	mux.HandleFunc("/nyc/real_estate/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write(buildListingDetailPage(priceHistory))
+		w.Write(buildListingDetailPage(nil))
 	})
 	mux.HandleFunc("/building/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write(buildListingDetailPage(priceHistory))
+		w.Write(buildListingDetailPage(nil))
 	})
 }

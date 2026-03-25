@@ -3,4 +3,4 @@ jobs:
     display_name: Weekly NYC Assemblage Scan
     schedule: "0 9 * * 1"  # Every Monday at 9am ET
     prompt_file: weekly-scan.md
-    timeout_minutes: 60
+    timeout_minutes: 120

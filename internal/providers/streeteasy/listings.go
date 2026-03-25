@@ -11,11 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// nextDataRe matches the __NEXT_DATA__ JSON script tag embedded in StreetEasy pages.
-var nextDataRe = regexp.MustCompile(`<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)</script>`)
+// jsonLDRe matches the JSON-LD script tag embedded in StreetEasy pages.
+var jsonLDRe = regexp.MustCompile(`<script[^>]+type="application/ld\+json"[^>]*>([\s\S]*?)</script>`)
 
-// priceHistorySectionRe is used to locate the price history JSON block in page HTML.
-// StreetEasy embeds listing data in __NEXT_DATA__ as well.
+// priceRe matches price strings like "$445,000".
 var priceRe = regexp.MustCompile(`\$[\d,]+`)
 
 func newListingsCmd(factory ClientFactory) *cobra.Command {
@@ -58,8 +57,9 @@ func makeRunListingsSearch(factory ClientFactory) func(*cobra.Command, []string)
 		limit, _ := cmd.Flags().GetInt("limit")
 
 		// Build StreetEasy search URL.
-		// For-sale: /for-sale/{location}
-		// For-rent: /for-rent/{location}
+		// StreetEasy uses simple area slugs: bronx, brooklyn, manhattan, queens, nyc.
+		// For-sale: /for-sale/{area}
+		// For-rent: /for-rent/{area}
 		var pathPrefix string
 		switch status {
 		case "for_rent":
@@ -68,9 +68,8 @@ func makeRunListingsSearch(factory ClientFactory) func(*cobra.Command, []string)
 			pathPrefix = "/for-sale/"
 		}
 
-		// StreetEasy uses kebab-case URLs: "Bronx, NY 10452" → "bronx-ny-10452"
-		slug := locationToSlug(location)
-		reqURL := client.baseURL + pathPrefix + url.PathEscape(slug)
+		areaSlug := locationToSlug(location)
+		reqURL := client.baseURL + pathPrefix + url.PathEscape(areaSlug)
 
 		body, err := client.Get(ctx, reqURL)
 		if err != nil {
@@ -109,11 +108,11 @@ func makeRunListingsHistory(factory ClientFactory) func(*cobra.Command, []string
 		address, _ := cmd.Flags().GetString("address")
 
 		// Step 1: search for the listing by address to get its URL.
-		slug := locationToSlug(address)
-		searchURL := client.baseURL + "/for-sale/" + url.PathEscape(slug)
+		areaSlug := locationToSlug(address)
+		searchURL := client.baseURL + "/for-sale/" + url.PathEscape(areaSlug)
 		body, err := client.Get(ctx, searchURL)
 		if err != nil {
-			// Also try NYC-wide search as fallback
+			// Also try NYC-wide search as fallback.
 			searchURL = client.baseURL + "/for-sale/nyc?q=" + url.QueryEscape(address)
 			body, err = client.Get(ctx, searchURL)
 			if err != nil {
@@ -145,12 +144,24 @@ func makeRunListingsHistory(factory ClientFactory) func(*cobra.Command, []string
 	}
 }
 
-// locationToSlug converts a location string to a StreetEasy URL slug.
-// "Bronx, NY 10452" → "bronx-ny-10452"
+// locationToSlug converts a location string to a StreetEasy area slug.
+// StreetEasy uses simple area names: bronx, brooklyn, manhattan, queens, nyc.
+// "Bronx, NY 10452" → "bronx"
+// "Brooklyn" → "brooklyn"
+// "NYC" → "nyc"
 // "Upper West Side" → "upper-west-side"
 func locationToSlug(location string) string {
-	// Lowercase, replace commas and spaces with hyphens, collapse multiple hyphens.
-	s := strings.ToLower(location)
+	s := strings.ToLower(strings.TrimSpace(location))
+
+	// Check for known borough/area names first (strip zip codes and state suffixes).
+	knownAreas := []string{"bronx", "brooklyn", "manhattan", "queens", "staten-island", "staten island", "nyc", "new york city"}
+	for _, area := range knownAreas {
+		if strings.Contains(s, strings.ReplaceAll(area, "-", " ")) {
+			return strings.ReplaceAll(area, " ", "-")
+		}
+	}
+
+	// Generic slug: lowercase, remove commas, collapse whitespace to hyphens.
 	s = strings.ReplaceAll(s, ",", "")
 	re := regexp.MustCompile(`\s+`)
 	s = re.ReplaceAllString(s, "-")
@@ -162,60 +173,101 @@ func locationToSlug(location string) string {
 
 // addressToURLSlug converts an address to a building URL slug (best-effort).
 func addressToURLSlug(address string) string {
-	return locationToSlug(address)
+	s := strings.ToLower(strings.TrimSpace(address))
+	s = strings.ReplaceAll(s, ",", "")
+	re := regexp.MustCompile(`\s+`)
+	s = re.ReplaceAllString(s, "-")
+	re2 := regexp.MustCompile(`-+`)
+	s = re2.ReplaceAllString(s, "-")
+	return strings.Trim(s, "-")
+}
+
+// jsonLDGraph represents the top-level JSON-LD document structure.
+type jsonLDGraph struct {
+	Context string       `json:"@context"`
+	Graph   []jsonLDItem `json:"@graph"`
+}
+
+// jsonLDItem represents a single node in the JSON-LD @graph.
+type jsonLDItem struct {
+	Type               string           `json:"@type"`
+	AdditionalProperty *jsonLDPropValue `json:"additionalProperty,omitempty"`
+	Address            *jsonLDAddress   `json:"address,omitempty"`
+	Photo              *jsonLDPhoto     `json:"photo,omitempty"`
+	URL                string           `json:"url,omitempty"`
+	Name               string           `json:"name,omitempty"`
+	Description        string           `json:"description,omitempty"`
+	NumberOfRooms      any              `json:"numberOfRooms,omitempty"`
+}
+
+// jsonLDPropValue represents schema.org PropertyValue.
+type jsonLDPropValue struct {
+	Type  string `json:"@type"`
+	Value string `json:"value"`
+}
+
+// jsonLDAddress represents schema.org PostalAddress.
+type jsonLDAddress struct {
+	Type            string `json:"@type"`
+	StreetAddress   string `json:"streetAddress"`
+	AddressLocality string `json:"addressLocality"`
+	AddressRegion   string `json:"addressRegion"`
+	PostalCode      string `json:"postalCode"`
+}
+
+// jsonLDPhoto represents a schema.org CreativeWork photo.
+type jsonLDPhoto struct {
+	Type  string `json:"@type"`
+	Image string `json:"image"`
+}
+
+// extractJSONLD parses the JSON-LD @graph from an HTML page body.
+// Returns the parsed graph items, or an error if no JSON-LD script tag is found.
+// An empty @graph is valid and returns an empty slice without error.
+func extractJSONLD(body []byte) ([]jsonLDItem, error) {
+	matches := jsonLDRe.FindAllSubmatch(body, -1)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no JSON-LD script tag found in page")
+	}
+
+	// Try each JSON-LD block — use the first one that parses as a @graph document.
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		var doc jsonLDGraph
+		if err := json.Unmarshal(match[1], &doc); err != nil {
+			continue
+		}
+		// A document with a @graph key is a valid graph document even if empty.
+		if doc.Graph != nil {
+			return doc.Graph, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no @graph array found in JSON-LD script tags")
 }
 
 // parseListingsFromPage extracts ListingSummary values from a StreetEasy page's
-// __NEXT_DATA__ JSON blob.
+// JSON-LD <script type="application/ld+json"> tag.
 func parseListingsFromPage(body []byte, baseURL string, limit int) ([]ListingSummary, error) {
-	nextData, err := extractNextData(body)
+	items, err := extractJSONLD(body)
 	if err != nil {
 		return nil, err
 	}
 
-	// Navigate: props → pageProps → listings (array) or searchListings
-	props, _ := nextData["props"].(map[string]any)
-	if props == nil {
-		return nil, nil
-	}
-	pageProps, _ := props["pageProps"].(map[string]any)
-	if pageProps == nil {
-		return nil, nil
-	}
-
-	// StreetEasy may store listings under different keys depending on page type.
-	// Try common keys: listings, searchResults, homes
-	var rawListings []any
-	for _, key := range []string{"listings", "searchResults", "homes", "results"} {
-		if v, ok := pageProps[key]; ok {
-			if arr, ok := v.([]any); ok {
-				rawListings = arr
-				break
-			}
-		}
-	}
-
-	// Also try pageProps → data → listings
-	if rawListings == nil {
-		if data, ok := pageProps["data"].(map[string]any); ok {
-			for _, key := range []string{"listings", "searchResults", "homes"} {
-				if v, ok := data[key]; ok {
-					if arr, ok := v.([]any); ok {
-						rawListings = arr
-						break
-					}
-				}
-			}
-		}
-	}
-
 	var summaries []ListingSummary
-	for _, item := range rawListings {
-		m, ok := item.(map[string]any)
-		if !ok {
+	for _, item := range items {
+		// JSON-LD listing items are typed as ApartmentComplex, SingleFamilyResidence, etc.
+		// Skip items that are clearly not listings (e.g. WebSite, Organization).
+		if item.Type == "WebSite" || item.Type == "Organization" || item.Type == "BreadcrumbList" {
 			continue
 		}
-		s := extractListingSummary(m, baseURL)
+
+		s := jsonLDItemToListingSummary(item, baseURL)
+		if s.Address == "" && s.Price == 0 {
+			continue
+		}
 		summaries = append(summaries, s)
 		if limit > 0 && len(summaries) >= limit {
 			break
@@ -225,7 +277,46 @@ func parseListingsFromPage(body []byte, baseURL string, limit int) ([]ListingSum
 	return summaries, nil
 }
 
+// jsonLDItemToListingSummary converts a JSON-LD graph item to a ListingSummary.
+func jsonLDItemToListingSummary(item jsonLDItem, baseURL string) ListingSummary {
+	s := ListingSummary{}
+
+	// Build address from schema.org PostalAddress fields.
+	if item.Address != nil {
+		var parts []string
+		if item.Address.StreetAddress != "" {
+			parts = append(parts, item.Address.StreetAddress)
+		}
+		if item.Address.AddressLocality != "" {
+			parts = append(parts, item.Address.AddressLocality)
+		}
+		if item.Address.AddressRegion != "" {
+			parts = append(parts, item.Address.AddressRegion)
+		}
+		s.Address = strings.Join(parts, ", ")
+	}
+
+	// Price from additionalProperty.value (e.g. "$445,000").
+	if item.AdditionalProperty != nil && item.AdditionalProperty.Value != "" {
+		if p, err := parseRawPrice(item.AdditionalProperty.Value); err == nil {
+			s.Price = p
+		}
+	}
+
+	// URL from the item's url field.
+	if item.URL != "" {
+		if strings.HasPrefix(item.URL, "http") {
+			s.URL = item.URL
+		} else {
+			s.URL = baseURL + item.URL
+		}
+	}
+
+	return s
+}
+
 // extractListingSummary maps a raw listing map to a ListingSummary.
+// Used by tests that pass raw map data.
 func extractListingSummary(m map[string]any, baseURL string) ListingSummary {
 	s := ListingSummary{
 		ID:     jsonStr(m, "id"),
@@ -236,7 +327,7 @@ func extractListingSummary(m map[string]any, baseURL string) ListingSummary {
 	if addr := jsonStr(m, "address"); addr != "" {
 		s.Address = addr
 	} else if addrMap, ok := m["address"].(map[string]any); ok {
-		parts := []string{}
+		var parts []string
 		for _, k := range []string{"streetAddress", "street", "line1"} {
 			if v := jsonStr(addrMap, k); v != "" {
 				parts = append(parts, v)
@@ -292,64 +383,14 @@ func extractListingSummary(m map[string]any, baseURL string) ListingSummary {
 	return s
 }
 
-// parsePriceHistory extracts price history from a StreetEasy listing page.
+// parsePriceHistory extracts price history from a StreetEasy listing detail page.
+// NOTE: StreetEasy listing detail pages embed price history in JavaScript state
+// that is not available in the JSON-LD tag. Parsing requires a dedicated listing
+// detail page scraper. This function returns an empty array for now.
 func parsePriceHistory(body []byte) ([]PriceHistoryEntry, error) {
-	nextData, err := extractNextData(body)
-	if err != nil {
-		return nil, err
-	}
-
-	// Navigate into the page data for price history.
-	// Common path: props → pageProps → listing → priceHistory
-	// or: props → pageProps → priceHistory
-	props, _ := nextData["props"].(map[string]any)
-	if props == nil {
-		return nil, nil
-	}
-	pageProps, _ := props["pageProps"].(map[string]any)
-	if pageProps == nil {
-		return nil, nil
-	}
-
-	var rawHistory []any
-	for _, path := range [][]string{
-		{"priceHistory"},
-		{"listing", "priceHistory"},
-		{"data", "priceHistory"},
-		{"home", "priceHistory"},
-	} {
-		rawHistory = navigatePath(pageProps, path)
-		if rawHistory != nil {
-			break
-		}
-	}
-
-	var entries []PriceHistoryEntry
-	for _, item := range rawHistory {
-		m, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		e := PriceHistoryEntry{
-			Date:  jsonStr(m, "date"),
-			Event: jsonStr(m, "event"),
-		}
-		if e.Event == "" {
-			e.Event = jsonStr(m, "eventType")
-		}
-		if price := jsonInt(m, "price"); price > 0 {
-			e.Price = int64(price)
-		} else if priceStr := jsonStr(m, "price"); priceStr != "" {
-			if p, err := parseRawPrice(priceStr); err == nil {
-				e.Price = p
-			}
-		}
-		if e.Date != "" || e.Price > 0 {
-			entries = append(entries, e)
-		}
-	}
-
-	return entries, nil
+	// Price history is not available in the JSON-LD schema.org data.
+	// It would require parsing a different data structure from the listing detail page.
+	return []PriceHistoryEntry{}, nil
 }
 
 // navigatePath traverses a nested map following the given key path and returns
@@ -373,58 +414,24 @@ func navigatePath(m map[string]any, path []string) []any {
 	return navigatePath(next, path[1:])
 }
 
-// extractNextData parses the __NEXT_DATA__ JSON blob from an HTML page body.
-func extractNextData(body []byte) (map[string]any, error) {
-	matches := nextDataRe.FindSubmatch(body)
-	if matches == nil || len(matches) < 2 {
-		return nil, fmt.Errorf("__NEXT_DATA__ not found in page (PerimeterX may have blocked the request)")
-	}
-
-	var data map[string]any
-	if err := json.Unmarshal(matches[1], &data); err != nil {
-		return nil, fmt.Errorf("parse __NEXT_DATA__ JSON: %w", err)
-	}
-
-	return data, nil
-}
-
-// extractFirstListingURL finds the first listing detail URL in the page HTML.
-// StreetEasy listing URLs look like /nyc/real_estate/12345678 or /building/...
+// extractFirstListingURL finds the first listing URL from the JSON-LD data on a page.
 func extractFirstListingURL(body []byte, baseURL string) string {
-	// Look for detail page links in __NEXT_DATA__
-	nextData, err := extractNextData(body)
+	items, err := extractJSONLD(body)
 	if err != nil {
 		return ""
 	}
 
-	props, _ := nextData["props"].(map[string]any)
-	if props == nil {
-		return ""
-	}
-	pageProps, _ := props["pageProps"].(map[string]any)
-	if pageProps == nil {
-		return ""
-	}
-
-	// Try to find any listings array and get the URL of the first item.
-	for _, key := range []string{"listings", "searchResults", "homes", "results"} {
-		if v, ok := pageProps[key]; ok {
-			if arr, ok := v.([]any); ok && len(arr) > 0 {
-				if m, ok := arr[0].(map[string]any); ok {
-					if u := jsonStr(m, "url"); u != "" {
-						if strings.HasPrefix(u, "http") {
-							return u
-						}
-						return baseURL + u
-					}
-					if slug := jsonStr(m, "slug"); slug != "" {
-						return baseURL + "/" + slug
-					}
-				}
+	for _, item := range items {
+		if item.Type == "WebSite" || item.Type == "Organization" || item.Type == "BreadcrumbList" {
+			continue
+		}
+		if item.URL != "" {
+			if strings.HasPrefix(item.URL, "http") {
+				return item.URL
 			}
+			return baseURL + item.URL
 		}
 	}
-
 	return ""
 }
 

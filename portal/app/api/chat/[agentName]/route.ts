@@ -2,15 +2,85 @@ import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { deployAgent, streamAgentLogs, stopAgent, getAgentStatus } from "@/lib/orchestrator-client"
-import { parseNDJSON } from "@/lib/agent-events"
+import { parseNDJSON, type ChatSSEEvent } from "@/lib/agent-events"
 import { generateTitle } from "@/lib/auto-title"
 import { checkOrigin } from "@/lib/csrf"
+import { runLocal, buildSystemPrompt } from "@/lib/local-runner"
 
 // Terminal statuses — the agent will not produce more output after reaching these.
 const TERMINAL_STATUSES = new Set(["completed", "failed", "stopped"])
 // Maximum wait time for an agent to reach "running" before giving up.
 const STATUS_POLL_TIMEOUT_MS = 60_000
 const STATUS_POLL_INTERVAL_MS = 1_000
+
+type ContentBlock =
+  | { type: "text"; content: string }
+  | { type: "tool"; id: string; name: string; finalInput: string; result?: string }
+
+/**
+ * Processes a single SSE event and mutates assistantBlocks for persistence.
+ * Handles "session" updates for conversationId tracking inline.
+ */
+function trackBlock(
+  sseEvent: ChatSSEEvent,
+  assistantBlocks: ContentBlock[],
+  activeToolId: string | null,
+  setActiveToolId: (id: string | null) => void,
+  conversationId: string | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any
+): void {
+  switch (sseEvent.event) {
+    case "delta": {
+      const last = assistantBlocks[assistantBlocks.length - 1]
+      if (last?.type === "text") {
+        assistantBlocks[assistantBlocks.length - 1] = { ...last, content: last.content + sseEvent.data }
+      } else {
+        assistantBlocks.push({ type: "text", content: sseEvent.data })
+      }
+      break
+    }
+    case "tool_start": {
+      try {
+        const { name, id } = JSON.parse(sseEvent.data) as { name: string; id: string }
+        setActiveToolId(id)
+        assistantBlocks.push({ type: "tool", id, name, finalInput: "" })
+      } catch { /* ignore */ }
+      break
+    }
+    case "tool_input": {
+      if (activeToolId) {
+        const toolId = activeToolId
+        const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
+        if (idx !== -1) {
+          assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, finalInput: sseEvent.data }
+        }
+      }
+      break
+    }
+    case "tool_result": {
+      try {
+        const parsed = JSON.parse(sseEvent.data) as { summary: string; toolUseId?: string }
+        const toolId: string | null = parsed.toolUseId ?? activeToolId
+        if (toolId) {
+          const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
+          if (idx !== -1) {
+            const resultStr = typeof parsed.summary === "string" ? parsed.summary : JSON.stringify(parsed.summary)
+            assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, result: resultStr }
+          }
+          if (toolId === activeToolId) setActiveToolId(null)
+        }
+      } catch { /* ignore */ }
+      break
+    }
+    case "session": {
+      if (conversationId) {
+        admin.from("conversations").update({ session_id: sseEvent.data }).eq("id", conversationId).then(() => {})
+      }
+      break
+    }
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -94,10 +164,10 @@ export async function POST(
     })
   }
 
-  // Look up the template by agent name
+  // Look up the template by agent name (include docker_image to determine run mode)
   const { data: template, error: templateError } = await admin
     .from("agent_templates")
-    .select("id")
+    .select("id, docker_image")
     .eq("name", agentName)
     .eq("status", "active")
     .single()
@@ -108,6 +178,8 @@ export async function POST(
       { status: 404 }
     )
   }
+
+  const isLocal = (template as { id: string; docker_image: string }).docker_image === "local"
 
   // Set up SSE stream
   const stream = new ReadableStream({
@@ -128,145 +200,126 @@ export async function POST(
       })
 
       // Collect assistant output for persistence
-      type ContentBlock = { type: "text"; content: string } | { type: "tool"; id: string; name: string; finalInput: string; result?: string }
       const assistantBlocks: ContentBlock[] = []
       let activeToolId: string | null = null
       let instanceId: string | null = null
 
       try {
-        // Deploy the agent via the orchestrator, passing prompt + sessionId as config_overrides.
-        // The orchestrator stores these; the pod_spec injects uppercase string config_overrides as env vars.
-        const configOverrides: Record<string, unknown> = {
-          AGENT_PROMPT: message,
-        }
-        if (sessionId) {
-          configOverrides.AGENT_SESSION_ID = sessionId
-        }
+        if (isLocal) {
+          // ── Local path: spawn node entrypoint.mjs directly ──────────────────
+          //
+          // Fetch last 3 completed job runs for this agent to give the agent
+          // context about what it found previously.
+          const { data: recentRuns } = await admin
+            .from("local_job_runs")
+            .select("completed_at, deliverables, status")
+            .eq("agent_name", agentName)
+            .eq("status", "completed")
+            .order("completed_at", { ascending: false })
+            .limit(3)
 
-        const instance = await deployAgent(template.id, configOverrides, authToken)
-        instanceId = instance.id
-
-        // Poll until the instance is running or reaches a terminal state
-        let status = instance.status
-        const pollStart = Date.now()
-        while (status === "pending" || status === "creating") {
-          if (Date.now() - pollStart > STATUS_POLL_TIMEOUT_MS) {
-            throw new Error("Timed out waiting for agent to start")
+          let contextPrefix = ""
+          if (recentRuns?.length) {
+            contextPrefix = "Previous scan results:\n"
+            for (const run of recentRuns) {
+              contextPrefix += `- ${run.completed_at}: ${JSON.stringify(run.deliverables)}\n`
+            }
           }
-          await new Promise<void>((r) => setTimeout(r, STATUS_POLL_INTERVAL_MS))
-          const updated = await getAgentStatus(instance.id, authToken)
-          status = updated.status
-        }
 
-        if (TERMINAL_STATUSES.has(status) && status !== "completed") {
-          throw new Error(`Agent failed to start (status: ${status})`)
-        }
+          const systemPrompt = buildSystemPrompt(agentName, contextPrefix)
 
-        // Stream logs from the orchestrator
-        const logStream = await streamAgentLogs(instance.id, authToken, abortController.signal)
-        const reader = logStream.getReader()
-        const decoder = new TextDecoder()
+          const localGen = runLocal({
+            agentName,
+            message,
+            systemPrompt,
+            sessionId,
+            signal: abortController.signal,
+            timeoutMs: 300_000, // #6: 5-minute timeout for chat conversations
+          })
 
-        // State for NDJSON parsing
-        const toolInputAccum: Record<string, string> = {}
-        const toolIdRef = { currentToolId: null as string | null }
-        // Buffer for incomplete NDJSON lines
-        let ndjsonLineBuffer = ""
+          for await (const sseEvent of localGen) {
+            send(sseEvent.event, sseEvent.data)
+            trackBlock(sseEvent, assistantBlocks, activeToolId, (id) => { activeToolId = id }, conversationId, admin)
+          }
+        } else {
+          // ── Orchestrator path (Docker / Kubernetes) ──────────────────────────
+          const configOverrides: Record<string, unknown> = {
+            AGENT_PROMPT: message,
+          }
+          if (sessionId) {
+            configOverrides.AGENT_SESSION_ID = sessionId
+          }
 
-        try {
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
+          const instance = await deployAgent(template.id, configOverrides, authToken)
+          instanceId = instance.id
 
-            // The orchestrator sends SSE-formatted data: `data: <raw stdout bytes>\n\n`
-            // The raw stdout bytes contain multiple NDJSON lines separated by \n.
-            // Strip the `data: ` prefix from each SSE frame and feed the raw content
-            // directly to the NDJSON parser.
-            let chunk = decoder.decode(value, { stream: true })
+          // Poll until the instance is running or reaches a terminal state
+          let status = instance.status
+          const pollStart = Date.now()
+          while (status === "pending" || status === "creating") {
+            if (Date.now() - pollStart > STATUS_POLL_TIMEOUT_MS) {
+              throw new Error("Timed out waiting for agent to start")
+            }
+            await new Promise<void>((r) => setTimeout(r, STATUS_POLL_INTERVAL_MS))
+            const updated = await getAgentStatus(instance.id, authToken)
+            status = updated.status
+          }
 
-            // Strip SSE framing — remove "data: " prefixes and double-newline delimiters
-            chunk = chunk.replace(/^data: /gm, "")
+          if (TERMINAL_STATUSES.has(status) && status !== "completed") {
+            throw new Error(`Agent failed to start (status: ${status})`)
+          }
 
-            const { events, remainingBuffer } = parseNDJSON(
-              chunk,
-              ndjsonLineBuffer,
-              toolInputAccum,
-              toolIdRef
-            )
-            ndjsonLineBuffer = remainingBuffer
+          // Stream logs from the orchestrator
+          const logStream = await streamAgentLogs(instance.id, authToken, abortController.signal)
+          const reader = logStream.getReader()
+          const decoder = new TextDecoder()
 
-            for (const sseEvent of events) {
-              send(sseEvent.event, sseEvent.data)
+          // State for NDJSON parsing
+          const toolInputAccum: Record<string, string> = {}
+          const toolIdRef = { currentToolId: null as string | null }
+          // Buffer for incomplete NDJSON lines
+          let ndjsonLineBuffer = ""
 
-              // Track assistant content for persistence
-              switch (sseEvent.event) {
-                case "delta": {
-                  const last = assistantBlocks[assistantBlocks.length - 1]
-                  if (last?.type === "text") {
-                    assistantBlocks[assistantBlocks.length - 1] = { ...last, content: last.content + sseEvent.data }
-                  } else {
-                    assistantBlocks.push({ type: "text", content: sseEvent.data })
-                  }
-                  break
-                }
-                case "tool_start": {
-                  try {
-                    const { name, id } = JSON.parse(sseEvent.data) as { name: string; id: string }
-                    activeToolId = id
-                    assistantBlocks.push({ type: "tool", id, name, finalInput: "" })
-                  } catch { /* ignore */ }
-                  break
-                }
-                case "tool_input": {
-                  if (activeToolId) {
-                    const toolId = activeToolId
-                    const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
-                    if (idx !== -1) {
-                      assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, finalInput: sseEvent.data }
-                    }
-                  }
-                  break
-                }
-                case "tool_result": {
-                  try {
-                    const parsed = JSON.parse(sseEvent.data) as { summary: string; toolUseId?: string }
-                    const toolId: string | null = parsed.toolUseId ?? activeToolId
-                    if (toolId) {
-                      const idx = assistantBlocks.findIndex((b) => b.type === "tool" && b.id === toolId)
-                      if (idx !== -1) {
-                        const resultStr = typeof parsed.summary === "string" ? parsed.summary : JSON.stringify(parsed.summary)
-                        assistantBlocks[idx] = { ...assistantBlocks[idx] as Extract<ContentBlock, { type: "tool" }>, result: resultStr }
-                      }
-                      if (toolId === activeToolId) activeToolId = null
-                    }
-                  } catch { /* ignore */ }
-                  break
-                }
-                case "session": {
-                  // Update conversation with session_id
-                  if (conversationId) {
-                    admin.from("conversations").update({ session_id: sseEvent.data }).eq("id", conversationId).then(() => {})
-                  }
-                  break
-                }
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+
+              // The orchestrator sends SSE-formatted data: `data: <raw stdout bytes>\n\n`
+              // Strip the `data: ` prefix from each SSE frame and feed the raw content
+              // directly to the NDJSON parser.
+              let chunk = decoder.decode(value, { stream: true })
+              chunk = chunk.replace(/^data: /gm, "")
+
+              const { events, remainingBuffer } = parseNDJSON(
+                chunk,
+                ndjsonLineBuffer,
+                toolInputAccum,
+                toolIdRef
+              )
+              ndjsonLineBuffer = remainingBuffer
+
+              for (const sseEvent of events) {
+                send(sseEvent.event, sseEvent.data)
+                trackBlock(sseEvent, assistantBlocks, activeToolId, (id) => { activeToolId = id }, conversationId, admin)
               }
             }
-          }
 
-          // Flush any remaining NDJSON line buffer after stream ends
-          if (ndjsonLineBuffer.trim()) {
-            const { events } = parseNDJSON("", ndjsonLineBuffer, toolInputAccum, toolIdRef)
-            for (const sseEvent of events) {
-              send(sseEvent.event, sseEvent.data)
+            // Flush any remaining NDJSON line buffer after stream ends
+            if (ndjsonLineBuffer.trim()) {
+              const { events } = parseNDJSON("", ndjsonLineBuffer, toolInputAccum, toolIdRef)
+              for (const sseEvent of events) {
+                send(sseEvent.event, sseEvent.data)
+              }
             }
+          } finally {
+            reader.releaseLock()
           }
-        } finally {
-          reader.releaseLock()
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
         send("error", msg)
-        // Attempt to stop the agent if we deployed one and something went wrong
+        // Attempt to stop the orchestrator agent if we deployed one
         if (instanceId) {
           stopAgent(instanceId, authToken).catch(() => {})
         }
