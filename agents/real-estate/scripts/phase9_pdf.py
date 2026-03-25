@@ -146,6 +146,20 @@ def generate_property_detail(prop, rank):
         cluster_size = prop.get("_cluster_size", 0)
         why_parts.append(f"This property is part of a \\textbf{{cluster of {cluster_size} qualifying properties on the same block}}. Multiple simultaneous listings on one block create a rare assemblage entry point where 2+ lots can be acquired without cold-calling off-market owners.")
 
+    # FDNY vacate
+    if prop.get("_fdny_vacate"):
+        why_parts.append("\\textbf{An FDNY vacate order has been issued on this block}, meaning at least one building has been deemed uninhabitable due to fire damage or structural failure. The affected owner faces costly remediation or demolition --- a strong motivation to sell.")
+
+    # 311 complaints
+    complaints_311 = prop.get("_311_complaints", 0) or 0
+    if complaints_311 >= 10:
+        why_parts.append(f"The address has received \\textbf{{{complaints_311} 311 complaints}} in the last 12 months, indicating significant quality-of-life issues and neighborhood neglect.")
+
+    # ECB violations
+    ecb = prop.get("_ecb_violations", 0) or 0
+    if ecb > 0:
+        why_parts.append(f"The property has {ecb} defaulted ECB/OATH violations --- unpaid environmental fines that add to the owner's financial burden.")
+
     # Small lot
     if lot_sf > 0 and lot_sf < 2000:
         why_parts.append(f"The lot is only {lot_sf:,} SF --- too small for significant standalone development but ideal as an assemblage \\textit{{starter lot}}. Acquiring this parcel and then approaching adjacent owners creates the foundation for a developable site.")
@@ -211,6 +225,12 @@ def main():
     n_dom180 = sum(1 for p in properties if (p.get("daysOnMarket") or 0) > 180)
     n_cluster = sum(1 for p in properties if p.get("_in_cluster"))
     n_se_drop = sum(1 for p in properties if (p.get("se_price_drop_pct") or 0) > 10)
+    n_311 = sum(1 for p in properties if (p.get("_311_complaints") or 0) >= 10)
+    n_ecb = sum(1 for p in properties if (p.get("_ecb_violations") or 0) > 0)
+    n_fdny = sum(1 for p in properties if p.get("_fdny_vacate"))
+    n_dob_complaints = sum(1 for p in properties if (p.get("_dob_complaints") or 0) >= 3)
+    n_block_co = sum(1 for p in properties if p.get("_block_co"))
+    n_citibike = sum(1 for p in properties if (p.get("_citibike_stations") or 0) >= 5)
 
     # Borough counts
     from collections import Counter
@@ -362,7 +382,7 @@ def main():
 
 {\small\color{gray}
 Bronx \textbullet{} Brooklyn \textbullet{} Manhattan \textbullet{} Queens\\
-Data sources: Zillow, NYC PLUTO, ACRIS, DOB, HPD, NYC Finance, StreetEasy\\
+Data sources: Zillow, PLUTO, ACRIS, DOB, HPD, NYC Finance, StreetEasy, 311, ECB, FDNY, Citi Bike, NY SLA\\
 \textbf{CONFIDENTIAL --- For Internal Brokerage Use Only}
 }
 \end{center}
@@ -443,6 +463,12 @@ LLC Deed on Block & \textbf{""" + str(n_llc) + r"""} \\
 DOM $>$ 180 Days & \textbf{""" + str(n_dom180) + r"""} \\
 In Block Cluster & \textbf{""" + str(n_cluster) + r"""} \\
 SE Price Drop $>$10\% & \textbf{""" + str(n_se_drop) + r"""} \\
+311 Complaints 10+ & \textbf{""" + str(n_311) + r"""} \\
+ECB Defaulted Violations & \textbf{""" + str(n_ecb) + r"""} \\
+FDNY Vacate Orders & \textbf{\textcolor{DarkRed}{""" + str(n_fdny) + r"""}} \\
+DOB Complaints 3+ & \textbf{""" + str(n_dob_complaints) + r"""} \\
+New CO on Block & \textbf{""" + str(n_block_co) + r"""} \\
+CitiBike 5+ Stations & \textbf{""" + str(n_citibike) + r"""} \\
 \bottomrule
 \end{tabular}
 \end{multicols}
@@ -515,6 +541,12 @@ Block clusters are groups of 2 or more qualifying R7+ properties located on the 
   \item[\textbf{HPD}] NYC Housing Preservation \& Development open violations database (dataset csn4-vhvf). Counted active violations per property as a proxy for owner neglect.
   \item[\textbf{NYC Finance}] NYC tax lien sale list. Properties appearing on this list have delinquent property taxes, indicating financial distress.
   \item[\textbf{StreetEasy}] Price history for properties with preliminary score $\geq$3. Checked for price drops, relisting cycles, and recent price reductions.
+  \item[\textbf{311}] NYC 311 complaint data (Socrata). Complaint volume at property address in last 12 months used as neighborhood neglect trajectory.
+  \item[\textbf{ECB/OATH}] Environmental Control Board defaulted violations. Unpaid environmental fines signal owner disinvestment.
+  \item[\textbf{FDNY}] Fire Department vacate orders. Buildings ordered vacated are uninhabitable --- strong motivated seller signal.
+  \item[\textbf{DOB Complaints}] Department of Buildings open complaints (unsafe structure, illegal conversion).
+  \item[\textbf{Citi Bike}] Station density within 1km via GBFS feed. Transit accessibility proxy.
+  \item[\textbf{NY SLA}] New York State Liquor Authority license data. New bar/restaurant licenses as gentrification leading indicator.
 \end{description}
 
 \subsection*{Zoning Filter}
@@ -547,6 +579,13 @@ Adjacent lot also for sale (cluster) & +4 & Zillow + PLUTO \\
 Price drop $>$10\% from original & +3 & StreetEasy \\
 3+ listing/delisting cycles & +4 & StreetEasy \\
 Price drop in last 30 days & +2 & StreetEasy \\
+311 complaints 10+ in 12 months & +3 & 311 \\
+Defaulted ECB/OATH violations & +2 & ECB \\
+FDNY vacate order on block & +5 & FDNY \\
+Open DOB complaints 3+ & +2 & DOB \\
+New CO on block (last 12mo) & +2 & DOB CO \\
+Citi Bike 5+ stations within 1km & +2 & Citi Bike \\
+5+ new liquor licenses in borough & +3 & NY SLA \\
 \bottomrule
 \end{tabular}
 

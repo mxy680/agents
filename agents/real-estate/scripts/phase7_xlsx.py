@@ -125,6 +125,8 @@ def main():
         "Tax Lien?", "Lis Pendens?", "HPD Violations",
         "Demo on Block?", "NB on Block?", "LLC Deed on Block?",
         "Estate Signal?", "Federal Lien?",
+        "311 Complaints", "ECB Violations", "FDNY Vacate?",
+        "DOB Complaints", "Block CO?", "CitiBike Stations",
         "Price Drop %", "Listing Cycles", "Days on Market",
         "Block Context", "Zillow Link", "ZoLa Link", "Notes"
     ]
@@ -157,13 +159,19 @@ def main():
         16: 16,  # LLC Deed
         17: 14,  # Estate
         18: 13,  # Federal Lien
-        19: 12,  # Price Drop
-        20: 14,  # Cycles
-        21: 14,  # DOM
-        22: 35,  # Block Context
-        23: 15,  # Zillow
-        24: 15,  # ZoLa
-        25: 50,  # Notes
+        19: 14,  # 311 Complaints
+        20: 14,  # ECB Violations
+        21: 12,  # FDNY Vacate
+        22: 14,  # DOB Complaints
+        23: 10,  # Block CO
+        24: 14,  # CitiBike Stations
+        25: 12,  # Price Drop
+        26: 14,  # Cycles
+        27: 14,  # DOM
+        28: 35,  # Block Context
+        29: 15,  # Zillow
+        30: 15,  # ZoLa
+        31: 50,  # Notes
     }
     for col, width in col_widths.items():
         ws.column_dimensions[get_column_letter(col)].width = width
@@ -214,6 +222,12 @@ def main():
             fmt_bool(prop.get("_block_llc_deed")),
             fmt_bool(prop.get("_acris_estate")),
             fmt_bool(prop.get("_acris_federal_lien")),
+            fmt_int(prop.get("_311_complaints")),
+            fmt_int(prop.get("_ecb_violations")),
+            fmt_bool(prop.get("_fdny_vacate")),
+            fmt_int(prop.get("_dob_complaints")),
+            fmt_bool(prop.get("_block_co")),
+            fmt_int(prop.get("_citibike_stations")),
             price_drop_str,
             cycles_str,
             str(dom) if dom else "Not stated",
@@ -233,12 +247,12 @@ def main():
                 cell.fill = row_fill
 
             # Hyperlinks for URL columns
-            if col_idx == 23 and value and value.startswith("http"):
+            if col_idx == 29 and value and value.startswith("http"):
                 cell.hyperlink = value
                 cell.value = "Zillow"
                 cell.font = LINK_FONT
 
-            elif col_idx == 24 and value and value.startswith("http"):
+            elif col_idx == 30 and value and value.startswith("http"):
                 cell.hyperlink = value
                 cell.value = "ZoLa"
                 cell.font = LINK_FONT
@@ -249,7 +263,7 @@ def main():
                 cell.alignment = CENTER_ALIGN
 
             # Yes/No columns: center
-            elif col_idx in [11, 12, 14, 15, 16, 17, 18]:
+            elif col_idx in [11, 12, 14, 15, 16, 17, 18, 21, 23]:
                 cell.alignment = CENTER_ALIGN
                 if value == "Yes":
                     cell.font = Font(bold=True, color="C00000")
@@ -396,6 +410,14 @@ def main():
         ("In Block Cluster", sum(1 for p in properties if p.get("_in_cluster"))),
         ("StreetEasy Price Drop >10%", sum(1 for p in properties if (p.get("se_price_drop_pct") or 0) > 10)),
         ("StreetEasy 3+ Cycles", sum(1 for p in properties if (p.get("se_cycles") or 0) >= 3)),
+        ("", ""),
+        ("NEW SIGNALS", ""),
+        ("311 Complaints 10+", sum(1 for p in properties if (p.get("_311_complaints") or 0) >= 10)),
+        ("ECB Defaulted Violations", sum(1 for p in properties if (p.get("_ecb_violations") or 0) > 0)),
+        ("FDNY Vacate Orders", sum(1 for p in properties if p.get("_fdny_vacate"))),
+        ("DOB Complaints 3+", sum(1 for p in properties if (p.get("_dob_complaints") or 0) >= 3)),
+        ("New CO on Block", sum(1 for p in properties if p.get("_block_co"))),
+        ("CitiBike 5+ Stations", sum(1 for p in properties if (p.get("_citibike_stations") or 0) >= 5)),
     ]
 
     for row_idx, (label, value) in enumerate(signal_data, 2):
