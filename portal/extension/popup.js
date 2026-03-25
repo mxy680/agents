@@ -1,6 +1,8 @@
 const domainEl = document.getElementById("domain");
 const statusEl = document.getElementById("status");
 const copyBtn = document.getElementById("copy-btn");
+const syncBtn = document.getElementById("sync-btn");
+const portalUrlInput = document.getElementById("portal-url");
 
 let currentDomain = "";
 
@@ -10,15 +12,11 @@ function setStatus(message, type) {
 }
 
 /**
- * Extract the registrable domain (e.g. "yelp.com") from a hostname
- * so that we also pick up subdomain cookies (e.g. ".yelp.com").
- * Falls back to the full hostname if splitting fails.
+ * Extract the registrable domain (e.g. "zillow.com") from a hostname.
  */
 function extractDomain(url) {
   try {
     const { hostname } = new URL(url);
-    // Use the last two parts for a simple eTLD+1 approximation.
-    // For common cases (yelp.com, zillow.com, etc.) this is correct.
     const parts = hostname.split(".");
     if (parts.length >= 2) {
       return parts.slice(-2).join(".");
@@ -29,7 +27,20 @@ function extractDomain(url) {
   }
 }
 
-// On load, query the active tab to get the current domain
+// Load portal URL from storage
+chrome.storage.local.get("portalURL", (result) => {
+  portalUrlInput.value = result.portalURL || "http://localhost:3000";
+});
+
+// Save portal URL on change
+portalUrlInput.addEventListener("change", () => {
+  const url = portalUrlInput.value.trim().replace(/\/+$/, "");
+  chrome.storage.local.set({ portalURL: url });
+  setStatus("Portal URL saved", "success");
+  setTimeout(() => setStatus(""), 2000);
+});
+
+// On load, query the active tab
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   const tab = tabs[0];
   if (!tab || !tab.url) {
@@ -40,8 +51,6 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   }
 
   const url = tab.url;
-
-  // Skip chrome:// and other non-http pages
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     domainEl.textContent = "Not a web page";
     domainEl.className = "domain";
@@ -53,34 +62,27 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   domainEl.textContent = currentDomain;
   domainEl.className = "domain";
   copyBtn.disabled = false;
+  syncBtn.disabled = false;
   setStatus("");
 });
 
+// Copy cookies to clipboard
 copyBtn.addEventListener("click", async () => {
   if (!currentDomain) return;
-
   copyBtn.disabled = true;
   setStatus("Reading cookies...", "info");
 
   try {
-    // Query cookies for both "domain.com" and ".domain.com" (subdomain cookies)
     const [exactCookies, subdomainCookies] = await Promise.all([
       chrome.cookies.getAll({ domain: currentDomain }),
       chrome.cookies.getAll({ domain: "." + currentDomain }),
     ]);
 
-    // Merge, deduplicating by name (exact match takes precedence)
     const cookieMap = {};
-
-    for (const cookie of subdomainCookies) {
-      cookieMap[cookie.name] = cookie.value;
-    }
-    for (const cookie of exactCookies) {
-      cookieMap[cookie.name] = cookie.value;
-    }
+    for (const cookie of subdomainCookies) cookieMap[cookie.name] = cookie.value;
+    for (const cookie of exactCookies) cookieMap[cookie.name] = cookie.value;
 
     const cookieCount = Object.keys(cookieMap).length;
-
     if (cookieCount === 0) {
       setStatus("No cookies found for " + currentDomain, "error");
       copyBtn.disabled = false;
@@ -90,14 +92,10 @@ copyBtn.addEventListener("click", async () => {
     const json = JSON.stringify(cookieMap, null, 2);
     await navigator.clipboard.writeText(json);
 
-    setStatus(
-      "Copied " + cookieCount + " cookie" + (cookieCount === 1 ? "" : "s"),
-      "success"
-    );
-
-    // Re-enable button after short delay
+    setStatus("Copied " + cookieCount + " cookies", "success");
     setTimeout(() => {
       copyBtn.disabled = false;
+      setStatus("");
     }, 1500);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -105,3 +103,70 @@ copyBtn.addEventListener("click", async () => {
     copyBtn.disabled = false;
   }
 });
+
+// Manual sync for current domain
+syncBtn.addEventListener("click", async () => {
+  if (!currentDomain) return;
+  syncBtn.disabled = true;
+  setStatus("Syncing...", "info");
+
+  const DOMAIN_PROVIDER_MAP = {
+    "zillow.com": "zillow",
+    "streeteasy.com": "streeteasy",
+  };
+
+  const provider = DOMAIN_PROVIDER_MAP[currentDomain];
+  if (!provider) {
+    setStatus("Not a synced provider: " + currentDomain, "error");
+    syncBtn.disabled = false;
+    return;
+  }
+
+  try {
+    const [exact, sub] = await Promise.all([
+      chrome.cookies.getAll({ domain: currentDomain }),
+      chrome.cookies.getAll({ domain: "." + currentDomain }),
+    ]);
+    const cookieMap = {};
+    for (const c of sub) cookieMap[c.name] = c.value;
+    for (const c of exact) cookieMap[c.name] = c.value;
+    const cookieString = Object.entries(cookieMap)
+      .filter(([, v]) => v)
+      .map(([k, v]) => `${k}=${v}`)
+      .join("; ");
+
+    const portalURL = portalUrlInput.value.trim().replace(/\/+$/, "");
+    const resp = await fetch(`${portalURL}/api/integrations/cookies/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, cookies: cookieString }),
+      credentials: "include",
+    });
+
+    if (resp.ok) {
+      setStatus("Synced " + provider + " cookies", "success");
+      updateProviderStatus(provider, true);
+    } else {
+      setStatus("Sync failed: HTTP " + resp.status, "error");
+      updateProviderStatus(provider, false);
+    }
+  } catch (err) {
+    setStatus("Sync error: " + err.message, "error");
+  }
+
+  setTimeout(() => {
+    syncBtn.disabled = false;
+  }, 1500);
+});
+
+function updateProviderStatus(provider, ok) {
+  const el = document.getElementById(provider + "-status");
+  if (!el) return;
+  if (ok) {
+    el.textContent = "synced";
+    el.className = "active";
+  } else {
+    el.textContent = "error";
+    el.className = "inactive";
+  }
+}

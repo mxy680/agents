@@ -57,6 +57,31 @@ EXCLUDE_STATUS = {
 }
 
 
+def refresh_zillow_cookies():
+    """Re-resolve credentials from Supabase to pick up fresh cookies from the extension."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    resolve_script = os.path.join(script_dir, "..", "resolve-creds.mjs")
+    try:
+        result = subprocess.run(
+            ["node", resolve_script],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            print("  [WARN] Cookie refresh failed", file=sys.stderr)
+            return
+        for line in result.stdout.strip().split("\n"):
+            if line.startswith("export "):
+                # Parse: export KEY='value'
+                parts = line[7:].split("=", 1)
+                if len(parts) == 2:
+                    key = parts[0]
+                    val = parts[1].strip("'")
+                    os.environ[key] = val
+        print("  [INFO] Cookies refreshed from Supabase", file=sys.stderr)
+    except Exception as e:
+        print(f"  [WARN] Cookie refresh error: {e}", file=sys.stderr)
+
+
 def search_zip(borough_label, zip_code, min_price=None, max_price=None):
     """Run Zillow search for a single zip code."""
     cmd = [
@@ -184,6 +209,10 @@ def search_borough(borough_key):
                 time.sleep(0.5)
         else:
             print("", file=sys.stderr)
+
+        # Refresh cookies every 10 zips to pick up fresh ones from the extension
+        if i % 10 == 0:
+            refresh_zillow_cookies()
 
         # Rate limiting: small delay every 5 zips
         if i % 5 == 0:

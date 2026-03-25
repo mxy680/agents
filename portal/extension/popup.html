@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Emdash Cookie Copier</title>
+  <title>Emdash Cookie Sync</title>
   <style>
     * {
       box-sizing: border-box;
@@ -16,7 +16,7 @@
       color: #e5e5e5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      min-width: 280px;
+      min-width: 300px;
       padding: 16px;
     }
 
@@ -46,8 +46,14 @@
       font-family: inherit;
     }
 
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
     button {
-      width: 100%;
+      flex: 1;
       padding: 8px 14px;
       background-color: #fafafa;
       color: #0a0a0a;
@@ -73,6 +79,44 @@
       cursor: not-allowed;
     }
 
+    button.secondary {
+      background-color: #262626;
+      color: #e5e5e5;
+    }
+
+    button.secondary:hover {
+      background-color: #333;
+    }
+
+    .sync-status {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background-color: #1a1a1a;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #737373;
+    }
+
+    .sync-status .label {
+      color: #a3a3a3;
+      font-weight: 500;
+    }
+
+    .sync-status .active {
+      color: #4ade80;
+    }
+
+    .sync-status .inactive {
+      color: #f87171;
+    }
+
+    .provider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+    }
+
     .status {
       margin-top: 10px;
       font-size: 12px;
@@ -91,15 +135,66 @@
     .status.info {
       color: #737373;
     }
+
+    .portal-url {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #262626;
+    }
+
+    .portal-url label {
+      display: block;
+      font-size: 11px;
+      color: #737373;
+      margin-bottom: 4px;
+    }
+
+    .portal-url input {
+      width: 100%;
+      padding: 6px 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #e5e5e5;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    .portal-url input:focus {
+      outline: none;
+      border-color: #525252;
+    }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">Emdash Cookie Copier</div>
+    <div class="title">Emdash Cookie Sync</div>
     <div class="domain loading" id="domain">Loading...</div>
   </div>
-  <button id="copy-btn" disabled>Copy Cookies</button>
+
+  <div class="buttons">
+    <button id="copy-btn" disabled>Copy Cookies</button>
+    <button id="sync-btn" class="secondary" disabled>Sync Now</button>
+  </div>
+
+  <div class="sync-status" id="sync-status">
+    <div class="provider-row">
+      <span class="label">Zillow</span>
+      <span id="zillow-status" class="inactive">—</span>
+    </div>
+    <div class="provider-row">
+      <span class="label">StreetEasy</span>
+      <span id="streeteasy-status" class="inactive">—</span>
+    </div>
+  </div>
+
   <div class="status info" id="status"></div>
+
+  <div class="portal-url">
+    <label>Portal URL</label>
+    <input type="text" id="portal-url" placeholder="http://localhost:3000" />
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
