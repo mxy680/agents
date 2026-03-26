@@ -36,6 +36,16 @@ import {
   IconHome,
   IconBuildingSkyscraper,
   IconPlus,
+  IconBike,
+  IconBuildingBank,
+  IconChartLine,
+  IconCoffin,
+  IconBottle,
+  IconUsers,
+  IconBuildingCommunity,
+  IconMapPin,
+  IconCertificate,
+  IconCheck,
 } from "@tabler/icons-react"
 
 const providers = [
@@ -115,6 +125,69 @@ const providers = [
     description: "Listings, Price History, Market Data",
     icon: IconBuildingSkyscraper,
     connectType: "cookie-paste" as const,
+  },
+  {
+    id: "citibike",
+    name: "Citi Bike",
+    description: "Station density, transit accessibility signals",
+    icon: IconBike,
+    connectType: "none" as const,
+  },
+  {
+    id: "hmda",
+    name: "HMDA",
+    description: "Mortgage originations, investor activity by census tract",
+    icon: IconBuildingBank,
+    connectType: "none" as const,
+  },
+  {
+    id: "census",
+    name: "Census ACS",
+    description: "Demographics, income, rent burden, vacancy by tract",
+    icon: IconUsers,
+    connectType: "none" as const,
+  },
+  {
+    id: "nydos",
+    name: "NY Dept of State",
+    description: "LLC formations, entity search, address matching",
+    icon: IconCertificate,
+    connectType: "none" as const,
+  },
+  {
+    id: "dof",
+    name: "NYC Dept of Finance",
+    description: "Property owners, tax assessments, entity lookup",
+    icon: IconBuildingCommunity,
+    connectType: "none" as const,
+  },
+  {
+    id: "obituaries",
+    name: "Obituaries",
+    description: "Estate property detection via Legacy.com",
+    icon: IconCoffin,
+    connectType: "none" as const,
+  },
+  {
+    id: "trends",
+    name: "Google Trends",
+    description: "Neighborhood search momentum signals",
+    icon: IconChartLine,
+    connectType: "none" as const,
+  },
+  {
+    id: "places",
+    name: "Google Places",
+    description: "Nearby amenities, transit, business activity",
+    icon: IconMapPin,
+    connectType: "none" as const,
+  },
+  {
+    id: "nyscef",
+    name: "NYSCEF",
+    description: "Court records, foreclosure proceedings",
+    icon: IconBuildingBank,
+    connectType: "none" as const,
   },
 ]
 
@@ -207,7 +280,12 @@ export default async function IntegrationsPage() {
                         ))}
                       </div>
                     )}
-                    {provider.connectType === "playwright" ? (
+                    {provider.connectType === "none" ? (
+                      <div className="flex items-center gap-1.5 text-xs text-green-500">
+                        <IconCheck className="size-3.5" />
+                        <span>No auth required — public API</span>
+                      </div>
+                    ) : provider.connectType === "playwright" ? (
                       <PlaywrightConnectDialog
                         provider={provider.id}
                         providerName={provider.name}
