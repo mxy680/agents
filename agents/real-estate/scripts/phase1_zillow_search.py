@@ -70,21 +70,36 @@ def load_from_supabase(batch_date):
             print("  [WARN] Supabase env vars not set, skipping DB check", file=sys.stderr)
             return None
 
-        # Query all listings for today's batch
-        url = f"{supabase_url}/rest/v1/zillow_scrape_listings?scrape_batch=eq.{batch_date}&select=data"
-        req = urllib.request.Request(url, headers={
-            "apikey": service_key,
-            "Authorization": f"Bearer {service_key}",
-            "Accept": "application/json",
-        })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            rows = json.loads(resp.read())
+        # Query all listings for this batch with pagination (REST API defaults to 1000)
+        all_rows = []
+        offset = 0
+        page_size = 1000
+        while True:
+            url = (
+                f"{supabase_url}/rest/v1/zillow_scrape_listings"
+                f"?scrape_batch=eq.{batch_date}&select=data"
+                f"&limit={page_size}&offset={offset}"
+            )
+            req = urllib.request.Request(url, headers={
+                "apikey": service_key,
+                "Authorization": f"Bearer {service_key}",
+                "Accept": "application/json",
+            })
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                rows = json.loads(resp.read())
 
-        if not rows:
+            if not rows:
+                break
+            all_rows.extend(rows)
+            if len(rows) < page_size:
+                break
+            offset += page_size
+
+        if not all_rows:
             return None
 
         # Extract the data JSONB field from each row
-        listings = [row["data"] for row in rows if row.get("data")]
+        listings = [row["data"] for row in all_rows if row.get("data")]
         return listings if listings else None
     except Exception as e:
         print(f"  [WARN] Supabase load failed: {e}", file=sys.stderr)
