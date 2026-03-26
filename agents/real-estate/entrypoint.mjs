@@ -112,8 +112,13 @@ try {
     }
   }
 } catch (err) {
-  // #13: Write a user-friendly error message to stderr and exit non-zero
   const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : "";
   process.stderr.write(`Agent error: ${message}\n`);
+  if (stack) process.stderr.write(`Stack: ${stack}\n`);
+  // Also write as NDJSON so the portal can see it
+  if (!isTTY) {
+    process.stdout.write(JSON.stringify({ type: "result", subtype: "error", is_error: true, result: message }) + "\n");
+  }
   process.exit(1);
 }
