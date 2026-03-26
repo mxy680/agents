@@ -1,0 +1,9 @@
+name: llc-monitor
+display_name: LLC Entity Monitor
+description: Daily scan of new LLC formations in NY for real estate transaction signals — identifies buyers before deals close by matching entity names to property address patterns.
+git_path: agents/llc-monitor
+required_integrations:
+  - google
+  - nydos
+  - dof
+status: active
