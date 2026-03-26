@@ -46,10 +46,37 @@ export default function ClientChatPage({
   const [agentDisplayName, setAgentDisplayName] = useState("")
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [verified, setVerified] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<Array<{ file: File; url?: string; uploading: boolean; preview?: string }>>([])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFileSelect(files: FileList | null) {
+    if (!files) return
+    const newFiles = Array.from(files).map((f) => ({
+      file: f, uploading: true,
+      preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+    }))
+    setPendingFiles((prev) => [...prev, ...newFiles])
+    for (const pf of newFiles) {
+      try {
+        const fd = new FormData()
+        fd.append("file", pf.file)
+        fd.append("conversationId", conversationId ?? "client")
+        const res = await fetch("/api/chat/upload", { method: "POST", body: fd })
+        if (res.ok) {
+          const data = await res.json() as { url: string }
+          setPendingFiles((prev) => prev.map((f) => f.file === pf.file ? { ...f, url: data.url, uploading: false } : f))
+        } else {
+          setPendingFiles((prev) => prev.filter((f) => f.file !== pf.file))
+        }
+      } catch {
+        setPendingFiles((prev) => prev.filter((f) => f.file !== pf.file))
+      }
+    }
+  }
 
   // Verify code and get agent info on mount
   useEffect(() => {
@@ -93,17 +120,33 @@ export default function ClientChatPage({
 
   const sendMessage = useCallback(async () => {
     const text = input.trim()
-    if (!text || isLoading) return
+    if (!text && pendingFiles.length === 0) return
+    if (isLoading) return
+
+    // Build message with file references
+    const uploadedFiles = pendingFiles.filter((f) => f.url && !f.uploading)
+    let messageText = text
+    if (uploadedFiles.length > 0) {
+      const fileList = uploadedFiles.map((f) => `[Attached file: ${f.file.name} (${f.url})]`).join("\n")
+      messageText = fileList + (text ? "\n\n" + text : "")
+    }
 
     setInput("")
     setError(null)
+    setPendingFiles([])
 
     const userMsgId = crypto.randomUUID()
     const assistantMsgId = crypto.randomUUID()
 
+    const userBlocks: ContentBlock[] = []
+    for (const f of uploadedFiles) {
+      userBlocks.push({ type: "file", name: f.file.name, url: f.url!, size: f.file.size, fileType: f.file.type })
+    }
+    if (text) userBlocks.push({ type: "text", content: text })
+
     setMessages((prev) => [
       ...prev,
-      { id: userMsgId, role: "user", blocks: [{ type: "text", content: text }], isStreaming: false },
+      { id: userMsgId, role: "user", blocks: userBlocks, isStreaming: false },
       { id: assistantMsgId, role: "assistant", blocks: [], isStreaming: true },
     ])
 
@@ -117,7 +160,7 @@ export default function ClientChatPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: decodeURIComponent(code),
-          message: text,
+          message: messageText || text,
           conversationId,
           agentName,
         }),
@@ -319,7 +362,34 @@ export default function ClientChatPage({
 
       {/* Input */}
       <div className="shrink-0 border-t border-neutral-800 p-4">
+        {pendingFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2 max-w-3xl mx-auto">
+            {pendingFiles.map((pf, i) => (
+              <div key={i} className="flex items-center gap-1.5 bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-xs text-neutral-300">
+                {pf.preview ? (
+                  <img src={pf.preview} alt={pf.file.name} className="size-5 rounded object-cover" />
+                ) : (
+                  <IconFile className="size-3.5 text-neutral-500" />
+                )}
+                <span className="max-w-[100px] truncate">{pf.file.name}</span>
+                {pf.uploading && <IconLoader2 className="size-3 animate-spin text-neutral-500" />}
+                <button onClick={() => setPendingFiles((prev) => prev.filter((f) => f.file !== pf.file))} className="text-neutral-500 hover:text-white">
+                  <IconX className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2 max-w-3xl mx-auto">
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="p-2.5 text-neutral-500 hover:text-white transition-colors disabled:opacity-30 shrink-0"
+            title="Attach file"
+          >
+            <IconPaperclip className="size-4" />
+          </button>
           <textarea
             ref={textareaRef}
             value={input}
@@ -339,11 +409,11 @@ export default function ClientChatPage({
             }}
           />
           {isLoading ? (
-            <button onClick={() => abortRef.current?.abort()} className="p-2.5 bg-neutral-800 rounded-lg hover:bg-neutral-700">
+            <button onClick={() => abortRef.current?.abort()} className="p-2.5 bg-neutral-800 rounded-lg hover:bg-neutral-700 shrink-0">
               <IconLoader2 className="size-4 text-neutral-400 animate-spin" />
             </button>
           ) : (
-            <button onClick={sendMessage} disabled={!input.trim()} className="p-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed">
+            <button onClick={sendMessage} disabled={!input.trim() && pendingFiles.length === 0} className="p-2.5 bg-white text-black rounded-lg hover:bg-neutral-200 disabled:opacity-30 disabled:cursor-not-allowed shrink-0">
               <IconSend className="size-4" />
             </button>
           )}

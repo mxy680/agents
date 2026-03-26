@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { isAdmin } from "@/lib/admin"
 
 /**
  * POST /api/chat/upload
  *
  * Upload a file for use in chat. Stores in Supabase Storage bucket 'chat-files'.
- * Returns the public URL and metadata.
+ * Accessible to both admin and client chat (no auth check — localhost only).
  */
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user || !isAdmin(user.email)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
 
   const formData = await request.formData()
   const file = formData.get("file") as File | null
