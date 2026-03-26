@@ -7,6 +7,11 @@ import {
   IconRobot,
   IconArrowLeft,
   IconLoader2,
+  IconPaperclip,
+  IconX,
+  IconFile,
+  IconDownload,
+  IconPhoto,
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { MessageBubble } from "@/components/chat/message-bubble"
@@ -27,7 +32,23 @@ interface ToolBlock {
   result?: string
 }
 
-type ContentBlock = TextBlock | ToolBlock
+interface FileBlock {
+  type: "file"
+  name: string
+  url: string
+  size?: number
+  fileType?: string
+}
+
+type ContentBlock = TextBlock | ToolBlock | FileBlock
+
+interface PendingFile {
+  file: File
+  name: string
+  url?: string
+  uploading: boolean
+  preview?: string
+}
 
 type MessageRole = "user" | "assistant"
 
@@ -81,10 +102,47 @@ export default function ConversationPage({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([])
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFileSelect(files: FileList | null) {
+    if (!files) return
+    const newFiles: PendingFile[] = Array.from(files).map((f) => ({
+      file: f,
+      name: f.name,
+      uploading: true,
+      preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+    }))
+    setPendingFiles((prev) => [...prev, ...newFiles])
+
+    // Upload each file
+    for (const pf of newFiles) {
+      try {
+        const formData = new FormData()
+        formData.append("file", pf.file)
+        formData.append("conversationId", conversationId)
+        const res = await fetch("/api/chat/upload", { method: "POST", body: formData })
+        if (res.ok) {
+          const data = await res.json() as { url: string; name: string }
+          setPendingFiles((prev) =>
+            prev.map((f) => f.file === pf.file ? { ...f, url: data.url, uploading: false } : f)
+          )
+        } else {
+          setPendingFiles((prev) => prev.filter((f) => f.file !== pf.file))
+        }
+      } catch {
+        setPendingFiles((prev) => prev.filter((f) => f.file !== pf.file))
+      }
+    }
+  }
+
+  function removePendingFile(file: File) {
+    setPendingFiles((prev) => prev.filter((f) => f.file !== file))
+  }
 
   // Load existing messages on mount
   useEffect(() => {
@@ -125,12 +183,29 @@ export default function ConversationPage({
     const userMsgId = crypto.randomUUID()
     const assistantMsgId = crypto.randomUUID()
 
+    // Build user blocks: text + any attached files
+    const userBlocks: ContentBlock[] = []
+    const uploadedFiles = pendingFiles.filter((f) => f.url && !f.uploading)
+    for (const f of uploadedFiles) {
+      userBlocks.push({ type: "file", name: f.name, url: f.url!, size: f.file.size, fileType: f.file.type })
+    }
+    userBlocks.push({ type: "text", content: text })
+
+    // Include file info in the message text so the agent knows about them
+    let messageWithFiles = text
+    if (uploadedFiles.length > 0) {
+      const fileList = uploadedFiles.map((f) => `[Attached file: ${f.name} (${f.url})]`).join("\n")
+      messageWithFiles = `${fileList}\n\n${text}`
+    }
+
+    setPendingFiles([])
+
     setMessages((prev) => [
       ...prev,
       {
         id: userMsgId,
         role: "user",
-        blocks: [{ type: "text", content: text }],
+        blocks: userBlocks,
         isStreaming: false,
       },
       { id: assistantMsgId, role: "assistant", blocks: [], isStreaming: true },
@@ -144,7 +219,7 @@ export default function ConversationPage({
       const res = await fetch(`/api/chat/${agentName}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, conversationId }),
+        body: JSON.stringify({ message: messageWithFiles, conversationId }),
         signal: abort.signal,
       })
 
@@ -376,7 +451,43 @@ export default function ConversationPage({
 
       {/* Input area */}
       <div className="shrink-0 border-t bg-background p-4">
+        {/* Pending file previews */}
+        {pendingFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {pendingFiles.map((pf, i) => (
+              <div key={i} className="flex items-center gap-1.5 bg-muted/60 border border-border rounded px-2 py-1 text-xs">
+                {pf.preview ? (
+                  <img src={pf.preview} alt={pf.name} className="size-6 rounded object-cover" />
+                ) : (
+                  <IconFile className="size-4 text-muted-foreground" />
+                )}
+                <span className="max-w-[120px] truncate">{pf.name}</span>
+                {pf.uploading && <IconLoader2 className="size-3 animate-spin text-muted-foreground" />}
+                <button onClick={() => removePendingFile(pf.file)} className="text-muted-foreground hover:text-foreground">
+                  <IconX className="size-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={(e) => handleFileSelect(e.target.files)}
+          />
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            title="Attach file"
+            className="shrink-0"
+          >
+            <IconPaperclip className="size-4" />
+          </Button>
           <textarea
             ref={textareaRef}
             value={input}
@@ -410,7 +521,7 @@ export default function ConversationPage({
             <Button
               size="icon"
               onClick={() => sendMessage()}
-              disabled={!input.trim()}
+              disabled={!input.trim() && pendingFiles.length === 0}
               title="Send message"
             >
               <IconSend className="size-4" />

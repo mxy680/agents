@@ -3,17 +3,20 @@
 import * as React from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { IconRobot, IconUser } from "@tabler/icons-react"
+import { IconRobot, IconUser, IconFile, IconDownload, IconPhoto } from "@tabler/icons-react"
 import { ToolCard } from "./tool-card"
 import { cn } from "@/lib/utils"
 
 interface ContentBlock {
-  type: "text" | "tool"
+  type: "text" | "tool" | "file"
   content?: string
   id?: string
   name?: string
   finalInput?: string
   result?: string
+  url?: string
+  size?: number
+  fileType?: string
 }
 
 interface MessageBubbleProps {
@@ -149,6 +152,40 @@ export function MessageBubble({ role, blocks, isStreaming }: MessageBubbleProps)
                 result={block.result}
                 isStreaming={isStreaming}
               />
+            )
+          }
+
+          if (block.type === "file" && block.url && block.name) {
+            const isImage = block.fileType?.startsWith("image/")
+            const sizeStr = block.size
+              ? block.size > 1024 * 1024
+                ? `${(block.size / (1024 * 1024)).toFixed(1)} MB`
+                : `${Math.round(block.size / 1024)} KB`
+              : ""
+            return (
+              <div key={i} className="border border-border rounded bg-muted/30 overflow-hidden max-w-xs">
+                {isImage && (
+                  <img src={block.url} alt={block.name} className="w-full max-h-48 object-cover" />
+                )}
+                <a
+                  href={block.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={block.name}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-muted/60 transition-colors"
+                >
+                  {isImage ? (
+                    <IconPhoto className="size-4 text-blue-400 shrink-0" />
+                  ) : (
+                    <IconFile className="size-4 text-muted-foreground shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{block.name}</p>
+                    {sizeStr && <p className="text-[10px] text-muted-foreground">{sizeStr}</p>}
+                  </div>
+                  <IconDownload className="size-3.5 text-muted-foreground shrink-0" />
+                </a>
+              </div>
             )
           }
 
