@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect, useCallback, use } from "react"
 import { useRouter } from "next/navigation"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import { IconSend, IconLoader2, IconPaperclip, IconFile, IconX, IconDownload, IconPhoto } from "@tabler/icons-react"
 
 interface TextBlock { type: "text"; content: string }
@@ -40,6 +42,8 @@ export default function ClientChatPage({
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clientName, setClientName] = useState("")
+  const [agentName, setAgentName] = useState("")
+  const [agentDisplayName, setAgentDisplayName] = useState("")
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [verified, setVerified] = useState(false)
 
@@ -47,8 +51,11 @@ export default function ClientChatPage({
   const abortRef = useRef<AbortController | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Verify code on mount
+  // Verify code and get agent info on mount
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    const agent = searchParams.get("agent") ?? ""
+
     async function verify() {
       try {
         const res = await fetch("/api/client/verify", {
@@ -57,8 +64,18 @@ export default function ClientChatPage({
           body: JSON.stringify({ code: decodeURIComponent(code) }),
         })
         if (res.ok) {
-          const data = await res.json() as { clientName: string }
+          const data = await res.json() as {
+            clientName: string
+            agents: Array<{ name: string; displayName: string }>
+          }
           setClientName(data.clientName)
+
+          // Find the selected agent
+          const selected = data.agents.find((a) => a.name === agent) ?? data.agents[0]
+          if (selected) {
+            setAgentName(selected.name)
+            setAgentDisplayName(selected.displayName)
+          }
           setVerified(true)
         } else {
           router.push("/client")
@@ -102,6 +119,7 @@ export default function ClientChatPage({
           code: decodeURIComponent(code),
           message: text,
           conversationId,
+          agentName,
         }),
         signal: abort.signal,
       })
@@ -224,9 +242,8 @@ export default function ClientChatPage({
     <div className="flex h-screen flex-col bg-[#0a0a0a] text-white">
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-800 px-4">
-        <div>
-          <span className="text-sm font-medium">Emdash</span>
-          <span className="text-xs text-neutral-500 ml-2">AI Agent</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">{agentDisplayName || "Emdash"}</span>
         </div>
         <span className="text-xs text-neutral-500">
           {clientName}
@@ -248,8 +265,14 @@ export default function ClientChatPage({
               {msg.blocks.map((block, i) => {
                 if (block.type === "text") {
                   return (
-                    <div key={i} className="text-sm whitespace-pre-wrap">
-                      {block.content}
+                    <div key={i} className="text-sm prose prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      {msg.role === "user" ? (
+                        <p className="whitespace-pre-wrap m-0">{block.content}</p>
+                      ) : (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {block.content || ""}
+                        </ReactMarkdown>
+                      )}
                       {msg.isStreaming && i === msg.blocks.length - 1 && (
                         <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse" />
                       )}

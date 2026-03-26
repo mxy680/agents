@@ -13,11 +13,13 @@ export async function POST(request: NextRequest) {
   let code: string
   let message: string
   let conversationId: string | undefined
+  let requestedAgent: string | undefined
   try {
     const body = await request.json()
     code = body.code
     message = body.message
     conversationId = body.conversationId
+    requestedAgent = body.agentName
   } catch {
     return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 })
   }
@@ -44,7 +46,13 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: "Invalid access code" }), { status: 401 })
   }
 
-  const agentName = access.agent_name
+  // Use requested agent if valid, otherwise fall back to first assigned
+  const allowedAgents: string[] = (access.agent_names as string[] | null)?.length
+    ? (access.agent_names as string[])
+    : [access.agent_name]
+  const agentName = (requestedAgent && allowedAgents.includes(requestedAgent))
+    ? requestedAgent
+    : allowedAgents[0]
 
   // Create or validate conversation
   if (!conversationId) {

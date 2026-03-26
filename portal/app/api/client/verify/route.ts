@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("client_access")
-    .select("id, client_name, agent_name, active")
+    .select("id, client_name, agent_name, agent_names, active")
     .eq("code", code.trim())
     .eq("active", true)
     .single()
@@ -26,9 +26,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid access code" }, { status: 401 })
   }
 
+  const agentNames: string[] = (data.agent_names as string[] | null)?.length
+    ? (data.agent_names as string[])
+    : [data.agent_name]
+
+  const { data: templates } = await admin
+    .from("agent_templates")
+    .select("name, display_name, description")
+    .in("name", agentNames)
+
   return NextResponse.json({
     ok: true,
     clientName: data.client_name,
-    agentName: data.agent_name,
+    agents: (templates ?? []).map((t) => ({
+      name: t.name,
+      displayName: t.display_name,
+      description: t.description,
+    })),
   })
 }
