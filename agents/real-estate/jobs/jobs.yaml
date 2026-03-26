@@ -2,27 +2,27 @@ jobs:
   - slug: weekly-scan
     display_name: Weekly NYC Assemblage Scan
     description: Zillow listings → PLUTO filter → distress signals → scored report
-    schedule: "0 9 * * 1"  # Monday 9am ET
+    schedule: ""
     prompt_file: weekly-scan.md
     timeout_minutes: 120
 
   - slug: off-market-scan
-    display_name: Weekly Off-Market R8+ Scan
+    display_name: Off-Market R8+ Scan
     description: All R8+ small residential in NYC → distress signals → scored report (no Zillow)
-    schedule: "0 10 * * 1"  # Monday 10am ET
+    schedule: ""
     prompt_file: off-market-scan.md
     timeout_minutes: 180
 
   - slug: probate-scan
-    display_name: Daily Probate Scan
-    description: ACRIS estate filings → filter 15K+ SF or 5+ units → daily alerts
-    schedule: "0 8 * * *"  # Daily 8am ET
+    display_name: Probate Scan
+    description: ACRIS estate filings → filter 15K+ SF or 5+ units → alerts
+    schedule: ""
     prompt_file: probate-scan.md
     timeout_minutes: 30
 
   - slug: llc-scan
-    display_name: Daily LLC Formation Scan
-    description: NY DOS new LLCs → pattern match real estate entities → daily digest
-    schedule: "0 7 * * *"  # Daily 7am ET
+    display_name: LLC Formation Scan
+    description: NY DOS new LLCs → pattern match real estate entities → digest
+    schedule: ""
     prompt_file: llc-scan.md
     timeout_minutes: 30

@@ -184,14 +184,16 @@ export default async function JobsPage() {
                         </p>
 
                         <div className="flex flex-col gap-1.5 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">
-                              Schedule
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {toHumanReadable(def.schedule)}
-                            </Badge>
-                          </div>
+                          {def.schedule && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Schedule
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {toHumanReadable(def.schedule)}
+                              </Badge>
+                            </div>
+                          )}
                           {latestRun && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">
