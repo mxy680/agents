@@ -30,3 +30,11 @@ jobs:
     prompt_file: llc-scan.md
     timeout_minutes: 30
     estimated_minutes: 2
+
+  - slug: wide-lot-scan
+    display_name: Bronx Wide Lot Scan
+    description: 1-2 family homes with 50ft+ lot frontage in Bronx R8+ zones (falls back to R7+ if few hits)
+    schedule: ""
+    prompt_file: wide-lot-scan.md
+    timeout_minutes: 30
+    estimated_minutes: 5

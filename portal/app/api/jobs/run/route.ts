@@ -20,6 +20,7 @@ const JOB_SCRIPT_MAP: Record<string, string> = {
   "real-estate:off-market-scan": "off-market/run_pipeline.sh",
   "real-estate:probate-scan": "probate/run_scan.sh",
   "real-estate:llc-scan": "llc/run_scan.sh",
+  "real-estate:wide-lot-scan": "wide-lot/run_scan.sh",
 }
 
 export async function POST(request: NextRequest) {
