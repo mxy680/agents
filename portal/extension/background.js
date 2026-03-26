@@ -154,6 +154,9 @@ chrome.runtime.onInstalled.addListener(() => {
 const SCRAPE_DELAY_MS = 3000;
 const SCRAPE_PAGE_WAIT_MS = 6000;
 
+// Scrape progress tracking
+let scrapeState = { running: false, done: false, processed: 0, total: 0, results: 0, currentBorough: "", currentZip: "" };
+
 /**
  * Content script function injected into Zillow pages to extract listings.
  */
@@ -221,10 +224,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true;
   }
+  if (message.action === "scrape-status") {
+    sendResponse({ ...scrapeState });
+    return;
+  }
 });
 
 async function runScrape(zipCodes) {
   const portalURL = await getPortalURL();
+
+  scrapeState = { running: true, done: false, processed: 0, total: zipCodes.length, results: 0, currentBorough: "", currentZip: "" };
 
   // Create a tab for scraping (inactive)
   const tab = await chrome.tabs.create({
@@ -240,6 +249,9 @@ async function runScrape(zipCodes) {
 
   for (const { borough, zip } of zipCodes) {
     processed++;
+    scrapeState.processed = processed;
+    scrapeState.currentBorough = borough;
+    scrapeState.currentZip = zip;
 
     // Navigate the tab
     await chrome.tabs.update(tab.id, {
@@ -280,7 +292,8 @@ async function runScrape(zipCodes) {
             allResults[l.zpid] = l;
           }
         }
-        console.log(`[emdash] ${processed}/${zipCodes.length} ${borough} ${zip}: ${listings.length} results`);
+        scrapeState.results = Object.keys(allResults).length;
+        console.log(`[emdash] ${processed}/${zipCodes.length} ${borough} ${zip}: ${listings.length} results (${scrapeState.results} total)`);
       } else {
         console.log(`[emdash] ${processed}/${zipCodes.length} ${borough} ${zip}: 0 results`);
       }
@@ -311,6 +324,8 @@ async function runScrape(zipCodes) {
   }
 
   // Also save to a file the pipeline can read
+  scrapeState = { running: false, done: true, processed: zipCodes.length, total: zipCodes.length, results: listings.length, currentBorough: "", currentZip: "" };
+
   console.log(`[emdash] Scrape complete: ${listings.length} unique listings`);
-  return { ok: true, count: listings.length, listings };
+  return { ok: true, count: listings.length };
 }

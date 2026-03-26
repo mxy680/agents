@@ -5,165 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Emdash Cookie Sync</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: #0a0a0a;
       color: #e5e5e5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      min-width: 300px;
+      min-width: 320px;
       padding: 16px;
     }
-
-    .header {
-      margin-bottom: 12px;
-    }
-
-    .title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #fafafa;
-      margin-bottom: 4px;
-    }
-
+    .header { margin-bottom: 12px; }
+    .title { font-size: 14px; font-weight: 600; color: #fafafa; margin-bottom: 4px; }
     .domain {
-      font-size: 12px;
-      color: #737373;
-      font-family: monospace;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      font-size: 12px; color: #737373; font-family: monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .domain.loading {
-      color: #525252;
-      font-style: italic;
-      font-family: inherit;
-    }
-
-    .buttons {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
+    .domain.loading { color: #525252; font-style: italic; font-family: inherit; }
+    .buttons { display: flex; gap: 8px; margin-bottom: 8px; }
     button {
-      flex: 1;
-      padding: 8px 14px;
-      background-color: #fafafa;
-      color: #0a0a0a;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.15s;
+      flex: 1; padding: 8px 14px; background-color: #fafafa; color: #0a0a0a;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: background-color 0.15s;
     }
+    button:hover { background-color: #e5e5e5; }
+    button:active { background-color: #d4d4d4; }
+    button:disabled { background-color: #262626; color: #525252; cursor: not-allowed; }
+    button.secondary { background-color: #262626; color: #e5e5e5; }
+    button.secondary:hover { background-color: #333; }
+    button.scrape { background-color: #2563eb; color: #fff; flex: none; width: 100%; }
+    button.scrape:hover { background-color: #1d4ed8; }
+    button.scrape:disabled { background-color: #1e3a5f; color: #6b7280; }
 
-    button:hover {
-      background-color: #e5e5e5;
-    }
-
-    button:active {
-      background-color: #d4d4d4;
-    }
-
-    button:disabled {
-      background-color: #262626;
-      color: #525252;
-      cursor: not-allowed;
-    }
-
-    button.secondary {
-      background-color: #262626;
-      color: #e5e5e5;
-    }
-
-    button.secondary:hover {
-      background-color: #333;
+    .section-label {
+      font-size: 11px; color: #525252; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-top: 12px; margin-bottom: 6px;
+      padding-top: 10px; border-top: 1px solid #262626;
     }
 
     .sync-status {
-      margin-top: 8px;
-      padding: 8px 10px;
-      background-color: #1a1a1a;
-      border-radius: 6px;
-      font-size: 12px;
-      color: #737373;
+      padding: 8px 10px; background-color: #1a1a1a;
+      border-radius: 6px; font-size: 12px; color: #737373;
     }
-
-    .sync-status .label {
-      color: #a3a3a3;
-      font-weight: 500;
-    }
-
-    .sync-status .active {
-      color: #4ade80;
-    }
-
-    .sync-status .inactive {
-      color: #f87171;
-    }
-
+    .sync-status .label { color: #a3a3a3; font-weight: 500; }
+    .sync-status .active { color: #4ade80; }
+    .sync-status .inactive { color: #f87171; }
     .provider-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 0;
+      display: flex; justify-content: space-between; align-items: center; padding: 4px 0;
     }
+
+    .scrape-progress {
+      margin-top: 8px; padding: 10px; background-color: #1a1a1a;
+      border-radius: 6px; font-size: 12px; display: none;
+    }
+    .scrape-progress.visible { display: block; }
+    .progress-bar {
+      height: 4px; background: #262626; border-radius: 2px; margin-top: 6px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: #2563eb; border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .progress-text { color: #a3a3a3; margin-top: 4px; }
+    .progress-text .count { color: #4ade80; font-weight: 600; }
 
     .status {
-      margin-top: 10px;
-      font-size: 12px;
-      text-align: center;
-      min-height: 16px;
+      margin-top: 10px; font-size: 12px; text-align: center; min-height: 16px;
     }
-
-    .status.success {
-      color: #4ade80;
-    }
-
-    .status.error {
-      color: #f87171;
-    }
-
-    .status.info {
-      color: #737373;
-    }
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
+    .status.info { color: #737373; }
 
     .portal-url {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #262626;
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid #262626;
     }
-
-    .portal-url label {
-      display: block;
-      font-size: 11px;
-      color: #737373;
-      margin-bottom: 4px;
-    }
-
+    .portal-url label { display: block; font-size: 11px; color: #737373; margin-bottom: 4px; }
     .portal-url input {
-      width: 100%;
-      padding: 6px 8px;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 4px;
-      color: #e5e5e5;
-      font-size: 12px;
-      font-family: monospace;
+      width: 100%; padding: 6px 8px; background: #1a1a1a; border: 1px solid #333;
+      border-radius: 4px; color: #e5e5e5; font-size: 12px; font-family: monospace;
     }
-
-    .portal-url input:focus {
-      outline: none;
-      border-color: #525252;
-    }
+    .portal-url input:focus { outline: none; border-color: #525252; }
   </style>
 </head>
 <body>
@@ -177,14 +97,30 @@
     <button id="sync-btn" class="secondary" disabled>Sync Now</button>
   </div>
 
-  <div class="sync-status" id="sync-status">
+  <div class="sync-status">
     <div class="provider-row">
       <span class="label">Zillow</span>
-      <span id="zillow-status" class="inactive">—</span>
+      <span id="zillow-status" class="inactive">--</span>
     </div>
     <div class="provider-row">
       <span class="label">StreetEasy</span>
-      <span id="streeteasy-status" class="inactive">—</span>
+      <span id="streeteasy-status" class="inactive">--</span>
+    </div>
+  </div>
+
+  <div class="section-label">Zillow Scraper</div>
+  <button id="scrape-btn" class="scrape">Scrape All NYC ZIP Codes</button>
+
+  <div class="scrape-progress" id="scrape-progress">
+    <div class="progress-text">
+      <span id="scrape-status-text">Starting...</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="scrape-bar" style="width: 0%"></div>
+    </div>
+    <div class="progress-text" style="margin-top: 6px;">
+      ZIPs: <span id="scrape-zips">0/137</span> &nbsp;|&nbsp;
+      Listings: <span id="scrape-listings" class="count">0</span>
     </div>
   </div>
 
