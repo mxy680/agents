@@ -79,12 +79,15 @@ export async function POST(request: NextRequest) {
 
   // Escape runId for use in the heredoc (it's a UUID so alphanumeric + hyphens only)
   const portalNodeModules = path.join(REPO_ROOT, "portal", "node_modules")
+  // Use a Doppler service token so the detached process doesn't need keyring access
+  const dopplerToken = process.env.DOPPLER_SERVICE_TOKEN || ""
   const wrapperContents = `#!/bin/bash
 set -uo pipefail
 CREDS_FILE="${credsFile}"
 LOG_FILE="${logFile}"
 RUN_ID="${runId}"
 export NODE_PATH="${portalNodeModules}:\${NODE_PATH:-}"
+export DOPPLER_TOKEN="${dopplerToken}"
 
 # Always clean up creds file on exit
 trap 'rm -f "$CREDS_FILE"' EXIT
@@ -93,7 +96,6 @@ trap 'rm -f "$CREDS_FILE"' EXIT
 doppler run --project agents --config dev -- node "${resolveCredsScript}" > "$CREDS_FILE" 2>>"$LOG_FILE"
 if [ $? -ne 0 ] || [ ! -s "$CREDS_FILE" ]; then
   echo "[wrapper] ERROR: credential resolution failed" >> "$LOG_FILE"
-  # Update DB status to failed — best-effort via curl to Supabase REST
   exit 1
 fi
 
