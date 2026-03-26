@@ -1,0 +1,6 @@
+jobs:
+  - slug: weekly-scan
+    display_name: Weekly Off-Market R8+ Scan
+    schedule: "0 10 * * 1"  # Every Monday at 10am ET (after real-estate scan)
+    prompt_file: weekly-scan.md
+    timeout_minutes: 180

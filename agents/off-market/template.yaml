@@ -1,0 +1,9 @@
+name: off-market
+display_name: Off-Market Scanner
+description: Scans all R8+ zoned 1-5 family residential properties across NYC for distress signals — finds motivated sellers before they list.
+git_path: agents/off-market
+required_integrations:
+  - google
+  - streeteasy
+  - citibike
+status: active
