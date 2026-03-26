@@ -70,8 +70,14 @@ export async function POST(request: NextRequest) {
   // #1 Write a wrapper script that runs detached from the Next.js process.
   // The wrapper: resolves creds, runs the pipeline, and updates DB status on completion.
   // A trap ensures the creds file is always cleaned up.
-  const resolveCredsScript = path.join(REPO_ROOT, "agents", agent, "resolve-creds.mjs")
-  const pipelineScript = path.join(REPO_ROOT, "agents", agent, "scripts", "run_pipeline.sh")
+  // resolve-creds.mjs lives in real-estate but is shared by all agents
+  const resolveCredsScript = path.join(REPO_ROOT, "agents", "real-estate", "resolve-creds.mjs")
+
+  // Agents use either run_pipeline.sh or run_scan.sh
+  const pipelinePath = path.join(REPO_ROOT, "agents", agent, "scripts", "run_pipeline.sh")
+  const scanPath = path.join(REPO_ROOT, "agents", agent, "scripts", "run_scan.sh")
+  const { existsSync } = await import("fs")
+  const pipelineScript = existsSync(pipelinePath) ? pipelinePath : scanPath
   const binPath = path.join(REPO_ROOT, "bin")
   const credsFile = `/tmp/job_creds_${runId}.sh`
   const logFile = `/tmp/job_log_${runId}.txt`
