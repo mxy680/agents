@@ -137,12 +137,12 @@ func makeRunLoansTract(factory ClientFactory) func(*cobra.Command, []string) err
 			if item.CensusTract == tract {
 				avg := int64(0)
 				if item.Count > 0 {
-					avg = item.Sum / int64(item.Count)
+					avg = int64(item.Sum) / int64(item.Count)
 				}
 				summary := TractSummary{
 					Tract:       item.CensusTract,
 					Count:       item.Count,
-					Volume:      item.Sum,
+					Volume:      int64(item.Sum),
 					AvgLoanSize: avg,
 				}
 				return printTractSummary(cmd, summary)

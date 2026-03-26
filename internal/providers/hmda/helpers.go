@@ -52,9 +52,9 @@ type AggregationResponse struct {
 
 // AggregationItem represents a single row in the HMDA aggregation response.
 type AggregationItem struct {
-	CensusTract string `json:"census_tract"`
-	Count       int    `json:"count"`
-	Sum         int64  `json:"sum"`
+	CensusTract string  `json:"census_tract"`
+	Count       int     `json:"count"`
+	Sum         float64 `json:"sum"`
 }
 
 // printCountySummary outputs a CountySummary as JSON or formatted text.
@@ -140,7 +140,7 @@ func countyNameForFIPS(fips string) string {
 // It limits top_tracts to the top 10 by loan count.
 func buildCountySummary(county, fips string, year int, items []AggregationItem) CountySummary {
 	var totalLoans int
-	var totalVolume int64
+	var totalVolume float64
 	var tracts []TractSummary
 
 	for _, item := range items {
@@ -149,12 +149,12 @@ func buildCountySummary(county, fips string, year int, items []AggregationItem) 
 
 		avg := int64(0)
 		if item.Count > 0 {
-			avg = item.Sum / int64(item.Count)
+			avg = int64(item.Sum) / int64(item.Count)
 		}
 		tracts = append(tracts, TractSummary{
 			Tract:       item.CensusTract,
 			Count:       item.Count,
-			Volume:      item.Sum,
+			Volume:      int64(item.Sum),
 			AvgLoanSize: avg,
 		})
 	}
@@ -168,7 +168,7 @@ func buildCountySummary(county, fips string, year int, items []AggregationItem) 
 
 	avgLoanSize := int64(0)
 	if totalLoans > 0 {
-		avgLoanSize = totalVolume / int64(totalLoans)
+		avgLoanSize = int64(totalVolume) / int64(totalLoans)
 	}
 
 	return CountySummary{
@@ -176,7 +176,7 @@ func buildCountySummary(county, fips string, year int, items []AggregationItem) 
 		FIPS:        fips,
 		Year:        year,
 		TotalLoans:  totalLoans,
-		TotalVolume: totalVolume,
+		TotalVolume: int64(totalVolume),
 		AvgLoanSize: avgLoanSize,
 		TopTracts:   topTracts,
 	}

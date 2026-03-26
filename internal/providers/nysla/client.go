@@ -50,6 +50,8 @@ func (c *Client) Get(ctx context.Context, params url.Values) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
+	req.Header.Set("User-Agent", "Emdash-Agents/1.0")
+	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

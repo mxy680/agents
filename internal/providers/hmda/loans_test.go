@@ -340,7 +340,7 @@ func TestBuildCountySummary_Top10Cap(t *testing.T) {
 		items[i] = AggregationItem{
 			CensusTract: "36005" + strings.Repeat("0", 6-len(string(rune('0'+i)))) + string(rune('0'+i)),
 			Count:       i + 1,
-			Sum:         int64((i + 1) * 100000),
+			Sum:         float64((i + 1) * 100000),
 		}
 	}
 
