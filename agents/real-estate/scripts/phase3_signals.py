@@ -9,12 +9,25 @@ For each R7+ property, check:
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
 import urllib.request
 import urllib.parse
 from datetime import datetime, timedelta
+
+# Add shared module to path
+_shared_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+if _shared_path not in sys.path:
+    sys.path.insert(0, _shared_path)
+try:
+    from shared.cache import get_cached, put_cached, get_cached_batch, put_cached_batch
+except ImportError:
+    def get_cached(p, e): return None
+    def put_cached(p, e, d, **kw): return False
+    def get_cached_batch(p, ids): return {}
+    def put_cached_batch(p, items): return False
 
 TODAY = datetime.now()
 DATE_90_DAYS_AGO = (TODAY - timedelta(days=90)).strftime("%Y-%m-%d")
@@ -363,9 +376,15 @@ def check_co_on_block(borough_digit, block):
 
 
 def check_citibike_density(lat, lng):
-    """Get Citi Bike station count within 1km."""
+    """Get Citi Bike station count within 1km. Cached (stations rarely change)."""
     if not lat or not lng:
         return 0
+    # Round to 3 decimals (~100m precision) for cache key
+    cache_key = f"{round(float(lat),3)},{round(float(lng),3)}"
+    cached = get_cached("citibike_density", cache_key)
+    if cached is not None:
+        return cached.get("count", 0)
+
     cmd = [
         "integrations", "citibike", "stations", "density",
         f"--lat={lat}", f"--lng={lng}", "--radius=1000", "--json"
@@ -375,7 +394,9 @@ def check_citibike_density(lat, lng):
         if result.returncode != 0:
             return 0
         data = json.loads(result.stdout)
-        return data.get("count", 0)
+        count = data.get("count", 0)
+        put_cached("citibike_density", cache_key, data)
+        return count
     except Exception:
         return 0
 

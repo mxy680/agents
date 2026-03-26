@@ -49,7 +49,13 @@ def is_r7_plus(zone):
 
 
 def geocode_address(address):
-    """Geocode an address to BBL using NYC GeoSearch."""
+    """Geocode an address to BBL using NYC GeoSearch. Cached (addresses don't move)."""
+    # Normalize address for cache key
+    cache_key = address.strip().upper()
+    cached = get_cached("geocode", cache_key)
+    if cached:
+        return cached.get("bbl"), cached.get("block"), cached.get("lot")
+
     try:
         encoded = urllib.parse.quote(address)
         url = f"https://geosearch.planninglabs.nyc/v2/search?text={encoded}&size=1"
@@ -70,20 +76,42 @@ def geocode_address(address):
         if not bbl:
             return None, None, None
 
-        # Parse BBL: borough(1) + block(5) + lot(4)
         bbl_str = str(bbl).zfill(10)
-        borough_digit = bbl_str[0]
         block = bbl_str[1:6]
         lot = bbl_str[6:10]
 
+        # Cache it (addresses don't move)
+        put_cached("geocode", cache_key, {"bbl": bbl_str, "block": block, "lot": lot}, bbl=bbl_str)
         return bbl_str, block, lot
 
-    except Exception as e:
+    except Exception:
         return None, None, None
 
 
+def _init_cache():
+    """Add shared module to path."""
+    import sys as _sys
+    shared_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "shared")
+    if shared_path not in _sys.path:
+        _sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+_init_cache()
+try:
+    from shared.cache import get_cached, put_cached
+except ImportError:
+    # Fallback if shared module not available
+    def get_cached(p, e): return None
+    def put_cached(p, e, d, **kw): return False
+
+
 def get_pluto_data(bbl):
-    """Get PLUTO lot data for a BBL."""
+    """Get PLUTO lot data for a BBL. Checks Supabase cache first."""
+    # Check cache (PLUTO updates annually)
+    cached = get_cached("pluto", bbl)
+    if cached:
+        return cached
+
+    # Fetch from Socrata
     try:
         url = f"https://data.cityofnewyork.us/resource/64uk-42ks.json?bbl={bbl}"
         req = urllib.request.Request(url, headers={"User-Agent": "NYC-Assemblage/1.0"})
@@ -93,8 +121,11 @@ def get_pluto_data(bbl):
         if not data:
             return None
 
-        return data[0]
-    except Exception as e:
+        result = data[0]
+        # Cache it (PLUTO changes annually)
+        put_cached("pluto", bbl, result, bbl=bbl)
+        return result
+    except Exception:
         return None
 
 
