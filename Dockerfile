@@ -61,9 +61,16 @@ COPY --from=portal-builder /build/portal/public ./public
 # Copy agent files
 COPY agents/ /app/agents/
 
+# Create non-root user for agent execution
+RUN useradd -m -s /bin/bash agent && \
+    chown -R agent:agent /app
+
 # Expose port
 ENV PORT=3000
 EXPOSE 3000
+
+USER agent
+WORKDIR /app
 
 # Doppler injects all secrets at runtime via DOPPLER_TOKEN env var
 CMD ["doppler", "run", "--", "npm", "start"]

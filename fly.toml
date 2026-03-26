@@ -17,7 +17,7 @@ primary_region = "ewr"  # Newark, NJ (closest to NYC)
 
 [[mounts]]
   source = "claude_auth"
-  destination = "/root/.claude"
+  destination = "/home/agent/.claude"
 
 [[vm]]
   size = "shared-cpu-2x"
