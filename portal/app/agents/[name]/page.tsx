@@ -75,24 +75,16 @@ export default async function AgentDetailPage({
       .from("user_integrations")
       .select("provider")
       .eq("status", "active"),
-    // Assigned clients
-    admin
-      .from("client_agents")
-      .select("id, client_id, notes, created_at, clients(id, name, email, active)")
-      .eq("template_id", template.id)
-      .order("created_at", { ascending: false }),
-    // All active clients (for assign dropdown)
-    admin
-      .from("clients")
-      .select("id, name, email")
-      .eq("active", true)
-      .order("name", { ascending: true }),
+    // Placeholder for removed client_agents table
+    Promise.resolve({ data: [] }),
+    // Placeholder for removed clients table
+    Promise.resolve({ data: [] }),
     // Recent conversations
     admin
       .from("conversations")
-      .select("id, title, client_id, created_at, clients(name)")
+      .select("id, title, created_at, updated_at")
       .eq("agent_name", template.name)
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(10),
     // Job definitions with last run
     admin
@@ -125,19 +117,20 @@ export default async function AgentDetailPage({
   const conversations = conversationsRes.data ?? []
   const jobDefs = jobDefsRes.data ?? []
 
-  // Fetch last run status for each job definition
+  // Fetch last run status for each job definition (from local_job_runs)
   let lastRunMap: Record<string, { status: string; completed_at: string | null }> = {}
   if (jobDefs.length > 0) {
-    const jobDefIds = jobDefs.map((j) => j.id)
     const { data: lastRuns } = await admin
-      .from("job_runs")
-      .select("job_definition_id, status, completed_at")
-      .in("job_definition_id", jobDefIds)
+      .from("local_job_runs")
+      .select("job_slug, status, completed_at")
+      .eq("agent_name", template.name)
       .order("created_at", { ascending: false })
+      .limit(20)
 
     for (const run of lastRuns ?? []) {
-      if (!lastRunMap[run.job_definition_id]) {
-        lastRunMap[run.job_definition_id] = {
+      const key = run.job_slug
+      if (!lastRunMap[key]) {
+        lastRunMap[key] = {
           status: run.status,
           completed_at: run.completed_at,
         }
@@ -240,7 +233,6 @@ export default async function AgentDetailPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Client</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead />
                   </TableRow>
@@ -248,35 +240,29 @@ export default async function AgentDetailPage({
                 <TableBody>
                   {conversations.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={3} className="text-center text-muted-foreground">
                         No conversations yet.
                       </TableCell>
                     </TableRow>
                   )}
-                  {conversations.map((conv) => {
-                    const clientData = conv.clients as unknown as { name: string } | null
-                    return (
+                  {conversations.map((conv: { id: string; title: string | null; created_at: string; updated_at: string }) => (
                       <TableRow key={conv.id}>
                         <TableCell className="font-medium">
                           {conv.title ?? "Untitled"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {clientData?.name ?? "—"}
-                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {new Date(conv.created_at).toLocaleDateString()}
+                          {new Date(conv.updated_at ?? conv.created_at).toLocaleDateString(undefined, { dateStyle: "medium" })}
                         </TableCell>
                         <TableCell>
                           <a
-                            href={`/chat/${template.name}?conversation=${conv.id}`}
+                            href={`/chat/${template.name}/${conv.id}`}
                             className="text-sm text-primary hover:underline"
                           >
                             Open
                           </a>
                         </TableCell>
                       </TableRow>
-                    )
-                  })}
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
