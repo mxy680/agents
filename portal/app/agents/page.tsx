@@ -161,7 +161,7 @@ export default async function AgentsPage() {
                         </a>
                       </Button>
                       <Button size="sm" variant="outline" asChild>
-                        <a href={`/jobs?agent=${template.name}`}>
+                        <a href={`/jobs/agent/${template.name}`}>
                           <IconPlayerPlay className="size-4" />
                           Jobs
                         </a>

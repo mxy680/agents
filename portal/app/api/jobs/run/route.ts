@@ -12,7 +12,7 @@ import path from "path"
 const REPO_ROOT = path.resolve(process.cwd(), "..")
 
 // Allowlist of agents that can be triggered via this route
-const ALLOWED_AGENTS = ["real-estate"]
+const ALLOWED_AGENTS = ["real-estate", "off-market", "probate-monitor", "llc-monitor"]
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
