@@ -59,7 +59,7 @@ EXCLUDE_STATUS = {
 
 
 def load_from_supabase(batch_date):
-    """Load scraped listings from Supabase zillow_scrape_listings table."""
+    """Load scraped Zillow listings from Supabase scrape_data table."""
     try:
         import urllib.request
         import urllib.parse
@@ -70,14 +70,14 @@ def load_from_supabase(batch_date):
             print("  [WARN] Supabase env vars not set, skipping DB check", file=sys.stderr)
             return None
 
-        # Query all listings for this batch with pagination (REST API defaults to 1000)
+        # Query scrape_data for zillow provider with pagination
         all_rows = []
         offset = 0
         page_size = 1000
         while True:
             url = (
-                f"{supabase_url}/rest/v1/zillow_scrape_listings"
-                f"?scrape_batch=eq.{batch_date}&select=data"
+                f"{supabase_url}/rest/v1/scrape_data"
+                f"?provider=eq.zillow&batch_id=eq.{batch_date}&select=data"
                 f"&limit={page_size}&offset={offset}"
             )
             req = urllib.request.Request(url, headers={

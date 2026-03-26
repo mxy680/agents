@@ -13,8 +13,6 @@ export async function OPTIONS() {
 
 interface Listing {
   zpid: string
-  _borough?: string
-  _zip?: string
   [key: string]: unknown
 }
 
@@ -22,7 +20,7 @@ interface Listing {
  * POST /api/integrations/zillow/scrape-results
  *
  * Receives Zillow listing data from the Chrome extension scraper.
- * Upserts into zillow_scrape_listings table in Supabase.
+ * Upserts into scrape_data table with provider='zillow'.
  */
 export async function POST(request: NextRequest) {
   let listings: Listing[]
@@ -43,7 +41,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const batchId = new Date().toISOString().slice(0, 10) // e.g. "2026-03-25"
+  const batchId = new Date().toISOString().slice(0, 10)
 
   try {
     const admin = createAdminClient()
@@ -51,21 +49,19 @@ export async function POST(request: NextRequest) {
     const rows = listings
       .filter((l) => l.zpid)
       .map((l) => ({
-        zpid: String(l.zpid),
+        provider: "zillow",
+        external_id: String(l.zpid),
         data: l,
-        borough: l._borough || null,
-        zip: l._zip || null,
+        batch_id: batchId,
         scraped_at: new Date().toISOString(),
-        scrape_batch: batchId,
       }))
 
-    // Upsert in chunks of 500
     let upserted = 0
     for (let i = 0; i < rows.length; i += 500) {
       const chunk = rows.slice(i, i + 500)
       const { error } = await admin
-        .from("zillow_scrape_listings")
-        .upsert(chunk, { onConflict: "zpid" })
+        .from("scrape_data")
+        .upsert(chunk, { onConflict: "provider,external_id" })
 
       if (error) {
         console.error("[scrape-results] Upsert error:", error.message)
@@ -77,19 +73,14 @@ export async function POST(request: NextRequest) {
       upserted += chunk.length
     }
 
-    // Get total count
     const { count } = await admin
-      .from("zillow_scrape_listings")
-      .select("zpid", { count: "exact", head: true })
-      .eq("scrape_batch", batchId)
+      .from("scrape_data")
+      .select("id", { count: "exact", head: true })
+      .eq("provider", "zillow")
+      .eq("batch_id", batchId)
 
     return NextResponse.json(
-      {
-        ok: true,
-        new: upserted,
-        total: count ?? upserted,
-        batch: batchId,
-      },
+      { ok: true, new: upserted, total: count ?? upserted, batch: batchId },
       { headers: CORS_HEADERS }
     )
   } catch (err) {
