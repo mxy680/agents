@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -59,6 +60,10 @@ func (c *Client) Query(ctx context.Context, baseURL string, params url.Values) (
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "application/json")
+	if token := os.Getenv("SOCRATA_NY_APP_TOKEN"); token != "" {
+		req.Header.Set("X-App-Token", token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

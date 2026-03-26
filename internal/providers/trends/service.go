@@ -4,9 +4,30 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/groovili/gogtrends"
 )
+
+// retryExplore wraps gogtrends.Explore with retry on 429 rate limits.
+func retryExplore(ctx context.Context, req *gogtrends.ExploreRequest, lang string) ([]*gogtrends.ExploreWidget, error) {
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		widgets, err := gogtrends.Explore(ctx, req, lang)
+		if err == nil {
+			return widgets, nil
+		}
+		lastErr = err
+		errStr := err.Error()
+		if strings.Contains(errStr, "429") || strings.Contains(errStr, "Too Many Requests") || strings.Contains(errStr, "401") {
+			wait := time.Duration(5*(attempt+1)) * time.Second
+			time.Sleep(wait)
+			continue
+		}
+		return nil, err
+	}
+	return nil, lastErr
+}
 
 // TrendsService abstracts gogtrends for testability.
 type TrendsService interface {
@@ -29,7 +50,7 @@ func DefaultServiceFactory() ServiceFactory {
 
 // InterestOverTime fetches interest-over-time data for a single keyword.
 func (s *realService) InterestOverTime(ctx context.Context, keyword, geo, timeRange string) ([]TimePoint, error) {
-	widgets, err := gogtrends.Explore(ctx, &gogtrends.ExploreRequest{
+	widgets, err := retryExplore(ctx, &gogtrends.ExploreRequest{
 		ComparisonItems: []*gogtrends.ComparisonItem{{
 			Keyword: keyword,
 			Geo:     geo,
@@ -88,7 +109,7 @@ func (s *realService) Compare(ctx context.Context, keywords []string, geo, timeR
 		})
 	}
 
-	widgets, err := gogtrends.Explore(ctx, &gogtrends.ExploreRequest{
+	widgets, err := retryExplore(ctx, &gogtrends.ExploreRequest{
 		ComparisonItems: items,
 		Category:        0,
 		Property:        "",

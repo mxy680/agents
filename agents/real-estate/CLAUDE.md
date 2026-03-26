@@ -4,9 +4,9 @@
 
 1. **DO NOT prefix commands with `doppler run --`** — credentials are already in your environment
 2. **DO NOT use the Zillow CLI** — it's blocked by PerimeterX. Zillow data comes from the Chrome extension scrape stored in Supabase
-3. **DO NOT use `integrations trends`** — Google Trends API returns 401 (library broken)
-4. **DO NOT use `integrations nysla`** — NY SLA dataset now requires authentication
-5. **DO NOT use `integrations obituaries`** — Legacy.com API unreliable
+3. **`integrations trends` is rate-limited** — Google Trends returns 429 if used too frequently. Try once; if it fails, skip and move on.
+4. **`integrations nysla` needs a Socrata token** — if it returns 403, skip it. Not critical.
+5. **`integrations obituaries` is untested** — Legacy.com API may be unreliable. Skip if it fails.
 6. **DO NOT spawn sub-agents via the Agent tool** — run commands directly
 7. **Run CLI commands directly**: `integrations streeteasy listings search --location="Bronx" --json`
 8. **Use the pipeline scripts** when doing full scans: `bash scripts/run_pipeline.sh`
@@ -31,9 +31,9 @@
 | NYC DOF CLI | Works | `integrations dof owners search --name="..." --json` |
 | Google Drive CLI | Works | `integrations drive files upload --path=... --name=... --json` |
 | Zillow CLI | BROKEN | Use Supabase scrape_data table instead |
-| Google Trends CLI | BROKEN | Skip — 401 unauthorized |
-| NYSLA CLI | BROKEN | Skip — 403 requires auth |
-| Obituaries CLI | BROKEN | Skip |
+| Google Trends CLI | Flaky | Rate limited (429) — may work after cooldown. Retry if needed. |
+| NYSLA CLI | Needs token | Set SOCRATA_NY_APP_TOKEN in Doppler to fix |
+| Obituaries CLI | Untested | Legacy.com API may be unreliable |
 
 ## Authentication
 All credentials are pre-configured via environment variables. Run commands directly — no `doppler run` needed.

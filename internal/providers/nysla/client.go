@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -52,6 +53,10 @@ func (c *Client) Get(ctx context.Context, params url.Values) ([]byte, error) {
 	}
 	req.Header.Set("User-Agent", "Emdash-Agents/1.0")
 	req.Header.Set("Accept", "application/json")
+	// Socrata app token for authenticated access (some NY.gov datasets require it)
+	if token := os.Getenv("SOCRATA_NY_APP_TOKEN"); token != "" {
+		req.Header.Set("X-App-Token", token)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
