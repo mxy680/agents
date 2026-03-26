@@ -42,8 +42,36 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+  const host = request.headers.get("host") ?? ""
+  const isProduction = host.includes("agents.markshteyn.com") || host.includes("fly.dev")
 
-  // Redirect / based on auth state
+  // On production, redirect all non-client, non-admin routes to /client
+  if (isProduction && !pathname.startsWith("/client") && !pathname.startsWith("/api/client") && !pathname.startsWith("/api/chat/upload")) {
+    // Allow admin login flow
+    if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
+      // Only allow login for admins, redirect everyone else to /client
+      if (pathname === "/login" && user && isAdminEmail(user.email)) {
+        return NextResponse.redirect(new URL("/integrations", request.url))
+      }
+      if (pathname === "/login") {
+        return supabaseResponse // Allow login page for admin auth
+      }
+      return supabaseResponse
+    }
+
+    // Admin routes — require admin auth
+    if (user && isAdminEmail(user.email)) {
+      if (pathname === "/") {
+        return NextResponse.redirect(new URL("/integrations", request.url))
+      }
+      return supabaseResponse // Admin can access everything
+    }
+
+    // Everyone else → /client
+    return NextResponse.redirect(new URL("/client", request.url))
+  }
+
+  // Local dev — normal admin routing
   if (pathname === "/") {
     if (user && isAdminEmail(user.email)) {
       return NextResponse.redirect(new URL("/integrations", request.url))
@@ -51,16 +79,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
-  // Allow public routes
   if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
-    // Redirect authenticated admin users away from login
     if (pathname === "/login" && user && isAdminEmail(user.email)) {
       return NextResponse.redirect(new URL("/integrations", request.url))
     }
     return supabaseResponse
   }
 
-  // All other routes require authenticated admin
   if (!user) {
     return NextResponse.redirect(new URL("/login", request.url))
   }
