@@ -17,8 +17,20 @@ export interface LocalRunnerOptions {
   timeoutMs?: number
 }
 
-// Resolve the repo root relative to the portal (portal is one level down from repo root).
-const REPO_ROOT = path.resolve(process.cwd(), "..")
+// Resolve the repo root. In local dev, portal is one level down from repo root.
+// In Docker/Fly, agents are copied to /app/agents/ alongside the portal.
+const REPO_ROOT = (() => {
+  const fromCwd = path.resolve(process.cwd(), "..")
+  // Check if agents dir exists at the parent (local dev)
+  try {
+    const { statSync } = require("fs")
+    statSync(path.join(fromCwd, "agents"))
+    return fromCwd
+  } catch {
+    // Fallback: agents are in the same dir as portal (Docker)
+    return process.cwd()
+  }
+})()
 
 /**
  * Spawns `node entrypoint.mjs session.json` for a local agent (no Docker).
