@@ -20,7 +20,9 @@ import (
 	xprovider "github.com/emdash-projects/agents/internal/providers/x"
 	"github.com/emdash-projects/agents/internal/providers/census"
 	"github.com/emdash-projects/agents/internal/providers/citibike"
+	"github.com/emdash-projects/agents/internal/providers/dof"
 	"github.com/emdash-projects/agents/internal/providers/hmda"
+	"github.com/emdash-projects/agents/internal/providers/nydos"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
 	"github.com/emdash-projects/agents/internal/providers/obituaries"
@@ -99,6 +101,12 @@ func main() {
 
 	nyslaProvider := nysla.New()
 	nyslaProvider.RegisterCommands(cli.RootCmd())
+
+	nydosProvider := nydos.New()
+	nydosProvider.RegisterCommands(cli.RootCmd())
+
+	dofProvider := dof.New()
+	dofProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
