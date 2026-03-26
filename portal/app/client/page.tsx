@@ -42,13 +42,7 @@ export default function ClientEntryPage() {
         setClientName(data.clientName)
         setAgents(data.agents)
 
-        if (data.agents.length === 1) {
-          // Single agent — go straight to chat
-          router.push(`/client/chat/${encodeURIComponent(trimmed)}?agent=${data.agents[0].name}`)
-        } else {
-          // Multiple agents — show selection
-          setVerified(true)
-        }
+        setVerified(true)
       } else {
         const data = await res.json().catch(() => ({})) as { error?: string }
         setError(data.error ?? "Invalid code")
