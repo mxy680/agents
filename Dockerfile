@@ -41,8 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python deps for pipeline scripts
 RUN pip3 install --break-system-packages openpyxl
 
-# Install Claude Agent SDK globally
-RUN npm install -g @anthropic-ai/claude-agent-sdk
+# Install Claude Agent SDK and Claude Code CLI globally
+RUN npm install -g @anthropic-ai/claude-agent-sdk @anthropic-ai/claude-code
 
 # Install Doppler CLI
 RUN curl -sL https://cli.doppler.com/install.sh | sh
