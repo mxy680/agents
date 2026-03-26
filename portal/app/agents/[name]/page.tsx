@@ -102,7 +102,14 @@ export default async function AgentDetailPage({
       .order("display_name", { ascending: true }),
   ])
 
-  const connectedProviders = new Set((integrationsRes.data ?? []).map((i) => i.provider))
+  const noAuthProviders = new Set([
+    "citibike", "hmda", "census", "nydos", "dof", "obituaries",
+    "trends", "places", "nyscef", "zillow",
+  ])
+  const connectedProviders = new Set([
+    ...(integrationsRes.data ?? []).map((i) => i.provider),
+    ...noAuthProviders,
+  ])
   const assignments = (assignmentsRes.data ?? []) as unknown as Array<{
     id: string
     client_id: string
