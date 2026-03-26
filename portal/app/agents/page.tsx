@@ -52,7 +52,15 @@ export default async function AgentsPage() {
   ])
 
   const templates = templatesRes.data ?? []
-  const connectedProviders = new Set((integrationsRes.data ?? []).map((i) => i.provider))
+  // Providers with no auth are always connected
+  const noAuthProviders = new Set([
+    "citibike", "hmda", "census", "nydos", "dof", "obituaries",
+    "trends", "places", "nyscef", "zillow",
+  ])
+  const connectedProviders = new Set([
+    ...(integrationsRes.data ?? []).map((i) => i.provider),
+    ...noAuthProviders,
+  ])
 
   const clientCountMap: Record<string, number> = {}
   for (const row of clientAgentsRes.data ?? []) {
