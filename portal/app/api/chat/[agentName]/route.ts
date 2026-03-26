@@ -1,3 +1,5 @@
+export const maxDuration = 1800 // 30 minutes
+
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -234,7 +236,7 @@ export async function POST(
             systemPrompt,
             sessionId,
             signal: abortController.signal,
-            timeoutMs: 300_000, // #6: 5-minute timeout for chat conversations
+            timeoutMs: 1_800_000, // 30-minute timeout for agent tasks
           })
 
           // Track files created by Write tool for auto-upload
