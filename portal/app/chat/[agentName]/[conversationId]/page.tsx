@@ -348,6 +348,27 @@ export default function ConversationPage({
             break
           }
 
+          case "file": {
+            try {
+              const fileData = JSON.parse(data) as { name: string; url: string; size?: number; fileType?: string }
+              const fileBlock: FileBlock = {
+                type: "file",
+                name: fileData.name,
+                url: fileData.url,
+                size: fileData.size,
+                fileType: fileData.fileType,
+              }
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsgId
+                    ? { ...m, blocks: [...m.blocks, fileBlock] }
+                    : m
+                )
+              )
+            } catch { /* ignore */ }
+            break
+          }
+
           case "result":
             setMessages((prev) =>
               prev.map((m) =>
