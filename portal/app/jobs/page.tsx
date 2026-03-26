@@ -41,6 +41,7 @@ interface JobDefinition {
 interface LocalJobRun {
   id: string
   agent_name: string
+  job_slug: string
   status: string
   started_at: string | null
   completed_at: string | null
@@ -90,17 +91,18 @@ export default async function JobsPage() {
 
   const definitions = (jobDefs ?? []) as JobDefinition[]
 
-  // Fetch latest local run per agent
+  // Fetch latest local run per job slug
   const { data: localRuns } = await admin
     .from("local_job_runs")
-    .select("id, agent_name, status, started_at, completed_at")
+    .select("id, agent_name, job_slug, status, started_at, completed_at")
     .order("created_at", { ascending: false })
     .limit(50)
 
-  const latestRunByAgent: Record<string, LocalJobRun> = {}
+  const latestRunByJob: Record<string, LocalJobRun> = {}
   for (const run of (localRuns ?? []) as LocalJobRun[]) {
-    if (!latestRunByAgent[run.agent_name]) {
-      latestRunByAgent[run.agent_name] = run
+    const key = `${run.agent_name}:${run.job_slug}`
+    if (!latestRunByJob[key]) {
+      latestRunByJob[key] = run
     }
   }
 
@@ -154,12 +156,15 @@ export default async function JobsPage() {
                 const agentName = template?.name ?? "unknown"
                 const agentDisplayName =
                   template?.display_name ?? "Unknown Agent"
-                const latestRun = latestRunByAgent[agentName]
+                const latestRun = latestRunByJob[`${agentName}:${def.slug}`]
+                const href = latestRun
+                  ? `/jobs/local/${latestRun.id}`
+                  : `/jobs/agent/${agentName}`
 
                 return (
                   <Link
                     key={def.id}
-                    href={`/jobs/agent/${agentName}`}
+                    href={href}
                     className="block"
                   >
                     <Card className="h-full hover:border-foreground/20 transition-colors cursor-pointer">
