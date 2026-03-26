@@ -11,6 +11,14 @@ import urllib.request
 import urllib.parse
 from datetime import datetime
 
+# Add shared module to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+try:
+    from shared.cache import get_cached, put_cached
+except ImportError:
+    def get_cached(p, e): return None
+    def put_cached(p, e, d, **kw): return False
+
 OUT_DIR = "/tmp/probate_monitor"
 SEEN_FILE = f"{OUT_DIR}/seen_bbls.json"
 TODAY = datetime.now()
@@ -107,13 +115,20 @@ def get_bbls_for_documents(doc_ids):
 
 
 def get_pluto_data(bbl):
-    """Get PLUTO lot data for a BBL."""
+    """Get PLUTO lot data for a BBL. Checks Supabase cache first."""
+    cached = get_cached("pluto", bbl)
+    if cached:
+        return cached
     try:
         url = f"https://data.cityofnewyork.us/resource/64uk-42ks.json?bbl={bbl}"
         req = urllib.request.Request(url, headers={"User-Agent": "Emdash-Agents/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
-        return data[0] if data else None
+        if not data:
+            return None
+        result = data[0]
+        put_cached("pluto", bbl, result, bbl=bbl)
+        return result
     except Exception:
         return None
 

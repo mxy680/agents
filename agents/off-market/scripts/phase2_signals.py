@@ -18,11 +18,20 @@ Output: /tmp/off_market_scan/scored_properties.json
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
 from collections import Counter
 from datetime import datetime, timedelta
+
+# Add shared module to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+try:
+    from shared.cache import get_cached, put_cached
+except ImportError:
+    def get_cached(p, e): return None
+    def put_cached(p, e, d, **kw): return False
 
 TODAY = datetime.now()
 DATE_90_DAYS_AGO = (TODAY - timedelta(days=90)).strftime("%Y-%m-%d")
@@ -345,9 +354,14 @@ def check_co_on_block(borough_digit: str, block: str) -> bool:
 
 
 def check_citibike_density(lat, lng) -> int:
-    """Get Citi Bike station count within 1km."""
+    """Get Citi Bike station count within 1km. Cached (stations rarely change)."""
     if not lat or not lng:
         return 0
+    cache_key = f"{round(float(lat),3)},{round(float(lng),3)}"
+    cached = get_cached("citibike_density", cache_key)
+    if cached is not None:
+        return cached.get("count", 0)
+
     cmd = [
         "integrations", "citibike", "stations", "density",
         f"--lat={lat}", f"--lng={lng}", "--radius=1000", "--json"
@@ -357,6 +371,7 @@ def check_citibike_density(lat, lng) -> int:
         if result.returncode != 0:
             return 0
         data = json.loads(result.stdout)
+        put_cached("citibike_density", cache_key, data)
         return data.get("count", 0)
     except Exception:
         return 0

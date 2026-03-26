@@ -10,6 +10,15 @@ import time
 import urllib.request
 import urllib.parse
 
+# Add shared module to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+try:
+    from shared.cache import get_cached, put_cached, put_cached_batch
+except ImportError:
+    def get_cached(p, e): return None
+    def put_cached(p, e, d, **kw): return False
+    def put_cached_batch(p, items): return False
+
 OUT_DIR = "/tmp/off_market_scan"
 
 R8_PLUS_ZONES = [
@@ -107,6 +116,15 @@ def main():
                 "_zola_url": f"https://zola.planning.nyc.gov/lot/{boro_code}/{str(block).zfill(5)}/{str(lot).zfill(4)}",
             }
             all_properties.append(prop)
+
+        # Cache PLUTO data for each row (annual data, cache forever)
+        cache_items = []
+        for row in rows:
+            bbl = row.get("bbl", "")
+            if bbl:
+                cache_items.append((bbl, row, bbl))
+        if cache_items:
+            put_cached_batch("pluto", cache_items)
 
         if len(rows) < page_size:
             break
