@@ -47,7 +47,7 @@ const conversation = query({
     allowDangerouslySkipPermissions: true,
     systemPrompt,
     maxTurns: session.maxTurns || 500,
-    model: session.model || "claude-sonnet-4-6",
+    model: session.model || "claude-opus-4-6",
     includePartialMessages: !isTTY,
   },
 });
