@@ -5,6 +5,7 @@ jobs:
     schedule: ""
     prompt_file: weekly-scan.md
     timeout_minutes: 120
+    estimated_minutes: 30
 
   - slug: off-market-scan
     display_name: Off-Market R8+ Scan
@@ -12,6 +13,7 @@ jobs:
     schedule: ""
     prompt_file: off-market-scan.md
     timeout_minutes: 180
+    estimated_minutes: 45
 
   - slug: probate-scan
     display_name: Probate Scan
@@ -19,6 +21,7 @@ jobs:
     schedule: ""
     prompt_file: probate-scan.md
     timeout_minutes: 30
+    estimated_minutes: 5
 
   - slug: llc-scan
     display_name: LLC Formation Scan
@@ -26,3 +29,4 @@ jobs:
     schedule: ""
     prompt_file: llc-scan.md
     timeout_minutes: 30
+    estimated_minutes: 2

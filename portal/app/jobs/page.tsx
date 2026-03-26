@@ -85,7 +85,7 @@ export default async function JobsPage() {
   const { data: jobDefs } = await admin
     .from("job_definitions")
     .select(
-      "id, slug, template_id, display_name, description, schedule, enabled, agent_templates(id, name, display_name)"
+      "id, slug, template_id, display_name, description, schedule, estimated_minutes, enabled, agent_templates(id, name, display_name)"
     )
     .eq("enabled", true)
 
@@ -194,6 +194,14 @@ export default async function JobsPage() {
                               <Badge variant="outline" className="text-xs">
                                 {toHumanReadable(def.schedule)}
                               </Badge>
+                            </div>
+                          )}
+                          {(def as Record<string, unknown>).estimated_minutes && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Est. time
+                              </span>
+                              <span>~{(def as Record<string, unknown>).estimated_minutes} min</span>
                             </div>
                           )}
                           {latestRun && (

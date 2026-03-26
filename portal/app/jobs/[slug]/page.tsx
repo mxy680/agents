@@ -44,7 +44,7 @@ export default async function JobPage({
   const { data: jobDef } = await admin
     .from("job_definitions")
     .select(
-      "id, slug, display_name, description, schedule, template_id, agent_templates(name, display_name)"
+      "id, slug, display_name, description, schedule, estimated_minutes, template_id, agent_templates(name, display_name)"
     )
     .eq("slug", slug)
     .single()
@@ -122,6 +122,11 @@ export default async function JobPage({
                 {jobDef.schedule && (
                   <Badge variant="outline" className="text-xs">
                     {toHumanReadable(jobDef.schedule)}
+                  </Badge>
+                )}
+                {(jobDef as Record<string, unknown>).estimated_minutes && (
+                  <Badge variant="outline" className="text-xs">
+                    ~{(jobDef as Record<string, unknown>).estimated_minutes} min
                   </Badge>
                 )}
               </div>
