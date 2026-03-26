@@ -115,9 +115,9 @@ const providers = [
   {
     id: "zillow",
     name: "Zillow",
-    description: "Properties, Zestimates, Agents, Mortgage Rates",
+    description: "Scraped via Chrome extension — no auth needed",
     icon: IconHome,
-    connectType: "cookie-paste" as const,
+    connectType: "none" as const,
   },
   {
     id: "streeteasy",
