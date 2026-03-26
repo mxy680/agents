@@ -172,15 +172,22 @@ export default async function JobsPage() {
     })
   )
 
-  // Fetch recent local job runs (real-estate pipeline)
+  // Fetch recent local job runs (all agents, last 5 per agent)
   const { data: localRuns } = await admin
     .from("local_job_runs")
     .select("id, agent_name, job_slug, status, started_at, completed_at, created_at")
-    .eq("agent_name", "real-estate")
     .order("created_at", { ascending: false })
-    .limit(20)
+    .limit(50)
 
-  const recentLocalRuns = (localRuns ?? []) as LocalJobRun[]
+  const allLocalRuns = (localRuns ?? []) as LocalJobRun[]
+
+  // Group by agent, keep last 3 per agent
+  const runsByAgent: Record<string, LocalJobRun[]> = {}
+  for (const run of allLocalRuns) {
+    const key = run.agent_name
+    if (!runsByAgent[key]) runsByAgent[key] = []
+    if (runsByAgent[key].length < 3) runsByAgent[key].push(run)
+  }
 
   return (
     <SidebarProvider>
@@ -213,29 +220,29 @@ export default async function JobsPage() {
             </p>
           </div>
 
-          {/* NYC Assemblage Scan — manual trigger */}
-          <div className="flex flex-col gap-4 border border-border rounded-lg p-4">
-            <div>
-              <h2 className="text-base font-semibold">NYC Assemblage Scan</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Run the full NYC assemblage intelligence pipeline locally with live log streaming.
-              </p>
-            </div>
-            <RunScanButton />
+          <RunScanButton />
 
-            {recentLocalRuns.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Recent Runs
-                </h3>
-                <div className="flex flex-col divide-y divide-border">
-                  {recentLocalRuns.map((run) => (
-                    <LocalRunRow key={run.id} run={run} />
-                  ))}
-                </div>
+          {Object.keys(runsByAgent).length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Recent Runs
+              </h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {Object.entries(runsByAgent).map(([agentName, runs]) => (
+                  <div key={agentName} className="border border-border rounded-lg p-3">
+                    <h3 className="text-sm font-semibold mb-2 capitalize">
+                      {agentName.replace(/-/g, " ")}
+                    </h3>
+                    <div className="flex flex-col divide-y divide-border">
+                      {runs.map((run) => (
+                        <LocalRunRow key={run.id} run={run} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {enrichedJobs.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
