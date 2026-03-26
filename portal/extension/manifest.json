@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Emdash Cookie Sync",
-  "description": "Sync session cookies and scrape Zillow search results for the Emdash portal",
-  "version": "2.1.0",
-  "permissions": ["cookies", "activeTab", "clipboardWrite", "storage", "alarms", "tabs", "scripting"],
-  "host_permissions": ["<all_urls>"],
+  "name": "Emdash Zillow Scraper",
+  "description": "Scrape Zillow search results for the Emdash real estate agent",
+  "version": "3.0.0",
+  "permissions": ["tabs", "scripting", "storage"],
+  "host_permissions": ["https://www.zillow.com/*"],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Emdash Cookie Sync"
+    "default_title": "Emdash Zillow Scraper"
   },
   "background": {
     "service_worker": "background.js"

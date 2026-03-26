@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Emdash Cookie Sync</title>
+  <title>Emdash Zillow Scraper</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -11,62 +11,37 @@
       color: #e5e5e5;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      min-width: 320px;
+      min-width: 300px;
       padding: 16px;
     }
-    .header { margin-bottom: 12px; }
-    .title { font-size: 14px; font-weight: 600; color: #fafafa; margin-bottom: 4px; }
-    .domain {
-      font-size: 12px; color: #737373; font-family: monospace;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .domain.loading { color: #525252; font-style: italic; font-family: inherit; }
-    .buttons { display: flex; gap: 8px; margin-bottom: 8px; }
+    .header { margin-bottom: 14px; }
+    .title { font-size: 14px; font-weight: 600; color: #fafafa; margin-bottom: 2px; }
+    .subtitle { font-size: 11px; color: #525252; }
+
     button {
-      flex: 1; padding: 8px 14px; background-color: #fafafa; color: #0a0a0a;
-      border: none; border-radius: 6px; font-size: 13px; font-weight: 500;
+      width: 100%; padding: 10px 14px; background-color: #2563eb; color: #fff;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
       cursor: pointer; transition: background-color 0.15s;
     }
-    button:hover { background-color: #e5e5e5; }
-    button:active { background-color: #d4d4d4; }
-    button:disabled { background-color: #262626; color: #525252; cursor: not-allowed; }
-    button.secondary { background-color: #262626; color: #e5e5e5; }
-    button.secondary:hover { background-color: #333; }
-    button.scrape { background-color: #2563eb; color: #fff; flex: none; width: 100%; }
-    button.scrape:hover { background-color: #1d4ed8; }
-    button.scrape:disabled { background-color: #1e3a5f; color: #6b7280; }
+    button:hover { background-color: #1d4ed8; }
+    button:disabled { background-color: #1e3a5f; color: #6b7280; cursor: not-allowed; }
 
-    .section-label {
-      font-size: 11px; color: #525252; text-transform: uppercase;
-      letter-spacing: 0.5px; margin-top: 12px; margin-bottom: 6px;
-      padding-top: 10px; border-top: 1px solid #262626;
-    }
-
-    .sync-status {
-      padding: 8px 10px; background-color: #1a1a1a;
-      border-radius: 6px; font-size: 12px; color: #737373;
-    }
-    .sync-status .label { color: #a3a3a3; font-weight: 500; }
-    .sync-status .active { color: #4ade80; }
-    .sync-status .inactive { color: #f87171; }
-    .provider-row {
-      display: flex; justify-content: space-between; align-items: center; padding: 4px 0;
-    }
-
-    .scrape-progress {
-      margin-top: 8px; padding: 10px; background-color: #1a1a1a;
+    .progress {
+      margin-top: 12px; padding: 10px; background-color: #1a1a1a;
       border-radius: 6px; font-size: 12px; display: none;
     }
-    .scrape-progress.visible { display: block; }
+    .progress.visible { display: block; }
     .progress-bar {
-      height: 4px; background: #262626; border-radius: 2px; margin-top: 6px; overflow: hidden;
+      height: 4px; background: #262626; border-radius: 2px; margin-top: 8px; overflow: hidden;
     }
     .progress-bar-fill {
-      height: 100%; background: #2563eb; border-radius: 2px;
-      transition: width 0.3s ease;
+      height: 100%; background: #2563eb; border-radius: 2px; transition: width 0.3s ease;
     }
-    .progress-text { color: #a3a3a3; margin-top: 4px; }
-    .progress-text .count { color: #4ade80; font-weight: 600; }
+    .progress-row {
+      display: flex; justify-content: space-between; color: #a3a3a3; margin-top: 6px;
+    }
+    .progress-row .count { color: #4ade80; font-weight: 600; }
+    .progress-status { color: #737373; margin-top: 4px; }
 
     .status {
       margin-top: 10px; font-size: 12px; text-align: center; min-height: 16px;
@@ -75,58 +50,39 @@
     .status.error { color: #f87171; }
     .status.info { color: #737373; }
 
-    .portal-url {
-      margin-top: 10px; padding-top: 10px; border-top: 1px solid #262626;
+    .settings {
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a1a1a;
     }
-    .portal-url label { display: block; font-size: 11px; color: #737373; margin-bottom: 4px; }
-    .portal-url input {
-      width: 100%; padding: 6px 8px; background: #1a1a1a; border: 1px solid #333;
+    .settings label { display: block; font-size: 11px; color: #525252; margin-bottom: 4px; }
+    .settings input {
+      width: 100%; padding: 6px 8px; background: #1a1a1a; border: 1px solid #262626;
       border-radius: 4px; color: #e5e5e5; font-size: 12px; font-family: monospace;
     }
-    .portal-url input:focus { outline: none; border-color: #525252; }
+    .settings input:focus { outline: none; border-color: #525252; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">Emdash Cookie Sync</div>
-    <div class="domain loading" id="domain">Loading...</div>
+    <div class="title">Zillow Scraper</div>
+    <div class="subtitle">137 NYC ZIP codes across 4 boroughs</div>
   </div>
 
-  <div class="buttons">
-    <button id="copy-btn" disabled>Copy Cookies</button>
-    <button id="sync-btn" class="secondary" disabled>Sync Now</button>
-  </div>
+  <button id="scrape-btn">Scrape Zillow</button>
 
-  <div class="sync-status">
-    <div class="provider-row">
-      <span class="label">Zillow</span>
-      <span id="zillow-status" class="inactive">--</span>
-    </div>
-    <div class="provider-row">
-      <span class="label">StreetEasy</span>
-      <span id="streeteasy-status" class="inactive">--</span>
-    </div>
-  </div>
-
-  <div class="section-label">Zillow Scraper</div>
-  <button id="scrape-btn" class="scrape">Scrape All NYC ZIP Codes</button>
-
-  <div class="scrape-progress" id="scrape-progress">
-    <div class="progress-text">
-      <span id="scrape-status-text">Starting...</span>
-    </div>
+  <div class="progress" id="progress">
+    <div class="progress-status" id="progress-status">Starting...</div>
     <div class="progress-bar">
-      <div class="progress-bar-fill" id="scrape-bar" style="width: 0%"></div>
+      <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
     </div>
-    <div class="progress-text" style="margin-top: 6px;">
-      ZIPs: <span id="scrape-zips">0/137</span> &nbsp;|&nbsp;
-      Listings: <span id="scrape-listings" class="count">0</span>
+    <div class="progress-row">
+      <span><span id="progress-zips">0</span> / 137 ZIPs</span>
+      <span><span id="progress-listings" class="count">0</span> listings</span>
     </div>
   </div>
 
-  <div class="status info" id="status"></div>
+  <div class="status" id="status"></div>
 
-  <div class="portal-url">
+  <div class="settings">
     <label>Portal URL</label>
     <input type="text" id="portal-url" placeholder="http://localhost:3000" />
   </div>
