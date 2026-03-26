@@ -43,12 +43,11 @@ const conversation = query({
   prompt: session.prompt,
   options: {
     cwd: process.cwd(),
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
+    permissionMode: "auto",
     systemPrompt,
-    maxTurns: 500,
+    maxTurns: session.maxTurns || 50,
     model: session.model || "claude-sonnet-4-6",
-    includePartialMessages: !isTTY, // Stream partial messages when piped to portal
+    includePartialMessages: !isTTY,
   },
 });
 
