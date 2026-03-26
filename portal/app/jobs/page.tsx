@@ -157,14 +157,11 @@ export default async function JobsPage() {
                 const agentDisplayName =
                   template?.display_name ?? "Unknown Agent"
                 const latestRun = latestRunByJob[`${agentName}:${def.slug}`]
-                const href = latestRun
-                  ? `/jobs/local/${latestRun.id}`
-                  : `/jobs/agent/${agentName}`
 
                 return (
                   <Link
                     key={def.id}
-                    href={href}
+                    href={`/jobs/${def.slug}`}
                     className="block"
                   >
                     <Card className="h-full hover:border-foreground/20 transition-colors cursor-pointer">
