@@ -68,7 +68,7 @@ mark_phase_failed('real-estate', 'weekly-scan', '$phase_id')
 
 run_phase 1  "Zillow Search (from Supabase)"     phase1_zillow_search.py  phase1_zillow
 run_phase 2  "PLUTO Geocoding + Zoning Filter"    phase2_pluto.py          phase2_pluto
-run_phase 3  "Signal Checks"                       phase3_signals.py        phase3_signals
+run_phase 3  "Signal Checks (ACRIS/DOB/HPD/Tax/311/ECB/FDNY/CitiBike)"  phase3_signals.py  phase3_signals
 run_phase 4  "StreetEasy Enrichment"               phase4_streeteasy.py     phase4_streeteasy
 run_phase 5  "Cluster Detection"                    phase5_clusters.py       phase5_clusters
 run_phase 6  "Data Verification"                    phase6_verify.py         phase6_verify

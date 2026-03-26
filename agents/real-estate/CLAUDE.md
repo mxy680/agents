@@ -5,7 +5,7 @@
 1. **DO NOT prefix commands with `doppler run --`** — credentials are already in your environment
 2. **DO NOT use the Zillow CLI** — it's blocked by PerimeterX. Zillow data comes from the Chrome extension scrape stored in Supabase
 3. **`integrations trends` is rate-limited** — Google Trends returns 429 if used too frequently. Try once; if it fails, skip and move on.
-4. **`integrations nysla` needs a Socrata token** — if it returns 403, skip it. Not critical.
+4. **DO NOT use `integrations nysla`** — NY SLA dataset is locked behind login auth. No fix available. Skip it.
 5. **`integrations obituaries` is untested** — Legacy.com API may be unreliable. Skip if it fails.
 6. **DO NOT spawn sub-agents via the Agent tool** — run commands directly
 7. **Run CLI commands directly**: `integrations streeteasy listings search --location="Bronx" --json`
@@ -32,7 +32,7 @@
 | Google Drive CLI | Works | `integrations drive files upload --path=... --name=... --json` |
 | Zillow CLI | BROKEN | Use Supabase scrape_data table instead |
 | Google Trends CLI | Flaky | Rate limited (429) — may work after cooldown. Retry if needed. |
-| NYSLA CLI | Needs token | Set SOCRATA_NY_APP_TOKEN in Doppler to fix |
+| NYSLA CLI | BROKEN | Dataset locked behind login — no fix |
 | Obituaries CLI | Untested | Legacy.com API may be unreliable |
 
 ## Authentication

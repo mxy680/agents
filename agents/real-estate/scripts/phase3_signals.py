@@ -732,14 +732,8 @@ def main():
             except Exception:
                 prop["_citibike_stations"] = 0
 
-        # NY SLA liquor licenses (cached per borough)
-        nysla_key = borough.lower()
-        if nysla_key not in nysla_cache:
-            try:
-                nysla_cache[nysla_key] = check_nysla_licenses(borough, prop.get("_zip", ""))
-            except Exception:
-                nysla_cache[nysla_key] = 0
-        prop["_nysla_new_licenses"] = nysla_cache.get(nysla_key, 0)
+        # NY SLA liquor licenses — DISABLED (dataset requires login auth)
+        prop["_nysla_new_licenses"] = 0
 
         # Compute score
         compute_score(prop)
