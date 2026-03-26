@@ -3,7 +3,7 @@
 # ============================================================
 
 # Stage 1: Build Go integrations binary
-FROM golang:1.23-bookworm AS go-builder
+FROM golang:1.25-bookworm AS go-builder
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
