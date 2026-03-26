@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "fs";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+// Resolve Agent SDK from global npm modules (ESM ignores NODE_PATH)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { query } = await import(
+  join("/opt/homebrew/lib/node_modules", "@anthropic-ai", "claude-agent-sdk", "sdk.mjs")
+);
 
 const sessionPath = process.argv[2];
 if (!sessionPath) {
