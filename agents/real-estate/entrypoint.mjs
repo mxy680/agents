@@ -43,9 +43,10 @@ const conversation = query({
   prompt: session.prompt,
   options: {
     cwd: process.cwd(),
-    permissionMode: "auto",
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
     systemPrompt,
-    maxTurns: session.maxTurns || 50,
+    maxTurns: session.maxTurns || 500,
     model: session.model || "claude-sonnet-4-6",
     includePartialMessages: !isTTY,
   },
