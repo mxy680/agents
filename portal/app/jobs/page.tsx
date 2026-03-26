@@ -34,6 +34,7 @@ interface JobDefinition {
   display_name: string
   description: string
   schedule: string
+  estimated_minutes: number | null
   enabled: boolean
   agent_templates: AgentTemplate | AgentTemplate[]
 }
@@ -196,12 +197,12 @@ export default async function JobsPage() {
                               </Badge>
                             </div>
                           )}
-                          {(def as Record<string, unknown>).estimated_minutes && (
+                          {def.estimated_minutes && (
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">
                                 Est. time
                               </span>
-                              <span>~{(def as Record<string, unknown>).estimated_minutes} min</span>
+                              <span>~{def.estimated_minutes} min</span>
                             </div>
                           )}
                           {latestRun && (

@@ -124,9 +124,9 @@ export default async function JobPage({
                     {toHumanReadable(jobDef.schedule)}
                   </Badge>
                 )}
-                {(jobDef as Record<string, unknown>).estimated_minutes && (
+                {(jobDef as unknown as { estimated_minutes?: number }).estimated_minutes && (
                   <Badge variant="outline" className="text-xs">
-                    ~{(jobDef as Record<string, unknown>).estimated_minutes} min
+                    ~{(jobDef as unknown as { estimated_minutes?: number }).estimated_minutes} min
                   </Badge>
                 )}
               </div>
