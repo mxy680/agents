@@ -21,7 +21,7 @@ export async function GET(
 
   const { data: run, error } = await admin
     .from("local_job_runs")
-    .select("id, status, started_at, completed_at, deliverables, log")
+    .select("id, agent_name, job_slug, status, started_at, completed_at, deliverables, log")
     .eq("id", id)
     .single()
 
@@ -31,6 +31,8 @@ export async function GET(
 
   return NextResponse.json({
     id: run.id,
+    agent_name: run.agent_name,
+    job_slug: run.job_slug,
     status: run.status,
     started_at: run.started_at,
     completed_at: run.completed_at,

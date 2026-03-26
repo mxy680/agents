@@ -33,6 +33,8 @@ import {
 
 interface LocalJobRun {
   id: string
+  agent_name?: string
+  job_slug?: string
   status: string
   started_at: string | null
   completed_at: string | null
@@ -243,7 +245,7 @@ export default function LocalJobRunPage({
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>NYC Assemblage Scan</BreadcrumbPage>
+                <BreadcrumbPage className="capitalize">{run?.job_slug?.replace(/-/g, " ") ?? "Job Run"}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -300,7 +302,7 @@ export default function LocalJobRunPage({
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-2xl font-semibold tracking-tight">
-                    NYC Assemblage Scan — {runDate}
+                    <span className="capitalize">{run?.job_slug?.replace(/-/g, " ") ?? "Job Run"}</span> — {runDate}
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
