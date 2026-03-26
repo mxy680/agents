@@ -8,7 +8,6 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -22,19 +21,20 @@ export default async function ClientsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/login")
-  }
-
-  if (!isAdmin(user.email)) {
-    redirect("/")
-  }
+  if (!user) redirect("/login")
+  if (!isAdmin(user.email)) redirect("/")
 
   const admin = createAdminClient()
+
   const { data: clients } = await admin
-    .from("clients")
-    .select("id, name, email, notes, active, created_at")
+    .from("client_access")
+    .select("id, code, client_name, agent_name, agent_names, active, created_at")
     .order("created_at", { ascending: false })
+
+  const { data: templates } = await admin
+    .from("agent_templates")
+    .select("name, display_name")
+    .eq("status", "active")
 
   return (
     <SidebarProvider>
@@ -47,16 +47,9 @@ export default async function ClientsPage() {
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-          />
+          <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-auto" />
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <a href="/admin">Admin</a>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbPage>Clients</BreadcrumbPage>
               </BreadcrumbItem>
@@ -67,11 +60,13 @@ export default async function ClientsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
             <p className="text-sm text-muted-foreground">
-              Manage clients and their agent access.
+              Manage client access codes and agent assignments.
             </p>
           </div>
-
-          <ClientsTable initialClients={clients ?? []} />
+          <ClientsTable
+            initialClients={clients ?? []}
+            agents={(templates ?? []).map((t) => ({ name: t.name, displayName: t.display_name }))}
+          />
         </div>
       </SidebarInset>
     </SidebarProvider>
