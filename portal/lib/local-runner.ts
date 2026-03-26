@@ -2,7 +2,7 @@ import { spawn } from "child_process"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
 import path from "path"
 import os from "os"
-import { type ChatSSEEvent, mapAgentEvent } from "@/lib/agent-events"
+import { type ChatSSEEvent, type StreamState, mapAgentEvent } from "@/lib/agent-events"
 import { resolveAdminCredentials } from "@/lib/credentials"
 
 export type { ChatSSEEvent }
@@ -125,6 +125,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   // Track tool input accumulation per tool use id.
   const toolInputAccum: Record<string, string> = {}
   let currentToolId: string | null = null
+  const streamState: StreamState = { hasReceivedDeltas: false }
 
   // Parse NDJSON stdout line by line.
   let lineBuffer = ""
@@ -150,7 +151,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
         get currentToolId() { return currentToolId },
         set currentToolId(v: string | null) { currentToolId = v },
       }
-      const events = mapAgentEvent(parsed, toolInputAccum, toolIdRef)
+      const events = mapAgentEvent(parsed, toolInputAccum, toolIdRef, streamState)
       for (const e of events) {
         enqueue(e)
       }

@@ -15,10 +15,15 @@ export interface ToolIdRef {
 /**
  * Maps a single parsed NDJSON object from the Agent SDK to zero or more ChatSSEEvents.
  */
+export interface StreamState {
+  hasReceivedDeltas: boolean
+}
+
 export function mapAgentEvent(
   raw: Record<string, unknown>,
   toolInputAccum: Record<string, string>,
-  toolIdRef: ToolIdRef
+  toolIdRef: ToolIdRef,
+  streamState: StreamState = { hasReceivedDeltas: false }
 ): ChatSSEEvent[] {
   const rawType = raw.type as string | undefined
 
@@ -52,6 +57,7 @@ export function mapAgentEvent(
       if (!delta) return []
 
       if (delta.type === "text_delta") {
+        streamState.hasReceivedDeltas = true
         const text = delta.text as string
         return [{ event: "delta", data: text }]
       }
@@ -85,22 +91,30 @@ export function mapAgentEvent(
     // Agent SDK query() emits complete assistant messages (not streaming deltas).
     // Extract text and tool_use blocks from the full message.
     case "assistant": {
+      // When streaming is enabled (includePartialMessages), the text content
+      // is already emitted via content_block_delta events. The "assistant" event
+      // contains the complete message — skip text blocks to avoid duplication.
+      // Only process tool_use blocks from here (they may not have been streamed).
       const msg = raw.message as Record<string, unknown> | undefined
       if (!msg) return []
       const content = (msg.content as Array<Record<string, unknown>>) ?? []
       const events: ChatSSEEvent[] = []
+
       for (const block of content) {
-        if (block.type === "text") {
+        if (block.type === "text" && !streamState.hasReceivedDeltas) {
+          // Only emit text if it wasn't already streamed via content_block_delta
           events.push({ event: "delta", data: block.text as string })
         } else if (block.type === "tool_use") {
           const id = block.id as string
           const name = block.name as string
-          toolIdRef.currentToolId = id
-          events.push({ event: "tool_start", data: JSON.stringify({ name, id }) })
-          // Emit tool input as a single chunk
-          const inputStr = typeof block.input === "string" ? block.input : JSON.stringify(block.input ?? {})
-          toolInputAccum[id] = inputStr
-          events.push({ event: "tool_input", data: JSON.stringify({ id, input_delta: inputStr }) })
+          // Only emit tool_start if we haven't already via stream_event
+          if (!toolInputAccum[id]) {
+            toolIdRef.currentToolId = id
+            events.push({ event: "tool_start", data: JSON.stringify({ name, id }) })
+            const inputStr = typeof block.input === "string" ? block.input : JSON.stringify(block.input ?? {})
+            toolInputAccum[id] = inputStr
+            events.push({ event: "tool_input", data: JSON.stringify({ id, input_delta: inputStr }) })
+          }
         }
       }
       return events
@@ -175,7 +189,8 @@ export function parseNDJSON(
   text: string,
   lineBuffer: string,
   toolInputAccum: Record<string, string>,
-  toolIdRef: ToolIdRef
+  toolIdRef: ToolIdRef,
+  streamState: StreamState = { hasReceivedDeltas: false }
 ): { events: ChatSSEEvent[]; remainingBuffer: string } {
   const combined = lineBuffer + text
   const lines = combined.split("\n")
@@ -193,7 +208,7 @@ export function parseNDJSON(
       continue
     }
 
-    const mapped = mapAgentEvent(parsed, toolInputAccum, toolIdRef)
+    const mapped = mapAgentEvent(parsed, toolInputAccum, toolIdRef, streamState)
     events.push(...mapped)
   }
 

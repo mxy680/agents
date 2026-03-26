@@ -32,6 +32,7 @@ const conversation = query({
     systemPrompt,
     maxTurns: 500,
     model: session.model || "claude-sonnet-4-6",
+    includePartialMessages: !isTTY, // Stream partial messages when piped to portal
   },
 });
 
