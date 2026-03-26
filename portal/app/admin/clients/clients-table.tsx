@@ -180,7 +180,7 @@ export function ClientsTable({ initialClients, agents }: Props) {
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {agentList.map((a) => (
+                    {[...new Set(agentList)].map((a) => (
                       <Badge key={a} variant="outline" className="text-xs capitalize">{a.replace(/-/g, " ")}</Badge>
                     ))}
                   </div>
