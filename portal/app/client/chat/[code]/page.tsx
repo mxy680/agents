@@ -82,6 +82,7 @@ export default function ClientChatPage({
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
     const agent = searchParams.get("agent") ?? ""
+    const conv = searchParams.get("conv") ?? ""
 
     async function verify() {
       try {
@@ -97,12 +98,31 @@ export default function ClientChatPage({
           }
           setClientName(data.clientName)
 
-          // Find the selected agent
           const selected = data.agents.find((a) => a.name === agent) ?? data.agents[0]
           if (selected) {
             setAgentName(selected.name)
             setAgentDisplayName(selected.displayName)
           }
+
+          // Load existing conversation if conv param provided
+          if (conv) {
+            setConversationId(conv)
+            try {
+              const convRes = await fetch(`/api/conversations/${conv}`)
+              if (convRes.ok) {
+                const convData = await convRes.json() as { messages: Array<{ id: string; role: "user" | "assistant"; blocks: ContentBlock[] }> }
+                setMessages(
+                  (convData.messages ?? []).map((m) => ({
+                    id: m.id,
+                    role: m.role,
+                    blocks: m.blocks,
+                    isStreaming: false,
+                  }))
+                )
+              }
+            } catch {}
+          }
+
           setVerified(true)
         } else {
           router.push("/client")
@@ -209,6 +229,10 @@ export default function ClientChatPage({
             break
           case "conversation":
             setConversationId(data)
+            // Update URL so sidebar can highlight this conversation
+            const url = new URL(window.location.href)
+            url.searchParams.set("conv", data)
+            window.history.replaceState({}, "", url.toString())
             break
           case "tool_start":
             try {
@@ -281,74 +305,129 @@ export default function ClientChatPage({
     )
   }
 
-  return (
-    <div className="flex h-dvh flex-col bg-[#0a0a0a] text-white">
-      {/* Header */}
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-800 px-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{agentDisplayName || "Emdash"}</span>
+  // Split blocks into separate bubbles — each file block and text block is its own bubble
+  function renderMessage(msg: Message) {
+    const bubbles: React.ReactNode[] = []
+    const isUser = msg.role === "user"
+    const align = isUser ? "justify-end" : "justify-start"
+    const bg = isUser ? "bg-blue-600" : "bg-neutral-800"
+
+    // Group consecutive text/tool blocks into one bubble, file blocks get their own
+    let textGroup: ContentBlock[] = []
+
+    function flushTextGroup() {
+      if (textGroup.length === 0) return
+      const blocks = [...textGroup]
+      textGroup = []
+      bubbles.push(
+        <div key={`text-${bubbles.length}`} className={`flex ${align}`}>
+          <div className={`max-w-[80%] ${bg} rounded-lg px-3 py-2`}>
+            {blocks.map((block, i) => {
+              if (block.type === "text") {
+                return (
+                  <div key={i} className="text-sm prose prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                    {isUser ? (
+                      <p className="whitespace-pre-wrap m-0">{block.content}</p>
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content || ""}</ReactMarkdown>
+                    )}
+                  </div>
+                )
+              }
+              if (block.type === "tool") {
+                return (
+                  <div key={i} className="text-xs text-neutral-400 border border-neutral-700 rounded px-2 py-1 my-1">
+                    {block.result ? `${block.name} — done` : `Running ${block.name}...`}
+                  </div>
+                )
+              }
+              return null
+            })}
+            {msg.isStreaming && blocks[blocks.length - 1]?.type === "text" && (
+              <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse" />
+            )}
+          </div>
         </div>
-        <span className="text-xs text-neutral-500">
-          {clientName}
-        </span>
+      )
+    }
+
+    for (const block of msg.blocks) {
+      if (block.type === "file") {
+        flushTextGroup()
+        const isImage = block.fileType?.startsWith("image/")
+        bubbles.push(
+          <div key={`file-${bubbles.length}`} className={`flex ${align}`}>
+            <div className="max-w-[80%]">
+              {isImage && block.url && (
+                <img src={block.url} alt={block.name} className="max-w-xs rounded-lg mb-1" />
+              )}
+              <a
+                href={block.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={block.name}
+                className={`flex items-center gap-2.5 ${bg} rounded-lg px-3 py-2.5 hover:opacity-80 transition-opacity`}
+              >
+                <IconFile className="size-5 text-neutral-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{block.name}</p>
+                  {block.size && (
+                    <p className="text-xs text-neutral-400">
+                      {block.size > 1024 * 1024
+                        ? `${(block.size / (1024 * 1024)).toFixed(1)} MB`
+                        : `${Math.round(block.size / 1024)} KB`}
+                    </p>
+                  )}
+                </div>
+                <IconDownload className="size-4 text-neutral-500 shrink-0" />
+              </a>
+            </div>
+          </div>
+        )
+      } else {
+        textGroup.push(block)
+      }
+    }
+    flushTextGroup()
+
+    // Thinking indicator
+    if (msg.isStreaming && msg.blocks.length === 0) {
+      bubbles.push(
+        <div key="thinking" className={`flex ${align}`}>
+          <div className={`${bg} rounded-lg px-3 py-2`}>
+            <div className="flex items-center gap-2 text-xs text-neutral-400">
+              <IconLoader2 className="size-3 animate-spin" />
+              <span>Thinking...</span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return bubbles
+  }
+
+  return (
+    <div className="flex h-full flex-col bg-[#0a0a0a] text-white">
+      {/* Header */}
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-800 px-4 pl-12 md:pl-4">
+        <span className="text-sm font-medium">{agentDisplayName || "Agent"}</span>
+        <span className="text-xs text-neutral-500">{clientName}</span>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <p className="text-lg font-medium text-neutral-300">Hi {clientName}</p>
-            <p className="text-sm text-neutral-500 mt-1">Ask me anything about NYC real estate.</p>
+            <p className="text-sm text-neutral-500 mt-1">How can I help you today?</p>
           </div>
         )}
 
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] ${msg.role === "user" ? "bg-blue-600" : "bg-neutral-800"} rounded-lg px-3 py-2`}>
-              {msg.blocks.map((block, i) => {
-                if (block.type === "text") {
-                  return (
-                    <div key={i} className="text-sm prose prose-invert prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                      {msg.role === "user" ? (
-                        <p className="whitespace-pre-wrap m-0">{block.content}</p>
-                      ) : (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {block.content || ""}
-                        </ReactMarkdown>
-                      )}
-                      {msg.isStreaming && i === msg.blocks.length - 1 && (
-                        <span className="inline-block w-1.5 h-3 ml-0.5 bg-current animate-pulse" />
-                      )}
-                    </div>
-                  )
-                }
-                if (block.type === "tool") {
-                  return (
-                    <div key={i} className="text-xs text-neutral-400 border border-neutral-700 rounded px-2 py-1 my-1">
-                      {block.result ? `${block.name} — done` : `Running ${block.name}...`}
-                    </div>
-                  )
-                }
-                if (block.type === "file") {
-                  return (
-                    <a key={i} href={block.url} target="_blank" rel="noopener noreferrer" download={block.name}
-                      className="flex items-center gap-2 border border-neutral-700 rounded px-2 py-1.5 my-1 hover:bg-neutral-700/50 transition-colors">
-                      <IconFile className="size-4 text-neutral-400 shrink-0" />
-                      <span className="text-xs truncate flex-1">{block.name}</span>
-                      <IconDownload className="size-3.5 text-neutral-500 shrink-0" />
-                    </a>
-                  )
-                }
-                return null
-              })}
-              {msg.isStreaming && msg.blocks.length === 0 && (
-                <div className="flex items-center gap-2 text-xs text-neutral-400">
-                  <IconLoader2 className="size-3 animate-spin" />
-                  <span>Thinking...</span>
-                </div>
-              )}
-            </div>
-          </div>
+          <React.Fragment key={msg.id}>
+            {renderMessage(msg)}
+          </React.Fragment>
         ))}
 
         {error && (
