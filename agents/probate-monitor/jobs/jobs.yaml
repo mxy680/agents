@@ -1,0 +1,6 @@
+jobs:
+  - slug: daily-scan
+    display_name: Daily Probate Scan
+    schedule: "0 8 * * *"  # Every day at 8am ET
+    prompt_file: daily-scan.md
+    timeout_minutes: 30
