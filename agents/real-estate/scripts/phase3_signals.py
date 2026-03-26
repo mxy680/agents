@@ -435,7 +435,10 @@ def compute_score(prop):
     reasons.append("Active for-sale listing (+3)")
 
     # Days on market
-    dom = prop.get("daysOnMarket", 0) or 0
+    try:
+        dom = int(float(str(prop.get("daysOnMarket", 0) or 0)))
+    except (ValueError, TypeError):
+        dom = 0
     if dom > 180:
         score += 2
         reasons.append(f"DOM {dom} > 180 (+2)")
@@ -528,7 +531,10 @@ def compute_score(prop):
         reasons.append(f"NY SLA {nysla_count} new licenses in borough (+3)")
 
     # Price penalty — luxury properties are not realistic assemblage targets
-    price = prop.get("price", 0) or 0
+    try:
+        price = int(float(str(prop.get("price", 0) or 0).replace(",", "").replace("$", "")))
+    except (ValueError, TypeError):
+        price = 0
     if price > 5_000_000:
         score -= 5
         reasons.append(f"Price penalty >$5M (-5)")
