@@ -123,6 +123,7 @@ async function runScrape(zipCodes) {
 
       const listings = result?.result;
       if (listings && listings.length > 0) {
+        // Tag with ZIP and borough
         for (const l of listings) {
           if (l.zpid) {
             l._zip = zip;
@@ -131,6 +132,18 @@ async function runScrape(zipCodes) {
           }
         }
         scrapeState.results = Object.keys(allResults).length;
+
+        // POST this ZIP's results immediately
+        try {
+          await fetch(`${portalURL}/api/integrations/zillow/scrape-results`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ listings }),
+          });
+        } catch (e) {
+          console.error(`[emdash] POST failed for ${zip}:`, e);
+        }
+
         console.log(
           `[emdash] ${scrapeState.processed}/${zipCodes.length} ${borough} ${zip}: ${listings.length} results (${scrapeState.results} total)`
         );
@@ -151,19 +164,7 @@ async function runScrape(zipCodes) {
     await chrome.tabs.remove(tab.id);
   } catch {}
 
-  // Post results to portal
   const listings = Object.values(allResults);
-  try {
-    await fetch(`${portalURL}/api/integrations/zillow/scrape-results`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listings }),
-      credentials: "include",
-    });
-    console.log(`[emdash] Results posted to portal (${listings.length} listings)`);
-  } catch (e) {
-    console.error("[emdash] Failed to post results:", e);
-  }
 
   scrapeState = {
     running: false,
