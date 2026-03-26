@@ -1,10 +1,10 @@
 #!/bin/bash
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUT_DIR="/tmp/llc_monitor"
+OUT_DIR="/tmp/probate_monitor"
 mkdir -p "$OUT_DIR"
 DATE=$(date +%Y-%m-%d)
-echo "━━━ Daily LLC Entity Monitor ━━━"
+echo "━━━ Daily Probate Monitor ━━━"
 echo "Date: $DATE"
 echo ""
 
@@ -12,7 +12,7 @@ echo ""
 python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import is_phase_done
-if is_phase_done('llc-monitor', 'daily-scan', 'scan'):
+if is_phase_done('real-estate', 'probate-scan', 'scan'):
     print('[SKIP] Already completed today')
     sys.exit(42)
 " 2>/dev/null
@@ -21,21 +21,21 @@ if [ $? -eq 42 ]; then
   exit 0
 fi
 
-python3 "$SCRIPT_DIR/scan_llcs.py" 2>&1
+python3 "$SCRIPT_DIR/scan_probate.py" 2>&1
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 0 ]; then
   python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import mark_phase_done
-mark_phase_done('llc-monitor', 'daily-scan', 'scan')
+mark_phase_done('real-estate', 'probate-scan', 'scan')
 " 2>/dev/null
 else
   echo "[ERROR] Scan failed (exit code $EXIT_CODE)"
   python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import mark_phase_failed
-mark_phase_failed('llc-monitor', 'daily-scan', 'scan')
+mark_phase_failed('real-estate', 'probate-scan', 'scan')
 " 2>/dev/null
 fi
 

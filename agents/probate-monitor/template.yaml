@@ -1,7 +1,0 @@
-name: probate-monitor
-display_name: Probate Monitor
-description: Daily monitor for estate and probate filings on NYC properties with 15K+ buildable SF or 5+ units — catches estate sales before they hit the market.
-git_path: agents/probate-monitor
-required_integrations:
-  - google
-status: active

@@ -1,6 +1,0 @@
-jobs:
-  - slug: daily-scan
-    display_name: Daily LLC Formation Scan
-    schedule: "0 7 * * *"  # Every day at 7am ET (before probate scan)
-    prompt_file: daily-scan.md
-    timeout_minutes: 30

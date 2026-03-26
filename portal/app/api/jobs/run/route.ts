@@ -12,7 +12,15 @@ import path from "path"
 const REPO_ROOT = path.resolve(process.cwd(), "..")
 
 // Allowlist of agents that can be triggered via this route
-const ALLOWED_AGENTS = ["real-estate", "off-market", "probate-monitor", "llc-monitor"]
+const ALLOWED_AGENTS = ["real-estate"]
+
+// Map agent+job to the script path relative to agents/{agent}/scripts/
+const JOB_SCRIPT_MAP: Record<string, string> = {
+  "real-estate:weekly-scan": "run_pipeline.sh",
+  "real-estate:off-market-scan": "off-market/run_pipeline.sh",
+  "real-estate:probate-scan": "probate/run_scan.sh",
+  "real-estate:llc-scan": "llc/run_scan.sh",
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -73,11 +81,9 @@ export async function POST(request: NextRequest) {
   // resolve-creds.mjs lives in real-estate but is shared by all agents
   const resolveCredsScript = path.join(REPO_ROOT, "agents", "real-estate", "resolve-creds.mjs")
 
-  // Agents use either run_pipeline.sh or run_scan.sh
-  const pipelinePath = path.join(REPO_ROOT, "agents", agent, "scripts", "run_pipeline.sh")
-  const scanPath = path.join(REPO_ROOT, "agents", agent, "scripts", "run_scan.sh")
-  const { existsSync } = await import("fs")
-  const pipelineScript = existsSync(pipelinePath) ? pipelinePath : scanPath
+  // Look up the script path from the job map
+  const scriptRelPath = JOB_SCRIPT_MAP[`${agent}:${job}`] ?? "run_pipeline.sh"
+  const pipelineScript = path.join(REPO_ROOT, "agents", agent, "scripts", scriptRelPath)
   const binPath = path.join(REPO_ROOT, "bin")
   const credsFile = `/tmp/job_creds_${runId}.sh`
   const logFile = `/tmp/job_log_${runId}.txt`
