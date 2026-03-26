@@ -18,7 +18,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { IconRobot, IconMessage } from "@tabler/icons-react"
+import { IconRobot, IconMessage, IconPlayerPlay } from "@tabler/icons-react"
 
 export default async function AgentsPage() {
   const supabase = await createClient()
@@ -94,7 +94,7 @@ export default async function AgentsPage() {
               Manage agent templates, clients, and conversations.
             </p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
             {templates.map((template) => {
               const requiredIntegrations = (template.required_integrations ?? []) as string[]
               const clientCount = clientCountMap[template.id] ?? 0
@@ -118,7 +118,7 @@ export default async function AgentsPage() {
                             {template.status}
                           </Badge>
                         </div>
-                        <CardDescription>{template.description}</CardDescription>
+                        <CardDescription className="line-clamp-3">{template.description}</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -158,6 +158,12 @@ export default async function AgentsPage() {
                       <Button size="sm" variant="outline" asChild>
                         <a href={`/agents/${template.name}`}>
                           Details
+                        </a>
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={`/jobs?agent=${template.name}`}>
+                          <IconPlayerPlay className="size-4" />
+                          Jobs
                         </a>
                       </Button>
                     </div>
