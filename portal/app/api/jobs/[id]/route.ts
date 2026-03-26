@@ -37,6 +37,7 @@ export async function GET(
     started_at: run.started_at,
     completed_at: run.completed_at,
     deliverables: run.deliverables ?? {},
+    log: run.log ?? "",
     log_length: (run.log ?? "").length,
   })
 }

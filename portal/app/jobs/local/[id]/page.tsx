@@ -39,6 +39,7 @@ interface LocalJobRun {
   started_at: string | null
   completed_at: string | null
   deliverables: Record<string, string>
+  log: string
   log_length: number
 }
 
@@ -321,7 +322,7 @@ export default function LocalJobRunPage({
                 <h2 className="text-sm font-semibold">Logs</h2>
                 <LogViewer
                   runId={id}
-                  initialLog={""}
+                  initialLog={run.log || ""}
                   initialStatus={run.status}
                   initialDeliverables={run.deliverables}
                   onDone={handleDone}
