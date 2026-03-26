@@ -1,19 +1,52 @@
 # NYC Assemblage Intelligence — Tool Documentation
 
+## CRITICAL RULES
+
+1. **DO NOT prefix commands with `doppler run --`** — credentials are already in your environment
+2. **DO NOT use the Zillow CLI** — it's blocked by PerimeterX. Zillow data comes from the Chrome extension scrape stored in Supabase
+3. **DO NOT use `integrations trends`** — Google Trends API returns 401 (library broken)
+4. **DO NOT use `integrations nysla`** — NY SLA dataset now requires authentication
+5. **DO NOT use `integrations obituaries`** — Legacy.com API unreliable
+6. **DO NOT spawn sub-agents via the Agent tool** — run commands directly
+7. **Run CLI commands directly**: `integrations streeteasy listings search --location="Bronx" --json`
+8. **Use the pipeline scripts** when doing full scans: `bash scripts/run_pipeline.sh`
+9. **For ad-hoc queries**, use curl for Socrata APIs and the `integrations` CLI for providers that work
+
+## What Works
+
+| Tool | Status | How to use |
+|------|--------|-----------|
+| PLUTO | Works | `curl -s "https://data.cityofnewyork.us/resource/64uk-42ks.json?bbl=BBL"` |
+| ACRIS | Works | `curl -s -G` with `--data-urlencode` (see below) |
+| HPD | Works | `curl -s -G` with `--data-urlencode` |
+| DOB | Works | `curl -s -G` with `--data-urlencode` |
+| NYC Finance | Works | `curl -s -G` with `--data-urlencode` |
+| 311 | Works | `curl -s -G` with `--data-urlencode` |
+| ECB/OATH | Works | `curl -s -G` with `--data-urlencode` |
+| StreetEasy CLI | Works | `integrations streeteasy listings search --location="..." --json` |
+| Citi Bike CLI | Works | `integrations citibike stations density --lat=X --lng=Y --json` |
+| HMDA CLI | Works | `integrations hmda loans summary --county=bronx --json` |
+| Census CLI | Works | `integrations census tracts profile --tract=FIPS --json` |
+| NY DOS CLI | Works | `integrations nydos entities match-address --address="..." --json` |
+| NYC DOF CLI | Works | `integrations dof owners search --name="..." --json` |
+| Google Drive CLI | Works | `integrations drive files upload --path=... --name=... --json` |
+| Zillow CLI | BROKEN | Use Supabase scrape_data table instead |
+| Google Trends CLI | BROKEN | Skip — 401 unauthorized |
+| NYSLA CLI | BROKEN | Skip — 403 requires auth |
+| Obituaries CLI | BROKEN | Skip |
+
 ## Authentication
-Zillow and Google credentials are pre-configured via environment variables. Run commands directly. All NYC public APIs (PLUTO, ACRIS, DOB, HPD, Finance) require no authentication — just curl.
+All credentials are pre-configured via environment variables. Run commands directly — no `doppler run` needed.
+All NYC public APIs (PLUTO, ACRIS, DOB, HPD, Finance) require no authentication — just curl.
 
 ---
 
-## Tool 1: Zillow CLI (search only)
+## Tool 1: Zillow Data (from Supabase, NOT CLI)
 
-```bash
-integrations zillow properties search --location="Bronx, NY 10451" --limit=40 --json
-```
+Zillow data is scraped via Chrome extension and stored in the `scrape_data` table in Supabase.
+**DO NOT use the Zillow CLI** — it will get HTTP 403.
 
-Returns: zpid, address, price, beds, baths, sqft, homeType, status, zillowUrl, latitude, longitude, daysOnMarket.
-
-**Do NOT use `integrations zillow properties get`** — use NYC PLUTO for lot data instead.
+The pipeline script `scripts/phase1_zillow_search.py` reads from Supabase automatically.
 
 ---
 
