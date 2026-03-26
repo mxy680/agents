@@ -6,9 +6,25 @@ import { dirname, join } from "path";
 
 // Resolve Agent SDK from global npm modules (ESM ignores NODE_PATH)
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const { query } = await import(
-  join("/opt/homebrew/lib/node_modules", "@anthropic-ai", "claude-agent-sdk", "sdk.mjs")
-);
+
+// Try multiple global npm locations (macOS Homebrew vs Linux)
+let query;
+for (const prefix of [
+  "/opt/homebrew/lib/node_modules",
+  "/usr/local/lib/node_modules",
+  "/usr/lib/node_modules",
+]) {
+  try {
+    const mod = await import(join(prefix, "@anthropic-ai", "claude-agent-sdk", "sdk.mjs"));
+    query = mod.query;
+    break;
+  } catch {}
+}
+if (!query) {
+  // Fallback: try bare import (works if NODE_PATH is set correctly)
+  const mod = await import("@anthropic-ai/claude-agent-sdk");
+  query = mod.query;
+}
 
 const sessionPath = process.argv[2];
 if (!sessionPath) {
