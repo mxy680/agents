@@ -238,13 +238,27 @@ def main():
                     print(f"\n=== Using pre-scraped results from Chrome extension ===", file=sys.stderr)
                     print(f"  {len(prescrape)} listings found", file=sys.stderr)
 
-                    # Filter to qualifying home types
-                    qualifying = [p for p in prescrape if is_qualifying(p)]
-                    print(f"  {len(qualifying)} qualifying after filter", file=sys.stderr)
+                    # Light filter — skip strict homeType check since extension
+                    # data uses Zillow's raw types. PLUTO will filter by zoning in Phase 2.
+                    # Only exclude obvious non-residential (condos/coops by status text).
+                    qualifying = []
+                    excluded = 0
+                    for p in prescrape:
+                        status = str(p.get("status", "")).lower()
+                        if any(s in status for s in ["pending", "contingent", "under contract"]):
+                            excluded += 1
+                            continue
+                        qualifying.append(p)
 
-                    # Save (overwrite with filtered version)
-                    output_path = "/tmp/nyc_assemblage/zillow_results.json"
+                    print(f"  {len(qualifying)} qualifying ({excluded} pending/contingent excluded)", file=sys.stderr)
+
+                    # Save to a SEPARATE file so the original scrape is preserved
+                    output_path = "/tmp/nyc_assemblage/zillow_filtered.json"
                     with open(output_path, "w") as f:
+                        json.dump(qualifying, f, indent=2)
+
+                    # Also write to the standard path for Phase 2
+                    with open("/tmp/nyc_assemblage/zillow_results.json", "w") as f:
                         json.dump(qualifying, f, indent=2)
 
                     print(f"\n✓ Saved {len(qualifying)} qualifying listings from extension scrape", file=sys.stderr)
