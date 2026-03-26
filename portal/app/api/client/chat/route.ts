@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   // Validate access code
   const { data: access } = await admin
     .from("client_access")
-    .select("id, client_name, agent_name, active")
+    .select("id, client_name, agent_name, agent_names, active")
     .eq("code", code)
     .eq("active", true)
     .single()

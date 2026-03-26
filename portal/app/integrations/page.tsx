@@ -48,7 +48,7 @@ import {
   IconCheck,
 } from "@tabler/icons-react"
 
-const providers = [
+const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
   {
     id: "google",
     name: "Google",

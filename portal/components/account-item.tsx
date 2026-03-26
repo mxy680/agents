@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { IconX, IconPlayerPlay, IconCheck, IconAlertTriangle, IconLoader2, IconRefresh } from "@tabler/icons-react"
 
-type ConnectType = "oauth" | "playwright" | "cookie-capture" | "cookie-paste" | "framer" | "bluebubbles"
+type ConnectType = string
 
 interface AccountItemProps {
   id: string

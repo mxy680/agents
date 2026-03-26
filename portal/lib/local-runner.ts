@@ -59,7 +59,8 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   writeFileSync(sessionFile, JSON.stringify(sessionData))
 
   // Agent entrypoint path: <repo>/agents/<agentName>/entrypoint.mjs
-  const entrypointPath = path.join(REPO_ROOT, "agents", agentName, "entrypoint.mjs")
+  // NOTE: path constructed via array join to prevent Turbopack from analyzing it as a module
+  const entrypointPath = [REPO_ROOT, "agents", agentName, "entrypoint.mjs"].join(path.sep)
 
   // Verify the entrypoint exists before spawning.
   try {
@@ -78,7 +79,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
 
   const proc = spawn("node", [entrypointPath, sessionFile], {
     stdio: ["ignore", "pipe", "pipe"],
-    env,
+    env: env as NodeJS.ProcessEnv,
     cwd: agentCwd,
   })
 
