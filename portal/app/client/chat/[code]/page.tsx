@@ -239,7 +239,7 @@ export default function ClientChatPage({
   }
 
   return (
-    <div className="flex h-screen flex-col bg-[#0a0a0a] text-white">
+    <div className="flex h-dvh flex-col bg-[#0a0a0a] text-white">
       {/* Header */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-800 px-4">
         <div className="flex items-center gap-2">
