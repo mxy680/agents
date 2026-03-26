@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import os
+from datetime import datetime
 
 # All target zip codes
 BRONX_ZIPS = [
@@ -259,9 +260,15 @@ def search_borough(borough_key):
 def main():
     os.makedirs("/tmp/nyc_assemblage", exist_ok=True)
 
-    # Check Supabase for extension-scraped results (today's batch)
+    # Check Supabase for extension-scraped results (today or yesterday's batch)
     today = datetime.now().strftime("%Y-%m-%d")
     prescrape = load_from_supabase(today)
+    if not prescrape:
+        from datetime import timedelta
+        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        prescrape = load_from_supabase(yesterday)
+        if prescrape:
+            today = yesterday  # Use yesterday's batch label for logging
     if prescrape:
         print(f"\n=== Using pre-scraped results from Supabase (batch {today}) ===", file=sys.stderr)
         print(f"  {len(prescrape)} listings found", file=sys.stderr)
