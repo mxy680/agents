@@ -57,6 +57,39 @@ EXCLUDE_STATUS = {
 }
 
 
+def load_from_supabase(batch_date):
+    """Load scraped listings from Supabase zillow_scrape_listings table."""
+    try:
+        import urllib.request
+        import urllib.parse
+
+        supabase_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")
+        service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        if not supabase_url or not service_key:
+            print("  [WARN] Supabase env vars not set, skipping DB check", file=sys.stderr)
+            return None
+
+        # Query all listings for today's batch
+        url = f"{supabase_url}/rest/v1/zillow_scrape_listings?scrape_batch=eq.{batch_date}&select=data"
+        req = urllib.request.Request(url, headers={
+            "apikey": service_key,
+            "Authorization": f"Bearer {service_key}",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            rows = json.loads(resp.read())
+
+        if not rows:
+            return None
+
+        # Extract the data JSONB field from each row
+        listings = [row["data"] for row in rows if row.get("data")]
+        return listings if listings else None
+    except Exception as e:
+        print(f"  [WARN] Supabase load failed: {e}", file=sys.stderr)
+        return None
+
+
 def refresh_zillow_cookies():
     """Re-resolve credentials from Supabase to pick up fresh cookies from the extension."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -226,46 +259,32 @@ def search_borough(borough_key):
 def main():
     os.makedirs("/tmp/nyc_assemblage", exist_ok=True)
 
-    # Check if extension already scraped results (pre-populated by Chrome extension)
-    prescrape_path = "/tmp/nyc_assemblage/zillow_results.json"
-    if os.path.exists(prescrape_path):
-        try:
-            with open(prescrape_path) as f:
-                prescrape = json.load(f)
-            if isinstance(prescrape, list) and len(prescrape) > 0:
-                # Check if this is a fresh scrape (has _borough field from extension)
-                if prescrape[0].get("_borough"):
-                    print(f"\n=== Using pre-scraped results from Chrome extension ===", file=sys.stderr)
-                    print(f"  {len(prescrape)} listings found", file=sys.stderr)
+    # Check Supabase for extension-scraped results (today's batch)
+    today = datetime.now().strftime("%Y-%m-%d")
+    prescrape = load_from_supabase(today)
+    if prescrape:
+        print(f"\n=== Using pre-scraped results from Supabase (batch {today}) ===", file=sys.stderr)
+        print(f"  {len(prescrape)} listings found", file=sys.stderr)
 
-                    # Light filter — skip strict homeType check since extension
-                    # data uses Zillow's raw types. PLUTO will filter by zoning in Phase 2.
-                    # Only exclude obvious non-residential (condos/coops by status text).
-                    qualifying = []
-                    excluded = 0
-                    for p in prescrape:
-                        status = str(p.get("status", "")).lower()
-                        if any(s in status for s in ["pending", "contingent", "under contract"]):
-                            excluded += 1
-                            continue
-                        qualifying.append(p)
+        # Light filter — only exclude pending/contingent. PLUTO filters zoning in Phase 2.
+        qualifying = []
+        excluded = 0
+        for p in prescrape:
+            status = str(p.get("status", "")).lower()
+            if any(s in status for s in ["pending", "contingent", "under contract"]):
+                excluded += 1
+                continue
+            qualifying.append(p)
 
-                    print(f"  {len(qualifying)} qualifying ({excluded} pending/contingent excluded)", file=sys.stderr)
+        print(f"  {len(qualifying)} qualifying ({excluded} pending/contingent excluded)", file=sys.stderr)
 
-                    # Save to a SEPARATE file so the original scrape is preserved
-                    output_path = "/tmp/nyc_assemblage/zillow_filtered.json"
-                    with open(output_path, "w") as f:
-                        json.dump(qualifying, f, indent=2)
+        output_path = "/tmp/nyc_assemblage/zillow_results.json"
+        with open(output_path, "w") as f:
+            json.dump(qualifying, f, indent=2)
 
-                    # Also write to the standard path for Phase 2
-                    with open("/tmp/nyc_assemblage/zillow_results.json", "w") as f:
-                        json.dump(qualifying, f, indent=2)
-
-                    print(f"\n✓ Saved {len(qualifying)} qualifying listings from extension scrape", file=sys.stderr)
-                    print(json.dumps({"count": len(qualifying), "path": output_path, "source": "extension"}))
-                    return
-        except (json.JSONDecodeError, KeyError):
-            pass  # Fall through to CLI search
+        print(f"\n✓ Saved {len(qualifying)} qualifying listings from Supabase", file=sys.stderr)
+        print(json.dumps({"count": len(qualifying), "path": output_path, "source": "supabase"}))
+        return
 
     all_properties = {}  # zpid -> prop (deduped across boroughs)
 

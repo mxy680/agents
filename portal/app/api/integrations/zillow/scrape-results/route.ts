@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from "fs"
-
-const RESULTS_DIR = "/tmp/nyc_assemblage"
-const RESULTS_FILE = `${RESULTS_DIR}/zillow_results.json`
+import { createAdminClient } from "@/lib/supabase/admin"
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -10,24 +7,25 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 }
 
-/**
- * Handle CORS preflight.
- */
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+interface Listing {
+  zpid: string
+  _borough?: string
+  _zip?: string
+  [key: string]: unknown
 }
 
 /**
  * POST /api/integrations/zillow/scrape-results
  *
  * Receives Zillow listing data from the Chrome extension scraper.
- * Merges into /tmp/nyc_assemblage/zillow_results.json for the pipeline.
- *
- * No auth — localhost-only, called by the Chrome extension which can't
- * send portal cookies (different origin).
+ * Upserts into zillow_scrape_listings table in Supabase.
  */
 export async function POST(request: NextRequest) {
-  let listings: unknown[]
+  let listings: Listing[]
   try {
     const body = await request.json()
     listings = body.listings
@@ -38,48 +36,59 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (!Array.isArray(listings)) {
+  if (!Array.isArray(listings) || listings.length === 0) {
     return NextResponse.json(
-      { error: "listings must be an array" },
+      { error: "listings must be a non-empty array" },
       { status: 400, headers: CORS_HEADERS }
     )
   }
 
+  const batchId = new Date().toISOString().slice(0, 10) // e.g. "2026-03-25"
+
   try {
-    mkdirSync(RESULTS_DIR, { recursive: true })
+    const admin = createAdminClient()
 
-    // Merge with existing results (for incremental batching)
-    let existing: Record<string, unknown> = {}
-    if (existsSync(RESULTS_FILE)) {
-      try {
-        const raw = JSON.parse(readFileSync(RESULTS_FILE, "utf8"))
-        if (Array.isArray(raw)) {
-          for (const item of raw) {
-            const zpid = (item as Record<string, unknown>)?.zpid
-            if (zpid) existing[String(zpid)] = item
-          }
-        }
-      } catch {
-        // Corrupt file — start fresh
+    const rows = listings
+      .filter((l) => l.zpid)
+      .map((l) => ({
+        zpid: String(l.zpid),
+        data: l,
+        borough: l._borough || null,
+        zip: l._zip || null,
+        scraped_at: new Date().toISOString(),
+        scrape_batch: batchId,
+      }))
+
+    // Upsert in chunks of 500
+    let upserted = 0
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500)
+      const { error } = await admin
+        .from("zillow_scrape_listings")
+        .upsert(chunk, { onConflict: "zpid" })
+
+      if (error) {
+        console.error("[scrape-results] Upsert error:", error.message)
+        return NextResponse.json(
+          { ok: false, error: error.message },
+          { status: 500, headers: CORS_HEADERS }
+        )
       }
+      upserted += chunk.length
     }
 
-    // Merge new listings
-    for (const item of listings) {
-      const zpid = (item as Record<string, unknown>)?.zpid
-      if (zpid) existing[String(zpid)] = item
-    }
-
-    const merged = Object.values(existing)
-    writeFileSync(RESULTS_FILE, JSON.stringify(merged, null, 2))
+    // Get total count
+    const { count } = await admin
+      .from("zillow_scrape_listings")
+      .select("zpid", { count: "exact", head: true })
+      .eq("scrape_batch", batchId)
 
     return NextResponse.json(
       {
         ok: true,
-        new: listings.length,
-        total: merged.length,
-        path: RESULTS_FILE,
-        saved_at: new Date().toISOString(),
+        new: upserted,
+        total: count ?? upserted,
+        batch: batchId,
       },
       { headers: CORS_HEADERS }
     )
