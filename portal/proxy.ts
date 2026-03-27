@@ -11,8 +11,7 @@ export async function proxy(request: NextRequest) {
       pathname.startsWith("/client") ||
       pathname.startsWith("/api/client") ||
       pathname.startsWith("/api/chat/upload") ||
-      pathname.startsWith("/api/jobs/artifacts") ||
-      pathname.startsWith("/api/jobs/cron")
+      pathname.startsWith("/api/jobs")
     ) {
       return NextResponse.next({ request })
     }
