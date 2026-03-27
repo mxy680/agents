@@ -35,9 +35,9 @@ if (!sessionPath) {
 const session = JSON.parse(readFileSync(sessionPath, "utf-8"));
 const systemPrompt = session.systemPrompt || "You are a helpful assistant.";
 
-// When stdout is a TTY (terminal), use colored output.
-// When piped (portal local-runner), output raw NDJSON for parsing.
-const isTTY = process.stdout.isTTY;
+// When stdout is a TTY (terminal) or FORCE_TTY is set (job runner), use colored output.
+// When piped to the portal chat (local-runner), output raw NDJSON for streaming.
+const isTTY = process.stdout.isTTY || process.env.FORCE_TTY === "1";
 
 const queryOptions = {
   cwd: process.cwd(),

@@ -191,6 +191,7 @@ fi
 
 # Source creds and run agent with job prompt
 export PATH="${binPath}:$PATH"
+export FORCE_TTY=1
 source "$CREDS_FILE"
 node "${entrypointScript}" "${sessionFile}" >> "$LOG_FILE" 2>&1
 EXIT_CODE=$?
@@ -253,8 +254,10 @@ function startLogTailer(runId: string, logFile: string, admin: ReturnType<typeof
       const exitMatch = logAccum.match(/__EXIT_CODE__:(\d+)/)
       const exitCode = exitMatch ? parseInt(exitMatch[1], 10) : null
 
-      // Strip sentinel from log before writing
-      const cleanLog = logAccum.replace(/__EXIT_CODE__:\d+\n?/g, "")
+      // Strip sentinel and ANSI color codes from log before writing
+      const cleanLog = logAccum
+        .replace(/__EXIT_CODE__:\d+\n?/g, "")
+        .replace(/\x1b\[[0-9;]*m/g, "")
 
       // Single write — no read-modify-write race condition
       await admin
@@ -265,7 +268,16 @@ function startLogTailer(runId: string, logFile: string, admin: ReturnType<typeof
       if (exitCode !== null) {
         clearInterval(interval)
 
-        const deliverables = parseDeliverables(cleanLog)
+        // Merge log-parsed deliverables with any already set by /api/jobs/artifacts
+        const { data: currentRun } = await admin
+          .from("local_job_runs")
+          .select("deliverables")
+          .eq("id", runId)
+          .single()
+        const existingDeliverables = (currentRun?.deliverables as Record<string, string>) ?? {}
+        const logDeliverables = parseDeliverables(cleanLog)
+        const deliverables = { ...logDeliverables, ...existingDeliverables }
+
         const status = exitCode === 0 ? "completed" : "failed"
 
         await admin
