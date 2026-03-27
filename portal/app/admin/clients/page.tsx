@@ -38,12 +38,7 @@ export default async function ClientsPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar
-        user={{
-          email: user.email ?? undefined,
-          name: user.user_metadata?.full_name ?? user.user_metadata?.name,
-        }}
-      />
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
