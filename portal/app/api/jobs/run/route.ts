@@ -20,8 +20,11 @@ const REPO_ROOT = (() => {
   }
 })()
 
-// Detect if running in Docker/Fly (no Doppler CLI, secrets already in env)
-const IS_CLOUD = process.env.NODE_ENV === "production" || !process.env.DOPPLER_TOKEN
+// Detect if running on Fly (secrets already in env via Doppler CMD)
+const IS_CLOUD = process.env.NODE_ENV === "production"
+
+// Fly.io app URL for remote job triggering
+const FLY_APP_URL = "https://emdash-agents.fly.dev"
 
 // Allowlist of agents that can be triggered via this route
 const ALLOWED_AGENTS = ["real-estate"]
@@ -60,6 +63,27 @@ export async function POST(request: NextRequest) {
   // #11 Allowlist validation — prevent path injection
   if (!ALLOWED_AGENTS.includes(agent)) {
     return NextResponse.json({ error: `Unknown agent: ${agent}` }, { status: 400 })
+  }
+
+  // When running locally, forward the job to Fly instead of running here
+  if (!IS_CLOUD) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${FLY_APP_URL}/api/jobs/run`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Forward auth cookies so Fly can validate the admin
+          "Cookie": request.headers.get("cookie") ?? "",
+        },
+        body: JSON.stringify({ agent, job }),
+      })
+      const data = await res.json()
+      return NextResponse.json(data, { status: res.status })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return NextResponse.json({ error: `Failed to trigger remote job: ${msg}` }, { status: 502 })
+    }
   }
 
   const admin = createAdminClient()
