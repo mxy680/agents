@@ -207,19 +207,58 @@ func makeRunEntitiesMatchAddress(factory ClientFactory) func(*cobra.Command, []s
 			"$order": []string{"filing_date DESC"},
 		}
 
+		var entities []EntitySummary
+		seen := map[string]bool{}
+
+		// Strategy 1: Phrase search on active corps (most reliable)
+		// Build a compact phrase from the address tokens: "540 WEST 29" -> LIKE '%540%WEST%29%'
+		phrasePattern := "%" + strings.Join(tokens, "%") + "%"
+		phraseParams := url.Values{
+			"$where": []string{fmt.Sprintf("current_entity_name like '%s'", phrasePattern)},
+			"$limit": []string{fmt.Sprintf("%d", limit)},
+			"$order": []string{"initial_dos_filing_date DESC"},
+		}
+
+		acBody, acErr := client.Query(ctx, client.activeCorpsURL, phraseParams)
+		if acErr == nil {
+			var acRecords []ActiveCorpRecord
+			if json.Unmarshal(acBody, &acRecords) == nil {
+				for _, r := range acRecords {
+					s := activeCorpToSummary(r)
+					if !seen[s.Name] {
+						seen[s.Name] = true
+						entities = append(entities, s)
+					}
+				}
+			}
+		}
+
+		// Strategy 2: Daily filings with OR tokens (catches recent filings with filer info)
 		body, err := client.Query(ctx, client.dailyFilingsURL, params)
-		if err != nil {
-			return fmt.Errorf("match address entities: %w", err)
+		if err == nil {
+			var records []DailyFilingRecord
+			if json.Unmarshal(body, &records) == nil {
+				for _, r := range records {
+					s := dailyFilingToSummary(r)
+					// Only add if ALL tokens appear in the name (tighter matching)
+					nameUpper := strings.ToUpper(s.Name)
+					allMatch := true
+					for _, tok := range tokens {
+						if !strings.Contains(nameUpper, strings.ToUpper(tok)) {
+							allMatch = false
+							break
+						}
+					}
+					if allMatch && !seen[s.Name] {
+						seen[s.Name] = true
+						entities = append(entities, s)
+					}
+				}
+			}
 		}
 
-		var records []DailyFilingRecord
-		if err := json.Unmarshal(body, &records); err != nil {
-			return fmt.Errorf("parse response: %w", err)
-		}
-
-		entities := make([]EntitySummary, len(records))
-		for i, r := range records {
-			entities[i] = dailyFilingToSummary(r)
+		if len(entities) == 0 && acErr != nil {
+			return fmt.Errorf("match address entities: %w", acErr)
 		}
 
 		return printEntities(cmd, entities)
@@ -260,6 +299,16 @@ func addressTokens(address string) []string {
 		tok = strings.TrimRight(tok, ".,;:")
 		if tok == "" || stopWords[tok] {
 			continue
+		}
+		// Strip ordinal suffixes from numbers: 29TH -> 29, 1ST -> 1, 2ND -> 2, 3RD -> 3
+		for _, suffix := range []string{"TH", "ST", "ND", "RD"} {
+			if strings.HasSuffix(tok, suffix) && len(tok) > len(suffix) {
+				prefix := tok[:len(tok)-len(suffix)]
+				if prefix != "" && prefix[0] >= '0' && prefix[0] <= '9' {
+					tok = prefix
+					break
+				}
+			}
 		}
 		tokens = append(tokens, tok)
 	}
