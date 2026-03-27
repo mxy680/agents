@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 import { isAdmin } from "@/lib/admin"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -195,8 +196,9 @@ export default async function IntegrationsPage() {
     redirect("/login?error=not_authorized")
   }
 
-  // Fetch all active integrations (admin sees everything)
-  const { data: integrations } = await supabase
+  // Fetch all active integrations using admin client (no RLS)
+  const admin = createAdminClient()
+  const { data: integrations } = await admin
     .from("user_integrations")
     .select("id, provider, label, status, created_at")
     .eq("user_id", user.id)
