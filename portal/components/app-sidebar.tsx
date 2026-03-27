@@ -9,6 +9,7 @@ import {
   IconRobot,
   IconCalendarEvent,
   IconUsers,
+  IconExternalLink,
 } from "@tabler/icons-react"
 
 import {
@@ -62,6 +63,11 @@ const navMain = [
         title: "Clients",
         url: "/admin/clients",
         icon: IconUsers,
+      },
+      {
+        title: "Client Portal",
+        url: "/client",
+        icon: IconExternalLink,
       },
     ],
   },
