@@ -12,7 +12,7 @@ interface RunScanButtonProps {
 
 export function RunScanButton({
   agent = "real-estate",
-  job = "weekly-scan",
+  job = "off-market-scan",
 }: RunScanButtonProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)

@@ -4,11 +4,11 @@ Job checkpoint utility — tracks phase completion in Supabase.
 Usage:
     from shared.checkpoint import is_phase_done, mark_phase_done, mark_phase_failed
 
-    if is_phase_done("real-estate", "weekly-scan", "phase2_pluto"):
+    if is_phase_done("real-estate", "off-market-scan", "phase2_pluto"):
         print("Skipping phase 2 — already completed today")
     else:
         run_phase_2()
-        mark_phase_done("real-estate", "weekly-scan", "phase2_pluto", {"count": 225})
+        mark_phase_done("real-estate", "off-market-scan", "phase2_pluto", {"count": 225})
 """
 
 import json

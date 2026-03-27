@@ -31,7 +31,6 @@ const ALLOWED_AGENTS = ["real-estate"]
 
 // Map agent+job to the script path relative to agents/{agent}/scripts/
 const JOB_SCRIPT_MAP: Record<string, string> = {
-  "real-estate:weekly-scan": "run_pipeline.sh",
   "real-estate:off-market-scan": "off-market/run_pipeline.sh",
   "real-estate:probate-scan": "probate/run_scan.sh",
   "real-estate:llc-scan": "llc/run_scan.sh",

@@ -32,7 +32,7 @@ run_phase() {
   python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import is_phase_done
-if is_phase_done('real-estate', 'weekly-scan', '$phase_id'):
+if is_phase_done('real-estate', 'off-market-scan', '$phase_id'):
     print('  [SKIP] Already completed today')
     sys.exit(42)
 " 2>/dev/null
@@ -51,7 +51,7 @@ if is_phase_done('real-estate', 'weekly-scan', '$phase_id'):
     python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import mark_phase_done
-mark_phase_done('real-estate', 'weekly-scan', '$phase_id')
+mark_phase_done('real-estate', 'off-market-scan', '$phase_id')
 " 2>/dev/null
     SUCCEEDED=$((SUCCEEDED + 1))
   else
@@ -59,7 +59,7 @@ mark_phase_done('real-estate', 'weekly-scan', '$phase_id')
     python3 -c "
 import sys; sys.path.insert(0, '$SCRIPT_DIR/../..')
 from shared.checkpoint import mark_phase_failed
-mark_phase_failed('real-estate', 'weekly-scan', '$phase_id')
+mark_phase_failed('real-estate', 'off-market-scan', '$phase_id')
 " 2>/dev/null
     FAILED=$((FAILED + 1))
   fi

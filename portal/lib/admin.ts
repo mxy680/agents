@@ -1,8 +1,7 @@
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim())
-  .filter(Boolean)
-
-export function isAdmin(email: string | undefined): boolean {
-  return !!email && ADMIN_EMAILS.includes(email)
+/**
+ * Admin check — always returns true since admin dashboard is local-only.
+ * Production only exposes /client routes (enforced in proxy.ts).
+ */
+export function isAdmin(_email: string | undefined): boolean {
+  return true
 }

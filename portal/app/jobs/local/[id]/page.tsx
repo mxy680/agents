@@ -226,7 +226,7 @@ export default function LocalJobRunPage({
       const res = await fetch("/api/jobs/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: run?.agent_name ?? "real-estate", job: run?.job_slug ?? "weekly-scan" }),
+        body: JSON.stringify({ agent: run?.agent_name ?? "real-estate", job: run?.job_slug ?? "off-market-scan" }),
       })
       if (res.ok) {
         const { runId } = await res.json() as { runId: string }

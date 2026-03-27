@@ -1,12 +1,4 @@
 jobs:
-  - slug: weekly-scan
-    display_name: Weekly NYC Assemblage Scan
-    description: Zillow listings → PLUTO filter → distress signals → scored report
-    schedule: ""
-    prompt_file: weekly-scan.md
-    timeout_minutes: 120
-    estimated_minutes: 30
-
   - slug: off-market-scan
     display_name: Off-Market R8+ Scan
     description: All R8+ small residential in NYC → distress signals → scored report (no Zillow)
