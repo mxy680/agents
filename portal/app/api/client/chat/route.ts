@@ -4,6 +4,7 @@ import { NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { runLocal, buildSystemPrompt } from "@/lib/local-runner"
 import { type ChatSSEEvent } from "@/lib/agent-events"
+import { generateTitle } from "@/lib/auto-title"
 
 type ContentBlock =
   | { type: "text"; content: string }
@@ -56,12 +57,13 @@ export async function POST(request: NextRequest) {
 
   // Create or validate conversation
   if (!conversationId) {
+    const title = generateTitle(message)
     const { data: conv } = await admin
       .from("conversations")
       .insert({
-        user_id: "00000000-0000-0000-0000-000000000000", // placeholder for client access
+        user_id: "00000000-0000-0000-0000-000000000000",
         agent_name: agentName,
-        title: null,
+        title,
       })
       .select("id")
       .single()
