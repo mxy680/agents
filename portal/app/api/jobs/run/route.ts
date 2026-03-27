@@ -8,8 +8,20 @@ import { spawn } from "child_process"
 import { writeFileSync } from "fs"
 import path from "path"
 
-// Repo root is one level above portal/
-const REPO_ROOT = path.resolve(process.cwd(), "..")
+// Resolve repo root — same logic as local-runner.ts
+const REPO_ROOT = (() => {
+  const fromCwd = path.resolve(process.cwd(), "..")
+  try {
+    const { statSync } = require("fs")
+    statSync(path.join(fromCwd, "agents"))
+    return fromCwd // local dev
+  } catch {
+    return process.cwd() // Docker/Fly (/app)
+  }
+})()
+
+// Detect if running in Docker/Fly (no Doppler CLI, secrets already in env)
+const IS_CLOUD = process.env.NODE_ENV === "production" || !process.env.DOPPLER_TOKEN
 
 // Allowlist of agents that can be triggered via this route
 const ALLOWED_AGENTS = ["real-estate"]
@@ -85,40 +97,44 @@ export async function POST(request: NextRequest) {
   // Look up the script path from the job map
   const scriptRelPath = JOB_SCRIPT_MAP[`${agent}:${job}`] ?? "run_pipeline.sh"
   const pipelineScript = path.join(REPO_ROOT, "agents", agent, "scripts", scriptRelPath)
-  const binPath = path.join(REPO_ROOT, "bin")
+  // On cloud, integrations binary is at /usr/local/bin (from Dockerfile)
+  // On local, it's at REPO_ROOT/bin
+  const binPath = IS_CLOUD ? "/usr/local/bin" : path.join(REPO_ROOT, "bin")
   const credsFile = `/tmp/job_creds_${runId}.sh`
   const logFile = `/tmp/job_log_${runId}.txt`
   const wrapperScript = `/tmp/job_wrapper_${runId}.sh`
 
-  // Escape runId for use in the heredoc (it's a UUID so alphanumeric + hyphens only)
-  const portalNodeModules = path.join(REPO_ROOT, "portal", "node_modules")
-  // Use a Doppler service token so the detached process doesn't need keyring access
-  const dopplerToken = process.env.DOPPLER_SERVICE_TOKEN || ""
+  const portalNodeModules = IS_CLOUD
+    ? path.join(REPO_ROOT, "node_modules")
+    : path.join(REPO_ROOT, "portal", "node_modules")
+  const dopplerToken = process.env.DOPPLER_SERVICE_TOKEN || process.env.DOPPLER_TOKEN || ""
+
+  // On cloud: secrets are already in env (Doppler CMD wrapper), no need for doppler run
+  // On local: use doppler run to inject secrets
+  const dopplerPrefix = IS_CLOUD ? "" : "doppler run --project agents --config dev -- "
+
   const wrapperContents = `#!/bin/bash
 set -uo pipefail
 CREDS_FILE="${credsFile}"
 LOG_FILE="${logFile}"
 RUN_ID="${runId}"
 export NODE_PATH="${portalNodeModules}:\${NODE_PATH:-}"
-export DOPPLER_TOKEN="${dopplerToken}"
+${dopplerToken ? `export DOPPLER_TOKEN="${dopplerToken}"` : ""}
 
 # Always clean up creds file on exit
 trap 'rm -f "$CREDS_FILE"' EXIT
 
 # Resolve credentials
-doppler run --project agents --config dev -- node "${resolveCredsScript}" > "$CREDS_FILE" 2>>"$LOG_FILE"
+${dopplerPrefix}node "${resolveCredsScript}" > "$CREDS_FILE" 2>>"$LOG_FILE"
 if [ $? -ne 0 ] || [ ! -s "$CREDS_FILE" ]; then
   echo "[wrapper] ERROR: credential resolution failed" >> "$LOG_FILE"
   exit 1
 fi
 
-# Source creds and run pipeline; redirect all output to log file
+# Source creds and run pipeline
 export PATH="${binPath}:$PATH"
-doppler run --project agents --config dev -- bash -c "
-  source '$CREDS_FILE'
-  export PATH='${binPath}':'$PATH'
-  bash '${pipelineScript}'
-" >> "$LOG_FILE" 2>&1
+source "$CREDS_FILE"
+bash "${pipelineScript}" >> "$LOG_FILE" 2>&1
 EXIT_CODE=$?
 
 echo "__EXIT_CODE__:$EXIT_CODE" >> "$LOG_FILE"
