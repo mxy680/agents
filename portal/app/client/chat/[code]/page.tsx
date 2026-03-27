@@ -108,7 +108,7 @@ export default function ClientChatPage({
           if (conv) {
             setConversationId(conv)
             try {
-              const convRes = await fetch(`/api/conversations/${conv}`)
+              const convRes = await fetch(`/api/client/conversations/${conv}?code=${encodeURIComponent(decodeURIComponent(code))}`)
               if (convRes.ok) {
                 const convData = await convRes.json() as { messages: Array<{ id: string; role: "user" | "assistant"; blocks: ContentBlock[] }> }
                 setMessages(
