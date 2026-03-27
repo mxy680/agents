@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/admin"
 import { spawn } from "child_process"
-import { writeFileSync } from "fs"
+import { readFileSync, writeFileSync } from "fs"
 import path from "path"
 
 // Resolve repo root — same logic as local-runner.ts
@@ -113,19 +113,42 @@ export async function POST(request: NextRequest) {
     .eq("id", runId)
 
   // #1 Write a wrapper script that runs detached from the Next.js process.
-  // The wrapper: resolves creds, runs the pipeline, and updates DB status on completion.
-  // A trap ensures the creds file is always cleaned up.
-  // resolve-creds.mjs lives in real-estate but is shared by all agents
+  // The wrapper: resolves creds, runs the agent with the job prompt, and updates DB status.
+  // The agent (Claude) runs the script, generates a PDF report, and uploads it as an artifact.
   const resolveCredsScript = path.join(REPO_ROOT, "agents", "real-estate", "resolve-creds.mjs")
+  const entrypointScript = path.join(REPO_ROOT, "agents", agent, "entrypoint.mjs")
 
-  // Look up the script path from the job map
-  const scriptRelPath = JOB_SCRIPT_MAP[`${agent}:${job}`] ?? "run_pipeline.sh"
-  const pipelineScript = path.join(REPO_ROOT, "agents", agent, "scripts", scriptRelPath)
+  // Read the job prompt file
+  const jobPromptFile = path.join(REPO_ROOT, "agents", agent, "jobs", `${job}.md`)
+  let jobPrompt: string
+  try {
+    jobPrompt = readFileSync(jobPromptFile, "utf-8")
+  } catch {
+    return NextResponse.json({ error: `Job prompt not found: ${job}.md` }, { status: 400 })
+  }
+
+  // Append artifact upload instructions so the agent uploads PDFs to the portal
+  const portalUrl = IS_CLOUD ? "http://localhost:3000" : "http://localhost:3000"
+  const artifactInstructions = `\n\n## IMPORTANT: Upload artifacts to the portal
+
+After generating any PDF or XLSX report, upload it to the portal using curl:
+
+\`\`\`bash
+curl -X POST "${portalUrl}/api/jobs/artifacts" \\
+  -H "Content-Type: application/json" \\
+  -d '{"runId": "${runId}", "filePath": "/tmp/path/to/report.pdf"}'
+\`\`\`
+
+This makes the file downloadable directly in the portal. Do this for EVERY deliverable file (PDF, XLSX, etc.) in addition to any Google Drive upload.`
+
+  const fullPrompt = jobPrompt + artifactInstructions
+
   // On cloud, integrations binary is at /usr/local/bin (from Dockerfile)
   // On local, it's at REPO_ROOT/bin
   const binPath = IS_CLOUD ? "/usr/local/bin" : path.join(REPO_ROOT, "bin")
   const credsFile = `/tmp/job_creds_${runId}.sh`
   const logFile = `/tmp/job_log_${runId}.txt`
+  const sessionFile = `/tmp/job_session_${runId}.json`
   const wrapperScript = `/tmp/job_wrapper_${runId}.sh`
 
   const portalNodeModules = IS_CLOUD
@@ -137,6 +160,17 @@ export async function POST(request: NextRequest) {
   // On local: use doppler run to inject secrets
   const dopplerPrefix = IS_CLOUD ? "" : "doppler run --project agents --config dev -- "
 
+  // Write the session file for the agent entrypoint
+  const { buildSystemPrompt } = await import("@/lib/local-runner")
+  const systemPrompt = buildSystemPrompt(agent, `You are running a scheduled job. Be thorough and produce professional deliverables.`)
+
+  writeFileSync(sessionFile, JSON.stringify({
+    prompt: fullPrompt,
+    systemPrompt,
+    model: "claude-sonnet-4-6",
+    maxTurns: 500,
+  }))
+
   const wrapperContents = `#!/bin/bash
 set -uo pipefail
 CREDS_FILE="${credsFile}"
@@ -145,8 +179,8 @@ RUN_ID="${runId}"
 export NODE_PATH="${portalNodeModules}:\${NODE_PATH:-}"
 ${dopplerToken ? `export DOPPLER_TOKEN="${dopplerToken}"` : ""}
 
-# Always clean up creds file on exit
-trap 'rm -f "$CREDS_FILE"' EXIT
+# Always clean up temp files on exit
+trap 'rm -f "$CREDS_FILE" "${sessionFile}"' EXIT
 
 # Resolve credentials
 ${dopplerPrefix}node "${resolveCredsScript}" > "$CREDS_FILE" 2>>"$LOG_FILE"
@@ -155,10 +189,10 @@ if [ $? -ne 0 ] || [ ! -s "$CREDS_FILE" ]; then
   exit 1
 fi
 
-# Source creds and run pipeline
+# Source creds and run agent with job prompt
 export PATH="${binPath}:$PATH"
 source "$CREDS_FILE"
-bash "${pipelineScript}" >> "$LOG_FILE" 2>&1
+node "${entrypointScript}" "${sessionFile}" >> "$LOG_FILE" 2>&1
 EXIT_CODE=$?
 
 echo "__EXIT_CODE__:$EXIT_CODE" >> "$LOG_FILE"
@@ -172,7 +206,7 @@ exit $EXIT_CODE
     detached: true,
     stdio: "ignore",
     env: { ...process.env },
-    cwd: REPO_ROOT,
+    cwd: path.join(REPO_ROOT, "agents", agent),
   })
   child.unref()
 
@@ -257,11 +291,13 @@ function startLogTailer(runId: string, logFile: string, admin: ReturnType<typeof
 
 /**
  * Parse deliverable links from log output.
- * Looks for JSON objects containing sheet_url or pdf_url keys in the last 50 lines.
+ * Looks for JSON objects containing sheet_url or pdf_url keys in the last 100 lines.
+ * Also detects Supabase Storage URLs from artifact uploads.
  */
 function parseDeliverables(log: string): Record<string, string> {
   const lines = log.split("\n")
-  const tail = lines.slice(-50).join("\n")
+  const tail = lines.slice(-100).join("\n")
+  const deliverables: Record<string, string> = {}
 
   // Try to find JSON objects with deliverable URLs
   const jsonPattern = /\{[^{}]*(?:sheet_url|pdf_url|spreadsheet_url|report_url)[^{}]*\}/g
@@ -272,7 +308,8 @@ function parseDeliverables(log: string): Record<string, string> {
       try {
         const parsed = JSON.parse(match)
         if (parsed && typeof parsed === "object") {
-          return parsed as Record<string, string>
+          Object.assign(deliverables, parsed)
+          break
         }
       } catch {
         continue
@@ -280,26 +317,33 @@ function parseDeliverables(log: string): Record<string, string> {
     }
   }
 
+  // Detect Supabase Storage artifact URLs (from /api/jobs/artifacts uploads)
+  const supabasePattern = /https:\/\/[^"'\s]+\/storage\/v1\/object\/public\/job-artifacts\/[^"'\s]+/g
+  const supabaseUrls = tail.match(supabasePattern)
+  if (supabaseUrls) {
+    for (const url of supabaseUrls) {
+      if (url.includes(".pdf") && !deliverables.pdf_url) {
+        deliverables.pdf_url = url
+      } else if (url.includes(".xlsx") && !deliverables.sheet_url) {
+        deliverables.sheet_url = url
+      } else if (!deliverables.artifact_url) {
+        deliverables.artifact_url = url
+      }
+    }
+  }
+
   // Also look for Google Drive URLs in the log
   const driveUrlPattern = /https:\/\/docs\.google\.com\/[^\s"']+/g
   const driveUrls = tail.match(driveUrlPattern)
-  if (driveUrls && driveUrls.length > 0) {
-    const deliverables: Record<string, string> = {}
+  if (driveUrls) {
     for (const url of driveUrls) {
-      if (url.includes("/spreadsheets/")) {
+      if (url.includes("/spreadsheets/") && !deliverables.sheet_url) {
         deliverables.sheet_url = url
-      } else if (url.includes("/document/") || url.includes("drive.google.com")) {
+      } else if ((url.includes("/document/") || url.includes("drive.google.com")) && !deliverables.drive_url) {
         deliverables.drive_url = url
       }
     }
-    // Also look for PDF uploads
-    const pdfLine = tail.split("\n").find((l) => l.includes(".pdf") && l.includes("drive.google.com"))
-    if (pdfLine) {
-      const pdfUrl = pdfLine.match(/https:\/\/[^\s"']+/)?.[0]
-      if (pdfUrl) deliverables.pdf_url = pdfUrl
-    }
-    if (Object.keys(deliverables).length > 0) return deliverables
   }
 
-  return {}
+  return deliverables
 }

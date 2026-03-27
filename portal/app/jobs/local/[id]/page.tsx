@@ -29,6 +29,7 @@ import {
   IconFileSpreadsheet,
   IconFileText,
   IconExternalLink,
+  IconDownload,
 } from "@tabler/icons-react"
 
 interface LocalJobRun {
@@ -106,9 +107,15 @@ function DeliverableCards({ deliverables }: { deliverables: Deliverables }) {
 
   if (entries.length === 0) return null
 
-  function getLabel(key: string): string {
-    if (key.includes("sheet") || key.includes("spreadsheet")) return "Google Sheet"
+  function isPortalArtifact(url: string): boolean {
+    return url.includes("/storage/v1/object/public/job-artifacts/")
+  }
+
+  function getLabel(key: string, url: string): string {
     if (key.includes("pdf") || key.includes("report")) return "PDF Report"
+    if (key.includes("sheet") || key.includes("spreadsheet")) {
+      return isPortalArtifact(url) ? "Spreadsheet" : "Google Sheet"
+    }
     if (key.includes("drive")) return "Google Drive"
     if (key.includes("dashboard")) return "Dashboard"
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -128,19 +135,27 @@ function DeliverableCards({ deliverables }: { deliverables: Deliverables }) {
     <div className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">Deliverables</h2>
       <div className="flex flex-wrap gap-3">
-        {entries.map(([key, url]) => (
-          <a
-            key={key}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
-          >
-            {getIcon(key)}
-            <span className="text-sm font-medium">{getLabel(key)}</span>
-            <IconExternalLink className="size-3.5 text-muted-foreground ml-1" />
-          </a>
-        ))}
+        {entries.map(([key, url]) => {
+          const isDownload = isPortalArtifact(url)
+          return (
+            <a
+              key={key}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={isDownload ? undefined : undefined}
+              className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
+            >
+              {getIcon(key)}
+              <span className="text-sm font-medium">{getLabel(key, url)}</span>
+              {isDownload ? (
+                <IconDownload className="size-3.5 text-muted-foreground ml-1" />
+              ) : (
+                <IconExternalLink className="size-3.5 text-muted-foreground ml-1" />
+              )}
+            </a>
+          )
+        })}
       </div>
     </div>
   )
@@ -211,7 +226,7 @@ export default function LocalJobRunPage({
       const res = await fetch("/api/jobs/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: "real-estate", job: "weekly-scan" }),
+        body: JSON.stringify({ agent: run?.agent_name ?? "real-estate", job: run?.job_slug ?? "weekly-scan" }),
       })
       if (res.ok) {
         const { runId } = await res.json() as { runId: string }
