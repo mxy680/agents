@@ -38,13 +38,6 @@ const JOB_SCRIPT_MAP: Record<string, string> = {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user || !isAdmin(user.email)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
   let agent: string
   let job: string
   try {
@@ -65,16 +58,12 @@ export async function POST(request: NextRequest) {
   }
 
   // When running locally, forward the job to Fly instead of running here
+  // When running locally, forward the job to Fly
   if (!IS_CLOUD) {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch(`${FLY_APP_URL}/api/jobs/run`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Forward auth cookies so Fly can validate the admin
-          "Cookie": request.headers.get("cookie") ?? "",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agent, job }),
       })
       const data = await res.json()

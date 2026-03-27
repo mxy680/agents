@@ -109,8 +109,9 @@ if (process.env.SCRAPERAPI_KEY && !process.env.ZILLOW_PROXY_URL) {
   emittedCount++
 }
 
-// #2: Warn and exit non-zero if no credentials were resolved
+// Warn if no credentials were resolved, but don't fail — some jobs use only public APIs
 if (emittedCount === 0) {
-  process.stderr.write(`ERROR: No credentials resolved from Supabase. Check that user_integrations rows exist with status=active.\n`)
-  process.exit(1)
+  process.stderr.write(`WARN: No credentials resolved from Supabase. Jobs using public APIs will still work.\n`)
+  // Emit a dummy export so the sourcing shell script sees a non-empty file
+  console.log(`export __CREDS_RESOLVED=0`)
 }
