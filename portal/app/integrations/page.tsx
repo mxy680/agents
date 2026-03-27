@@ -33,7 +33,6 @@ import {
   IconBrandSupabase,
   IconMessage,
   IconSchool,
-  IconHome,
   IconBuildingSkyscraper,
   IconPlus,
   IconBike,
@@ -111,13 +110,6 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
     connectType: "cookie-paste" as const,
-  },
-  {
-    id: "zillow",
-    name: "Zillow",
-    description: "Scraped via Chrome extension — no auth needed",
-    icon: IconHome,
-    connectType: "none" as const,
   },
   {
     id: "streeteasy",
