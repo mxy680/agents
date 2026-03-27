@@ -39,17 +39,24 @@ const systemPrompt = session.systemPrompt || "You are a helpful assistant.";
 // When piped (portal local-runner), output raw NDJSON for parsing.
 const isTTY = process.stdout.isTTY;
 
+const queryOptions = {
+  cwd: process.cwd(),
+  permissionMode: "bypassPermissions",
+  allowDangerouslySkipPermissions: true,
+  systemPrompt,
+  maxTurns: session.maxTurns || 500,
+  model: session.model || "claude-opus-4-6",
+  includePartialMessages: !isTTY,
+};
+
+// Resume existing conversation if sessionId is provided
+if (session.sessionId) {
+  queryOptions.resume = session.sessionId;
+}
+
 const conversation = query({
   prompt: session.prompt,
-  options: {
-    cwd: process.cwd(),
-    permissionMode: "bypassPermissions",
-    allowDangerouslySkipPermissions: true,
-    systemPrompt,
-    maxTurns: session.maxTurns || 500,
-    model: session.model || "claude-opus-4-6",
-    includePartialMessages: !isTTY,
-  },
+  options: queryOptions,
 });
 
 // #13: Wrap all agent loops in try/catch so errors are reported cleanly
