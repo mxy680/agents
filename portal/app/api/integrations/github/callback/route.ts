@@ -34,18 +34,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/integrations?error=invalid_state`)
   }
 
-  // Verify the authenticated session user matches the state userId
-  try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user || user.id !== userId) {
-      return NextResponse.redirect(`${siteUrl}/integrations?error=session_mismatch`)
-    }
-  } catch {
-    return NextResponse.redirect(`${siteUrl}/integrations?error=session_check_failed`)
-  }
+  // Use mock admin user ID (auth is local-only)
+  userId = "00000000-0000-0000-0000-000000000001"
 
   const redirectUri = `${siteUrl}/api/integrations/github/callback`
 

@@ -35,18 +35,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/integrations?error=invalid_state`)
   }
 
-  // Verify the authenticated session user matches the state userId
-  try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user || user.id !== userId) {
-      return NextResponse.redirect(`${siteUrl}/integrations?error=session_mismatch`)
-    }
-  } catch {
-    return NextResponse.redirect(`${siteUrl}/integrations?error=session_check_failed`)
-  }
+  // Use the mock admin user ID (auth is local-only, no session needed)
+  userId = "00000000-0000-0000-0000-000000000001"
 
   // Retrieve PKCE code_verifier from cookie
   const codeVerifier = request.cookies.get("supabase_pkce_verifier")?.value
