@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Daily LLC Entity Monitor
-Scans NY DOS for new LLC formations that look like real estate transactions.
+Daily LLC Entity Monitor — Broad Filter
+Pulls ALL new LLC formations from NY DOS and applies only minimal filtering
+to exclude obvious non-real-estate entities. The agent does the real analysis.
 """
 import json
 import re
@@ -12,84 +13,103 @@ from datetime import datetime, timedelta
 
 OUT_DIR = "/tmp/llc_monitor"
 TODAY = datetime.now()
-YESTERDAY = (TODAY - timedelta(days=1)).strftime("%Y-%m-%d")
+# Look back 3 days to catch weekend filings
+SINCE = (TODAY - timedelta(days=3)).strftime("%Y-%m-%d")
 
-# Real estate keywords in entity names
-RE_KEYWORDS = [
-    "REALTY", "REALITY",  # common misspelling
-    "HOLDINGS", "HOLDING",
+# Exclude patterns — things that are definitely NOT real estate
+EXCLUDE_KEYWORDS = [
+    "CONSULTING", "CONSULTANT",
+    "MARKETING", "MEDIA",
+    "TECHNOLOGY", "TECH", "SOFTWARE", "DIGITAL",
+    "FASHION", "BEAUTY", "SALON", "SPA", "NAIL",
+    "RESTAURANT", "FOOD", "CATERING", "BAKERY", "CAFE", "PIZZA", "GRILL",
+    "TRUCKING", "TRANSPORT", "LOGISTICS", "MOVING",
+    "CLEANING", "LAUNDRY",
+    "MEDICAL", "DENTAL", "HEALTH", "THERAPY", "CLINIC", "PHARMACY",
+    "LAW", "LEGAL", "ATTORNEY",
+    "ACCOUNTING", "TAX SERVICE", "BOOKKEEPING",
+    "INSURANCE",
+    "MUSIC", "ENTERTAINMENT", "FILM", "PRODUCTION",
+    "FITNESS", "GYM",
+    "AUTO", "CAR WASH", "MECHANIC",
+    "PLUMBING", "ELECTRIC", "HVAC",
+    "LANDSCAPING", "LAWN",
+    "PET", "GROOMING", "VETERINARY",
+    "DAYCARE", "CHILDCARE", "TUTORING",
+    "CHURCH", "MINISTRY", "TEMPLE",
+]
+
+# Strong include patterns — definitely real estate
+STRONG_INCLUDE_KEYWORDS = [
+    "REALTY", "REAL ESTATE",
     "PROPERTIES", "PROPERTY",
     "DEVELOPMENT", "DEVELOPERS",
+    "HOLDINGS", "HOLDING",
     "EQUITIES", "EQUITY",
-    "CAPITAL",
-    "ASSOCIATES",
-    "MANAGEMENT", "MGMT",
-    "VENTURES",
     "ACQUISITIONS",
-    "INVESTORS", "INVESTMENT",
     "HOUSING",
     "RESIDENTIAL",
-    "REAL ESTATE",
+    "CONSTRUCTION",
+    "BUILDERS",
+    "HOMES",
+    "APARTMENTS",
+    "TENANTS",
+    "LANDLORD",
 ]
 
-# NYC street suffixes
-STREET_SUFFIXES = [
-    "AVE", "AVENUE", "ST", "STREET", "BLVD", "BOULEVARD",
-    "PL", "PLACE", "DR", "DRIVE", "RD", "ROAD",
-    "CT", "COURT", "WAY", "LN", "LANE", "PKWY", "PARKWAY",
-]
-
-# NYC borough indicators
-BOROUGH_INDICATORS = [
-    "BRONX", "BX", "BROOKLYN", "BK", "MANHATTAN", "MN",
-    "QUEENS", "QN", "STATEN", "SI",
-]
-
-# Pattern: starts with a number (address-style LLC)
+# Pattern: starts with a number (address-style LLC like "540 WEST 29 LLC")
 ADDRESS_PATTERN = re.compile(r"^\d+\s+\w+", re.IGNORECASE)
 
-# Pattern: contains a number + street suffix
-STREET_PATTERN = re.compile(
-    r"\d+\s+[\w\s]+\b(" + "|".join(STREET_SUFFIXES) + r")\b",
-    re.IGNORECASE
-)
+# NYC borough indicators
+BOROUGH_INDICATORS = ["BRONX", "BX", "BROOKLYN", "BK", "MANHATTAN", "MN",
+                      "QUEENS", "QN", "STATEN", "SI"]
 
 
-def looks_like_real_estate(name):
-    """Check if an entity name looks like a real estate entity."""
+def classify(name: str) -> tuple[str, str]:
+    """Classify an entity name. Returns (category, reason)."""
     upper = name.upper()
 
-    # Check for real estate keywords
-    for kw in RE_KEYWORDS:
+    # Exclude obvious non-real-estate
+    for kw in EXCLUDE_KEYWORDS:
         if kw in upper:
-            return True, f"keyword: {kw}"
+            return "exclude", f"excluded: {kw}"
 
-    # Check for address pattern (number + street name)
-    if ADDRESS_PATTERN.match(name) and any(s in upper for s in STREET_SUFFIXES):
-        return True, "address pattern"
+    # Strong include — definitely real estate
+    for kw in STRONG_INCLUDE_KEYWORDS:
+        if kw in upper:
+            return "strong", f"keyword: {kw}"
 
-    # Check for street pattern anywhere in name
-    if STREET_PATTERN.search(name):
-        return True, "street pattern"
+    # Address pattern — starts with a number (e.g. "540 WEST 29 LLC")
+    if ADDRESS_PATTERN.match(name):
+        return "strong", "address pattern"
 
-    # Check for borough indicators combined with LLC
+    # Contains a number anywhere (e.g. "PARKCHESTER 1776 LLC")
+    if re.search(r"\d{2,}", name):
+        # Has a number with 2+ digits — could be an address
+        return "possible", "contains number"
+
+    # Borough indicator + LLC
     if "LLC" in upper:
         for bi in BOROUGH_INDICATORS:
             if bi in upper:
-                return True, f"borough: {bi}"
+                return "possible", f"borough: {bi}"
 
-    return False, ""
+    # Generic LLC with ambiguous name — include for agent review
+    if "LLC" in upper and len(upper.split()) <= 4:
+        return "possible", "short LLC name"
+
+    return "exclude", "no signals"
 
 
-def get_recent_llcs():
+def get_recent_llcs() -> list:
     """Pull new LLC formations from NY DOS."""
-    print(f"Pulling new LLC formations since {YESTERDAY}...", file=sys.stderr)
+    print(f"Pulling new LLC formations since {SINCE}...", file=sys.stderr)
     cmd = [
         "integrations", "nydos", "entities", "recent",
-        f"--since={YESTERDAY}", "--type=llc", "--limit=5000", "--json"
+        f"--since={SINCE}", "--type=llc", "--limit=5000", "--json"
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0:
             print(f"  [WARN] CLI error: {result.stderr[:200]}", file=sys.stderr)
             return []
@@ -100,64 +120,69 @@ def get_recent_llcs():
         return []
 
 
-def main():
+def main() -> None:
     os.makedirs(OUT_DIR, exist_ok=True)
 
     # Step 1: Get recent LLCs
     llcs = get_recent_llcs()
     print(f"  Total new LLCs: {len(llcs)}", file=sys.stderr)
 
-    # Step 2: Pattern match
-    matches = []
+    # Step 2: Broad classification
+    strong: list = []
+    possible: list = []
+    excluded = 0
+
     for entity in llcs:
         name = entity.get("name", "")
-        is_re, reason = looks_like_real_estate(name)
-        if is_re:
-            entity["match_reason"] = reason
-            matches.append(entity)
+        category, reason = classify(name)
+        entity["match_category"] = category
+        entity["match_reason"] = reason
 
-    print(f"  Real estate pattern matches: {len(matches)}", file=sys.stderr)
+        if category == "strong":
+            strong.append(entity)
+        elif category == "possible":
+            possible.append(entity)
+        else:
+            excluded += 1
 
-    # Step 3: Sort by relevance (address patterns first, then keywords)
-    def sort_key(e):
-        reason = e.get("match_reason", "")
-        if "address" in reason or "street" in reason:
-            return 0
-        if "borough" in reason:
-            return 1
-        return 2
+    # Combine: strong first, then possible
+    candidates = strong + possible
 
-    matches.sort(key=sort_key)
+    print(f"  Strong matches: {len(strong)}", file=sys.stderr)
+    print(f"  Possible matches: {len(possible)}", file=sys.stderr)
+    print(f"  Excluded: {excluded}", file=sys.stderr)
+    print(f"  Total candidates for agent review: {len(candidates)}", file=sys.stderr)
 
-    # Save results
-    output_path = f"{OUT_DIR}/matches_{TODAY.strftime('%Y-%m-%d')}.json"
+    # Save ALL candidates — let the agent decide
+    output_path = f"{OUT_DIR}/candidates_{TODAY.strftime('%Y-%m-%d')}.json"
     with open(output_path, "w") as f:
-        json.dump(matches, f, indent=2)
+        json.dump(candidates, f, indent=2)
 
-    # Summary
+    # Print summary for the agent
     print(f"\n=== LLC Monitor Results ===", file=sys.stderr)
+    print(f"  Period: {SINCE} to {TODAY.strftime('%Y-%m-%d')}", file=sys.stderr)
     print(f"  New LLCs scanned: {len(llcs)}", file=sys.stderr)
-    print(f"  Real estate matches: {len(matches)}", file=sys.stderr)
+    print(f"  Strong matches: {len(strong)}", file=sys.stderr)
+    print(f"  Possible matches: {len(possible)}", file=sys.stderr)
+    print(f"  Excluded (non-RE): {excluded}", file=sys.stderr)
 
-    # Breakdown by match type
-    from collections import Counter
-    reason_counts = Counter(m.get("match_reason", "") for m in matches)
-    if reason_counts:
-        print(f"\n  By match type:", file=sys.stderr)
-        for reason, count in reason_counts.most_common():
-            print(f"    {reason}: {count}", file=sys.stderr)
-
-    if matches:
-        print(f"\n  TOP MATCHES:", file=sys.stderr)
-        for m in matches[:20]:
+    if strong:
+        print(f"\n  STRONG MATCHES:", file=sys.stderr)
+        for m in strong[:30]:
             name = m.get("name", "")
             filer = m.get("filer_name", "")
-            addr = m.get("process_address", "") or m.get("filer_address", "")
             reason = m.get("match_reason", "")
-            print(f"    {name} | Filer: {filer} | {addr} | ({reason})", file=sys.stderr)
+            print(f"    {name} | Filer: {filer} | ({reason})", file=sys.stderr)
 
-    print(f"\nSaved {len(matches)} matches to {output_path}", file=sys.stderr)
-    print(json.dumps({"total_llcs": len(llcs), "matches": len(matches), "path": output_path}))
+    print(f"\nSaved {len(candidates)} candidates to {output_path}", file=sys.stderr)
+    print(json.dumps({
+        "total_llcs": len(llcs),
+        "strong": len(strong),
+        "possible": len(possible),
+        "excluded": excluded,
+        "candidates": len(candidates),
+        "path": output_path,
+    }))
 
 
 if __name__ == "__main__":

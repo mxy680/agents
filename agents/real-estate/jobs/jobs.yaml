@@ -25,11 +25,11 @@ jobs:
 
   - slug: llc-scan
     display_name: LLC Formation Scan
-    description: NY DOS new LLCs → pattern match real estate entities → digest
+    description: NY DOS new LLCs → broad filter → agent researches each candidate → verified report
     schedule: ""
     prompt_file: llc-scan.md
-    timeout_minutes: 30
-    estimated_minutes: 2
+    timeout_minutes: 120
+    estimated_minutes: 15
 
   - slug: wide-lot-scan
     display_name: Bronx Wide Lot Scan
