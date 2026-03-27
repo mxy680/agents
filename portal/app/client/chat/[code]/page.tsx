@@ -325,40 +325,11 @@ export default function ClientChatPage({
             {blocks.map((block, i) => {
               if (block.type === "text") {
                 return (
-                  <div key={i} className="text-sm max-w-none">
+                  <div key={i} className={isUser ? "text-sm" : "text-sm prose prose-invert prose-sm max-w-none prose-p:my-1.5 prose-headings:text-white prose-headings:mt-3 prose-headings:mb-1.5 prose-strong:text-white prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:bg-black/30 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none prose-pre:bg-black/30 prose-pre:rounded prose-pre:text-xs prose-table:text-xs prose-th:border prose-th:border-neutral-600 prose-th:px-2 prose-th:py-1.5 prose-th:bg-neutral-700/50 prose-td:border prose-td:border-neutral-700 prose-td:px-2 prose-td:py-1.5 prose-hr:border-neutral-600 prose-blockquote:border-neutral-500 prose-li:my-0.5"}>
                     {isUser ? (
                       <p className="whitespace-pre-wrap m-0">{block.content}</p>
                     ) : (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
-                          ul: ({ children }) => <ul className="mb-2 ml-4 list-disc">{children}</ul>,
-                          ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal">{children}</ol>,
-                          li: ({ children }) => <li className="mb-0.5">{children}</li>,
-                          h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-3">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-2">{children}</h3>,
-                          hr: () => <hr className="my-3 border-neutral-600" />,
-                          blockquote: ({ children }) => <blockquote className="border-l-2 border-neutral-500 pl-3 my-2 text-neutral-300 italic">{children}</blockquote>,
-                          a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline hover:text-blue-300">{children}</a>,
-                          code: ({ children, className }) => {
-                            if (className?.includes("language-")) {
-                              return <pre className="my-2 overflow-x-auto rounded bg-black/30 p-2 text-xs font-mono"><code>{children}</code></pre>
-                            }
-                            return <code className="rounded bg-black/30 px-1 py-0.5 text-xs font-mono">{children}</code>
-                          },
-                          pre: ({ children }) => <>{children}</>,
-                          table: ({ children }) => <div className="my-2 overflow-x-auto"><table className="w-full border-collapse text-xs">{children}</table></div>,
-                          thead: ({ children }) => <thead className="bg-neutral-700/50">{children}</thead>,
-                          tbody: ({ children }) => <tbody>{children}</tbody>,
-                          tr: ({ children }) => <tr className="border-b border-neutral-700">{children}</tr>,
-                          th: ({ children }) => <th className="px-2 py-1.5 text-left font-semibold text-white border border-neutral-700">{children}</th>,
-                          td: ({ children }) => <td className="px-2 py-1.5 border border-neutral-700">{children}</td>,
-                        }}
-                      >
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {block.content || ""}
                       </ReactMarkdown>
                     )}
