@@ -67,54 +67,28 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  // Kill the wrapper process if still running
+  // If running/pending, kill the process first
   if (run.status === "running" || run.status === "pending") {
-    const wrapperScript = `/tmp/job_wrapper_${id}.sh`
     try {
-      // Find all processes spawned from the wrapper script and kill the process group
       execSync(`pkill -f "job_wrapper_${id}" 2>/dev/null || true`)
-      // Also kill any child doppler/node/python processes for this run
       execSync(`pkill -f "job_creds_${id}" 2>/dev/null || true`)
       execSync(`pkill -f "job_log_${id}" 2>/dev/null || true`)
     } catch {
-      // Process may already be dead — that's fine
+      // Process may already be dead
     }
 
-    // Clean up temp files
     try {
-      execSync(`rm -f /tmp/job_wrapper_${id}.sh /tmp/job_creds_${id}.sh /tmp/job_log_${id}.txt 2>/dev/null || true`)
+      execSync(`rm -f /tmp/job_wrapper_${id}.sh /tmp/job_creds_${id}.sh /tmp/job_log_${id}.txt /tmp/job_session_${id}.json 2>/dev/null || true`)
     } catch {
       // Ignore cleanup errors
     }
   }
 
-  // Mark as cancelled in DB
+  // Delete the run record
   await admin
     .from("local_job_runs")
-    .update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      log: (run.status === "running" || run.status === "pending")
-        ? undefined  // preserve existing log
-        : undefined,
-    })
+    .delete()
     .eq("id", id)
 
-  // Append cancellation note to log
-  const { data: current } = await admin
-    .from("local_job_runs")
-    .select("log")
-    .eq("id", id)
-    .single()
-
-  await admin
-    .from("local_job_runs")
-    .update({
-      status: "failed",
-      completed_at: new Date().toISOString(),
-      log: (current?.log ?? "") + "\n\n[Cancelled by user]",
-    })
-    .eq("id", id)
-
-  return NextResponse.json({ cancelled: true })
+  return NextResponse.json({ deleted: true })
 }
