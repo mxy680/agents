@@ -102,8 +102,8 @@ export default function ClientEntryPage() {
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white">Emdash</h1>
-          <p className="text-sm text-neutral-500 mt-1">AI Agent Portal</p>
+          <h1 className="text-2xl font-bold text-white">Engagent</h1>
+          <p className="text-sm text-neutral-500 mt-1">Engineer-as-a-Service</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

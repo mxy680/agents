@@ -93,8 +93,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   <IconApps className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">Emdash Admin</span>
-                  <span className="text-xs text-muted-foreground">Integrations</span>
+                  <span className="font-semibold">Engagent</span>
+                  <span className="text-xs text-muted-foreground">Engineer-as-a-Service</span>
                 </div>
               </a>
             </SidebarMenuButton>
