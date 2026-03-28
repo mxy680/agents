@@ -232,5 +232,22 @@ export function buildSystemPrompt(agentName: string, contextPrefix?: string): st
     }
   }
 
+  // Include skill files from agents/<name>/skills/
+  const skillsDir = path.join(agentDir, "skills")
+  try {
+    const { readdirSync } = require("fs")
+    const skillFiles = (readdirSync(skillsDir) as string[]).filter((f: string) => f.endsWith(".md")).sort()
+    for (const sf of skillFiles) {
+      try {
+        const content = readFileSync(path.join(skillsDir, sf), "utf-8").trim()
+        if (content) parts.push(content)
+      } catch {
+        // Skip unreadable skill files
+      }
+    }
+  } catch {
+    // Skills directory doesn't exist — skip
+  }
+
   return parts.join("\n\n")
 }
