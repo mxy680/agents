@@ -242,7 +242,7 @@ export default async function IntegrationsPage() {
             {providers.map((provider) => {
               const accounts = integrationsByProvider[provider.id] ?? []
               return (
-                <Card key={provider.id} id={provider.id}>
+                <Card key={provider.id} id={provider.id} className="flex flex-col">
                   <CardHeader>
                     <div className="flex items-center gap-3">
                       <div className="flex size-10 items-center justify-center bg-muted">
@@ -254,7 +254,7 @@ export default async function IntegrationsPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-3">
+                  <CardContent className="flex flex-col gap-3 mt-auto">
                     {accounts.length > 0 && (
                       <div className="flex flex-col gap-2">
                         {accounts.map((account) => (
