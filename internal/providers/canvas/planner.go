@@ -21,6 +21,10 @@ func newPlannerCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newPlannerListCmd(factory))
 	cmd.AddCommand(newPlannerNotesCmd(factory))
 	cmd.AddCommand(newPlannerOverridesCmd(factory))
+	cmd.AddCommand(newPlannerCreateNoteCmd(factory))
+	cmd.AddCommand(newPlannerUpdateNoteCmd(factory))
+	cmd.AddCommand(newPlannerDeleteNoteCmd(factory))
+	cmd.AddCommand(newPlannerOverrideCmd(factory))
 
 	return cmd
 }
@@ -194,3 +198,193 @@ func newPlannerOverridesCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+
+func newPlannerCreateNoteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-note",
+		Short: "Create a new planner note",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			title, _ := cmd.Flags().GetString("title")
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create planner note: "+title, map[string]any{"title": title})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"title": title}
+			if todoDate, _ := cmd.Flags().GetString("todo-date"); todoDate != "" {
+				body["todo_date"] = todoDate
+			}
+
+			data, err := client.Post(ctx, "/planner/notes", body)
+			if err != nil {
+				return err
+			}
+
+			var note PlannerNoteSummary
+			if err := json.Unmarshal(data, &note); err != nil {
+				return fmt.Errorf("parse planner note: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(note)
+			}
+			fmt.Printf("Planner note %d created: %s\n", note.ID, note.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("title", "", "Note title (required)")
+	cmd.Flags().String("todo-date", "", "Due date (RFC3339)")
+	return cmd
+}
+
+func newPlannerUpdateNoteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-note",
+		Short: "Update a planner note",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			noteID, _ := cmd.Flags().GetString("note-id")
+			if noteID == "" {
+				return fmt.Errorf("--note-id is required")
+			}
+
+			body := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				body["title"] = title
+			}
+			if todoDate, _ := cmd.Flags().GetString("todo-date"); todoDate != "" {
+				body["todo_date"] = todoDate
+			}
+
+			data, err := client.Put(ctx, "/planner/notes/"+noteID, body)
+			if err != nil {
+				return err
+			}
+
+			var note PlannerNoteSummary
+			if err := json.Unmarshal(data, &note); err != nil {
+				return fmt.Errorf("parse planner note: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(note)
+			}
+			fmt.Printf("Planner note %s updated\n", noteID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("note-id", "", "Canvas planner note ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("todo-date", "", "New due date (RFC3339)")
+	return cmd
+}
+
+func newPlannerDeleteNoteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete-note",
+		Short: "Delete a planner note",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			noteID, _ := cmd.Flags().GetString("note-id")
+			if noteID == "" {
+				return fmt.Errorf("--note-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the planner note"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/planner/notes/"+noteID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Planner note %s deleted\n", noteID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("note-id", "", "Canvas planner note ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
+func newPlannerOverrideCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "override",
+		Short: "Create or update a planner override",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			plannableType, _ := cmd.Flags().GetString("plannable-type")
+			plannableID, _ := cmd.Flags().GetString("plannable-id")
+			if plannableType == "" {
+				return fmt.Errorf("--plannable-type is required")
+			}
+			if plannableID == "" {
+				return fmt.Errorf("--plannable-id is required")
+			}
+
+			body := map[string]any{
+				"plannable_type": plannableType,
+				"plannable_id":   plannableID,
+			}
+			if markedComplete, _ := cmd.Flags().GetBool("marked-complete"); markedComplete {
+				body["marked_complete"] = true
+			}
+			if dismissed, _ := cmd.Flags().GetBool("dismissed"); dismissed {
+				body["dismissed"] = true
+			}
+
+			data, err := client.Post(ctx, "/planner/overrides", body)
+			if err != nil {
+				return err
+			}
+
+			var override map[string]any
+			if err := json.Unmarshal(data, &override); err != nil {
+				return fmt.Errorf("parse override: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(override)
+			}
+			id, _ := override["id"]
+			fmt.Printf("Planner override %v created for %s %s\n", id, plannableType, plannableID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("plannable-type", "", "Plannable type (e.g. assignment)")
+	cmd.Flags().String("plannable-id", "", "Plannable ID")
+	cmd.Flags().Bool("marked-complete", false, "Mark as complete")
+	cmd.Flags().Bool("dismissed", false, "Dismiss the item")
+	return cmd
+}

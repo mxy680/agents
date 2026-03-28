@@ -27,7 +27,169 @@ func newFilesCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newFilesDownloadCmd(factory))
 	cmd.AddCommand(newFilesFoldersCmd(factory))
 	cmd.AddCommand(newFilesFolderContentsCmd(factory))
+	cmd.AddCommand(newFilesDeleteCmd(factory))
+	cmd.AddCommand(newFilesUpdateCmd(factory))
+	cmd.AddCommand(newFilesCreateFolderCmd(factory))
 
+	return cmd
+}
+
+func newFilesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a file",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			fileID, _ := cmd.Flags().GetString("file-id")
+			if fileID == "" {
+				return fmt.Errorf("--file-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the file"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/files/"+fileID); err != nil {
+				return err
+			}
+
+			fmt.Printf("File %s deleted\n", fileID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("file-id", "", "Canvas file ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
+func newFilesUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a file's name or properties",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			fileID, _ := cmd.Flags().GetString("file-id")
+			if fileID == "" {
+				return fmt.Errorf("--file-id is required")
+			}
+
+			body := map[string]any{}
+			if name, _ := cmd.Flags().GetString("name"); name != "" {
+				body["name"] = name
+				body["display_name"] = name
+			}
+			if parentFolderID, _ := cmd.Flags().GetString("parent-folder-id"); parentFolderID != "" {
+				body["parent_folder_id"] = parentFolderID
+			}
+			if locked, _ := cmd.Flags().GetBool("locked"); locked {
+				body["locked"] = true
+			}
+			if hidden, _ := cmd.Flags().GetBool("hidden"); hidden {
+				body["hidden"] = true
+			}
+
+			data, err := client.Put(ctx, "/files/"+fileID, body)
+			if err != nil {
+				return err
+			}
+
+			var file FileSummary
+			if err := json.Unmarshal(data, &file); err != nil {
+				return fmt.Errorf("parse file: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(file)
+			}
+			fmt.Printf("File %s updated: %s\n", fileID, file.DisplayName)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("file-id", "", "Canvas file ID (required)")
+	cmd.Flags().String("name", "", "New file name")
+	cmd.Flags().String("parent-folder-id", "", "Move to this folder ID")
+	cmd.Flags().Bool("locked", false, "Lock the file")
+	cmd.Flags().Bool("hidden", false, "Hide the file")
+	return cmd
+}
+
+func newFilesCreateFolderCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create-folder",
+		Short: "Create a new folder in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			name, _ := cmd.Flags().GetString("name")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create folder: "+name, map[string]any{"course_id": courseID, "name": name})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"name": name}
+			if parentID, _ := cmd.Flags().GetString("parent-folder-id"); parentID != "" {
+				body["parent_folder_id"] = parentID
+			}
+			if parentPath, _ := cmd.Flags().GetString("parent-folder"); parentPath != "" {
+				body["parent_folder_path"] = parentPath
+			}
+			if locked, _ := cmd.Flags().GetBool("locked"); locked {
+				body["locked"] = true
+			}
+			if hidden, _ := cmd.Flags().GetBool("hidden"); hidden {
+				body["hidden"] = true
+			}
+
+			data, err := client.Post(ctx, "/courses/"+courseID+"/folders", body)
+			if err != nil {
+				return err
+			}
+
+			var folder FolderSummary
+			if err := json.Unmarshal(data, &folder); err != nil {
+				return fmt.Errorf("parse folder: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(folder)
+			}
+			fmt.Printf("Folder %d created: %s\n", folder.ID, folder.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("name", "", "Folder name (required)")
+	cmd.Flags().String("parent-folder-id", "", "Parent folder ID")
+	cmd.Flags().String("parent-folder", "", "Parent folder path")
+	cmd.Flags().Bool("locked", false, "Lock the folder")
+	cmd.Flags().Bool("hidden", false, "Hide the folder")
 	return cmd
 }
 

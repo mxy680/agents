@@ -18,6 +18,7 @@ func newNotificationsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newNotificationsListCmd(factory))
 	cmd.AddCommand(newNotificationsPreferencesCmd(factory))
+	cmd.AddCommand(newNotificationsUpdatePreferenceCmd(factory))
 
 	return cmd
 }
@@ -112,3 +113,66 @@ func newNotificationsPreferencesCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+func newNotificationsUpdatePreferenceCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-preference",
+		Short: "Update a notification preference frequency",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			category, _ := cmd.Flags().GetString("category")
+			frequency, _ := cmd.Flags().GetString("frequency")
+			if category == "" {
+				return fmt.Errorf("--category is required")
+			}
+			if frequency == "" {
+				frequency = "immediately"
+			}
+
+			validFrequencies := map[string]bool{
+				"immediately": true, "daily": true, "weekly": true, "never": true,
+			}
+			if !validFrequencies[frequency] {
+				return fmt.Errorf("invalid frequency %q: must be immediately, daily, weekly, or never", frequency)
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "update notification preference: "+category, map[string]any{
+					"category": category, "frequency": frequency,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			path := "/users/self/communication_channels/email/self/notification_preferences/" + category
+			body := map[string]any{
+				"notification_preferences": []map[string]any{
+					{"notification": category, "frequency": frequency},
+				},
+			}
+			data, err := client.Put(ctx, path, body)
+			if err != nil {
+				return err
+			}
+
+			var result map[string]any
+			if err := json.Unmarshal(data, &result); err != nil {
+				return fmt.Errorf("parse preference response: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(result)
+			}
+			fmt.Printf("Notification preference '%s' updated to '%s'\n", category, frequency)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("category", "", "Notification category (required)")
+	cmd.Flags().String("frequency", "immediately", "Frequency: immediately|daily|weekly|never")
+	return cmd
+}

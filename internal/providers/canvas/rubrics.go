@@ -20,6 +20,9 @@ func newRubricsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newRubricsListCmd(factory))
 	cmd.AddCommand(newRubricsGetCmd(factory))
+	cmd.AddCommand(newRubricsCreateCmd(factory))
+	cmd.AddCommand(newRubricsUpdateCmd(factory))
+	cmd.AddCommand(newRubricsDeleteCmd(factory))
 
 	return cmd
 }
@@ -125,3 +128,141 @@ func newRubricsGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+
+func newRubricsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new rubric in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			title, _ := cmd.Flags().GetString("title")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			rubric := map[string]any{"title": title}
+			if points, _ := cmd.Flags().GetFloat64("points"); points > 0 {
+				rubric["points_possible"] = points
+			}
+
+			data, err := client.Post(ctx, "/courses/"+courseID+"/rubrics", map[string]any{"rubric": rubric})
+			if err != nil {
+				return err
+			}
+
+			var r RubricSummary
+			if err := json.Unmarshal(data, &r); err != nil {
+				return fmt.Errorf("parse rubric: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(r)
+			}
+			fmt.Printf("Rubric %d created: %s\n", r.ID, r.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("title", "", "Rubric title (required)")
+	cmd.Flags().Float64("points", 0, "Points possible")
+	return cmd
+}
+
+func newRubricsUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a rubric",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			rubricID, _ := cmd.Flags().GetString("rubric-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if rubricID == "" {
+				return fmt.Errorf("--rubric-id is required")
+			}
+
+			rubric := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				rubric["title"] = title
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/rubrics/"+rubricID, map[string]any{"rubric": rubric})
+			if err != nil {
+				return err
+			}
+
+			var r RubricSummary
+			if err := json.Unmarshal(data, &r); err != nil {
+				return fmt.Errorf("parse rubric: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(r)
+			}
+			fmt.Printf("Rubric %s updated\n", rubricID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("rubric-id", "", "Canvas rubric ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	return cmd
+}
+
+func newRubricsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a rubric",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			rubricID, _ := cmd.Flags().GetString("rubric-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if rubricID == "" {
+				return fmt.Errorf("--rubric-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the rubric"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/rubrics/"+rubricID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Rubric %s deleted\n", rubricID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("rubric-id", "", "Canvas rubric ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}

@@ -22,6 +22,9 @@ func newOutcomesCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newOutcomesGetCmd(factory))
 	cmd.AddCommand(newOutcomesGroupsCmd(factory))
 	cmd.AddCommand(newOutcomesResultsCmd(factory))
+	cmd.AddCommand(newOutcomesCreateCmd(factory))
+	cmd.AddCommand(newOutcomesUpdateCmd(factory))
+	cmd.AddCommand(newOutcomesDeleteCmd(factory))
 
 	return cmd
 }
@@ -245,5 +248,142 @@ func newOutcomesResultsCmd(factory ClientFactory) *cobra.Command {
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().StringSlice("user-ids", nil, "Filter by user IDs (comma-separated)")
 	cmd.Flags().StringSlice("outcome-ids", nil, "Filter by outcome IDs (comma-separated)")
+	return cmd
+}
+
+func newOutcomesCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new outcome in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			title, _ := cmd.Flags().GetString("title")
+			contextID, _ := cmd.Flags().GetString("context-id")
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+			if contextID == "" {
+				return fmt.Errorf("--context-id is required")
+			}
+
+			body := map[string]any{"title": title}
+			if desc, _ := cmd.Flags().GetString("description"); desc != "" {
+				body["description"] = desc
+			}
+			if mp, _ := cmd.Flags().GetFloat64("mastery-points"); mp > 0 {
+				body["mastery_points"] = mp
+			}
+
+			data, err := client.Post(ctx, "/courses/"+contextID+"/outcome_groups/root/outcomes", body)
+			if err != nil {
+				return err
+			}
+
+			var result map[string]any
+			if err := json.Unmarshal(data, &result); err != nil {
+				return fmt.Errorf("parse outcome: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(result)
+			}
+			outcomeID, _ := result["outcome_id"].(float64)
+			fmt.Printf("Outcome %.0f created: %s\n", outcomeID, title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("title", "", "Outcome title (required)")
+	cmd.Flags().String("context-id", "", "Course ID (required)")
+	cmd.Flags().String("description", "", "Outcome description")
+	cmd.Flags().Float64("mastery-points", 0, "Mastery points threshold")
+	return cmd
+}
+
+func newOutcomesUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update an outcome",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			outcomeID, _ := cmd.Flags().GetString("outcome-id")
+			if outcomeID == "" {
+				return fmt.Errorf("--outcome-id is required")
+			}
+
+			body := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				body["title"] = title
+			}
+			if desc, _ := cmd.Flags().GetString("description"); desc != "" {
+				body["description"] = desc
+			}
+
+			data, err := client.Put(ctx, "/outcomes/"+outcomeID, body)
+			if err != nil {
+				return err
+			}
+
+			var outcome OutcomeSummary
+			if err := json.Unmarshal(data, &outcome); err != nil {
+				return fmt.Errorf("parse outcome: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(outcome)
+			}
+			fmt.Printf("Outcome %s updated\n", outcomeID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("outcome-id", "", "Canvas outcome ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("description", "", "New description")
+	return cmd
+}
+
+func newOutcomesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete an outcome",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			outcomeID, _ := cmd.Flags().GetString("outcome-id")
+			if outcomeID == "" {
+				return fmt.Errorf("--outcome-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the outcome"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/outcomes/"+outcomeID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Outcome %s deleted\n", outcomeID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("outcome-id", "", "Canvas outcome ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }
