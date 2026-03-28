@@ -106,10 +106,10 @@ def get_recent_llcs() -> list:
     print(f"Pulling new LLC formations since {SINCE}...", file=sys.stderr)
     cmd = [
         "integrations", "nydos", "entities", "recent",
-        f"--since={SINCE}", "--type=llc", "--limit=5000", "--json"
+        f"--since={SINCE}", "--type=llc", "--limit=50000", "--json"
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         if result.returncode != 0:
             print(f"  [WARN] CLI error: {result.stderr[:200]}", file=sys.stderr)
             return []
