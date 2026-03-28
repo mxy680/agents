@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestTruncate(t *testing.T) {
@@ -82,23 +84,23 @@ func TestFormatSize(t *testing.T) {
 }
 
 func TestConfirmDestructive(t *testing.T) {
-	root := newTestRootCmd()
-	cmd := newGroupsDeleteCmd(newTestClientFactory(nil))
-	root.AddCommand(cmd)
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().Bool("confirm", false, "confirm")
 
 	// Without --confirm flag, should return an error.
-	root.SetArgs([]string{"delete", "--group-id", "2001"})
-
-	var execErr error
-	captureStdout(t, func() {
-		execErr = root.Execute()
-	})
-
-	if execErr == nil {
+	err := confirmDestructive(cmd, "delete this?")
+	if err == nil {
 		t.Error("expected error from confirmDestructive without --confirm")
 	}
-	if !strings.Contains(execErr.Error(), "--confirm") {
-		t.Errorf("error should mention --confirm to proceed, got: %v", execErr)
+	if !strings.Contains(err.Error(), "--confirm") {
+		t.Errorf("error should mention --confirm to proceed, got: %v", err)
+	}
+
+	// With --confirm flag, should succeed.
+	cmd.Flags().Set("confirm", "true")
+	err = confirmDestructive(cmd, "delete this?")
+	if err != nil {
+		t.Errorf("expected no error with --confirm, got: %v", err)
 	}
 }
 

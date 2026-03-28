@@ -21,7 +21,273 @@ func newEnrollmentsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newEnrollmentsListCmd(factory))
 	cmd.AddCommand(newEnrollmentsGetCmd(factory))
+	cmd.AddCommand(newEnrollmentsCreateCmd(factory))
+	cmd.AddCommand(newEnrollmentsDeleteCmd(factory))
+	cmd.AddCommand(newEnrollmentsDeactivateCmd(factory))
+	cmd.AddCommand(newEnrollmentsReactivateCmd(factory))
+	cmd.AddCommand(newEnrollmentsConcludeCmd(factory))
 
+	return cmd
+}
+
+func newEnrollmentsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Enroll a user in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			userID, _ := cmd.Flags().GetString("user-id")
+			enrollmentType, _ := cmd.Flags().GetString("type")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if userID == "" {
+				return fmt.Errorf("--user-id is required")
+			}
+			if enrollmentType == "" {
+				enrollmentType = "StudentEnrollment"
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create enrollment (type: "+enrollmentType+")", map[string]any{
+					"course_id": courseID, "user_id": userID, "type": enrollmentType,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{
+				"enrollment": map[string]any{
+					"user_id":          userID,
+					"type":             enrollmentType,
+					"enrollment_state": "active",
+				},
+			}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/enrollments", body)
+			if err != nil {
+				return err
+			}
+
+			var enrollment EnrollmentSummary
+			if err := json.Unmarshal(data, &enrollment); err != nil {
+				return fmt.Errorf("parse enrollment: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(enrollment)
+			}
+			name := enrollment.UserName
+			if name == "" {
+				name = strconv.Itoa(enrollment.UserID)
+			}
+			fmt.Printf("Enrollment %d created: %s as %s\n", enrollment.ID, name, enrollment.Type)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("user-id", "", "Canvas user ID (required)")
+	cmd.Flags().String("type", "StudentEnrollment", "Enrollment type")
+	return cmd
+}
+
+func newEnrollmentsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete (unenroll) a user from a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			enrollmentID, _ := cmd.Flags().GetString("enrollment-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if enrollmentID == "" {
+				return fmt.Errorf("--enrollment-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the enrollment"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			params := url.Values{"task": []string{"delete"}}
+			path := "/courses/" + courseID + "/enrollments/" + enrollmentID + "?" + params.Encode()
+			data, err := client.Delete(ctx, strings.TrimPrefix(path, "/api/v1"))
+			if err != nil {
+				// fallback: the Delete method adds /api/v1 prefix itself
+				path2 := "/courses/" + courseID + "/enrollments/" + enrollmentID
+				data, err = client.Delete(ctx, path2)
+				if err != nil {
+					return err
+				}
+			}
+			_ = data
+
+			fmt.Printf("Enrollment %s deleted\n", enrollmentID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("enrollment-id", "", "Canvas enrollment ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
+func newEnrollmentsDeactivateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deactivate",
+		Short: "Deactivate an enrollment",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			enrollmentID, _ := cmd.Flags().GetString("enrollment-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if enrollmentID == "" {
+				return fmt.Errorf("--enrollment-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "deactivate enrollment "+enrollmentID, nil)
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			path := "/courses/" + courseID + "/enrollments/" + enrollmentID
+			data, err := client.Delete(ctx, path)
+			if err != nil {
+				return err
+			}
+
+			var enrollment EnrollmentSummary
+			if err := json.Unmarshal(data, &enrollment); err != nil {
+				return fmt.Errorf("parse enrollment: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(enrollment)
+			}
+			fmt.Printf("Enrollment %s deactivated (state: %s)\n", enrollmentID, enrollment.EnrollmentState)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("enrollment-id", "", "Canvas enrollment ID (required)")
+	return cmd
+}
+
+func newEnrollmentsReactivateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reactivate",
+		Short: "Reactivate a deactivated enrollment",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			enrollmentID, _ := cmd.Flags().GetString("enrollment-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if enrollmentID == "" {
+				return fmt.Errorf("--enrollment-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "reactivate enrollment "+enrollmentID, nil)
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			path := "/courses/" + courseID + "/enrollments/" + enrollmentID + "/reactivate"
+			data, err := client.Put(ctx, path, nil)
+			if err != nil {
+				return err
+			}
+
+			var enrollment EnrollmentSummary
+			if err := json.Unmarshal(data, &enrollment); err != nil {
+				return fmt.Errorf("parse enrollment: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(enrollment)
+			}
+			fmt.Printf("Enrollment %s reactivated (state: %s)\n", enrollmentID, enrollment.EnrollmentState)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("enrollment-id", "", "Canvas enrollment ID (required)")
+	return cmd
+}
+
+func newEnrollmentsConcludeCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conclude",
+		Short: "Conclude an enrollment",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			enrollmentID, _ := cmd.Flags().GetString("enrollment-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if enrollmentID == "" {
+				return fmt.Errorf("--enrollment-id is required")
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			path := "/courses/" + courseID + "/enrollments/" + enrollmentID
+			data, err := client.Delete(ctx, path)
+			if err != nil {
+				return err
+			}
+
+			var enrollment EnrollmentSummary
+			if err := json.Unmarshal(data, &enrollment); err != nil {
+				return fmt.Errorf("parse enrollment: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(enrollment)
+			}
+			fmt.Printf("Enrollment %s concluded (state: %s)\n", enrollmentID, enrollment.EnrollmentState)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("enrollment-id", "", "Canvas enrollment ID (required)")
 	return cmd
 }
 

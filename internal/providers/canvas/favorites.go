@@ -18,7 +18,159 @@ func newFavoritesCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newFavoritesCoursesCmd(factory))
 	cmd.AddCommand(newFavoritesGroupsCmd(factory))
+	cmd.AddCommand(newFavoritesAddCourseCmd(factory))
+	cmd.AddCommand(newFavoritesRemoveCourseCmd(factory))
+	cmd.AddCommand(newFavoritesAddGroupCmd(factory))
+	cmd.AddCommand(newFavoritesRemoveGroupCmd(factory))
 
+	return cmd
+}
+
+func newFavoritesAddCourseCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-course",
+		Short: "Add a course to favorites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "add course "+courseID+" to favorites", map[string]any{"course_id": courseID})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			data, err := client.Post(ctx, "/users/self/favorites/courses/"+courseID, nil)
+			if err != nil {
+				return err
+			}
+
+			var course CourseSummary
+			if err := json.Unmarshal(data, &course); err != nil {
+				return fmt.Errorf("parse course: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(course)
+			}
+			fmt.Printf("Course %s added to favorites\n", courseID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	return cmd
+}
+
+func newFavoritesRemoveCourseCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove-course",
+		Short: "Remove a course from favorites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+
+			if _, err := client.Delete(ctx, "/users/self/favorites/courses/"+courseID); err != nil {
+				return err
+			}
+
+			result := map[string]any{"course_id": courseID, "removed": true}
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(result)
+			}
+			fmt.Printf("Course %s removed from favorites\n", courseID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	return cmd
+}
+
+func newFavoritesAddGroupCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-group",
+		Short: "Add a group to favorites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			groupID, _ := cmd.Flags().GetString("group-id")
+			if groupID == "" {
+				return fmt.Errorf("--group-id is required")
+			}
+
+			data, err := client.Post(ctx, "/users/self/favorites/groups/"+groupID, nil)
+			if err != nil {
+				return err
+			}
+
+			var group GroupSummary
+			if err := json.Unmarshal(data, &group); err != nil {
+				return fmt.Errorf("parse group: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(group)
+			}
+			fmt.Printf("Group %s added to favorites\n", groupID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("group-id", "", "Canvas group ID (required)")
+	return cmd
+}
+
+func newFavoritesRemoveGroupCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove-group",
+		Short: "Remove a group from favorites",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			groupID, _ := cmd.Flags().GetString("group-id")
+			if groupID == "" {
+				return fmt.Errorf("--group-id is required")
+			}
+
+			if _, err := client.Delete(ctx, "/users/self/favorites/groups/"+groupID); err != nil {
+				return err
+			}
+
+			result := map[string]any{"group_id": groupID, "removed": true}
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(result)
+			}
+			fmt.Printf("Group %s removed from favorites\n", groupID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("group-id", "", "Canvas group ID (required)")
 	return cmd
 }
 

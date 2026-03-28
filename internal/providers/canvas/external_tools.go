@@ -21,7 +21,158 @@ func newExternalToolsCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newExternalToolsListCmd(factory))
 	cmd.AddCommand(newExternalToolsGetCmd(factory))
 	cmd.AddCommand(newExternalToolsSessionlessLaunchCmd(factory))
+	cmd.AddCommand(newExternalToolsCreateCmd(factory))
+	cmd.AddCommand(newExternalToolsUpdateCmd(factory))
+	cmd.AddCommand(newExternalToolsDeleteCmd(factory))
 
+	return cmd
+}
+
+func newExternalToolsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new external tool in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			name, _ := cmd.Flags().GetString("name")
+			toolURL, _ := cmd.Flags().GetString("url")
+			consumerKey, _ := cmd.Flags().GetString("consumer-key")
+			sharedSecret, _ := cmd.Flags().GetString("shared-secret")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+
+			body := map[string]any{
+				"name":          name,
+				"url":           toolURL,
+				"consumer_key":  consumerKey,
+				"shared_secret": sharedSecret,
+			}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/external_tools", body)
+			if err != nil {
+				return err
+			}
+
+			var tool ExternalToolSummary
+			if err := json.Unmarshal(data, &tool); err != nil {
+				return fmt.Errorf("parse external tool: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(tool)
+			}
+			fmt.Printf("External tool %d created: %s\n", tool.ID, tool.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("name", "", "Tool name (required)")
+	cmd.Flags().String("url", "", "Launch URL")
+	cmd.Flags().String("consumer-key", "", "LTI consumer key")
+	cmd.Flags().String("shared-secret", "", "LTI shared secret")
+	return cmd
+}
+
+func newExternalToolsUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update an external tool",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			toolID, _ := cmd.Flags().GetString("tool-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if toolID == "" {
+				return fmt.Errorf("--tool-id is required")
+			}
+
+			body := map[string]any{}
+			if name, _ := cmd.Flags().GetString("name"); name != "" {
+				body["name"] = name
+			}
+			if toolURL, _ := cmd.Flags().GetString("url"); toolURL != "" {
+				body["url"] = toolURL
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/external_tools/"+toolID, body)
+			if err != nil {
+				return err
+			}
+
+			var tool ExternalToolSummary
+			if err := json.Unmarshal(data, &tool); err != nil {
+				return fmt.Errorf("parse external tool: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(tool)
+			}
+			fmt.Printf("External tool %s updated\n", toolID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("tool-id", "", "Canvas external tool ID (required)")
+	cmd.Flags().String("name", "", "New name")
+	cmd.Flags().String("url", "", "New launch URL")
+	return cmd
+}
+
+func newExternalToolsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete an external tool from a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			toolID, _ := cmd.Flags().GetString("tool-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if toolID == "" {
+				return fmt.Errorf("--tool-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the external tool"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/external_tools/"+toolID); err != nil {
+				return err
+			}
+
+			fmt.Printf("External tool %s deleted\n", toolID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("tool-id", "", "Canvas external tool ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }
 

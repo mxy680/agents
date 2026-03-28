@@ -22,7 +22,55 @@ func newContentMigrationsCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newContentMigrationsGetCmd(factory))
 	cmd.AddCommand(newContentMigrationsProgressCmd(factory))
 	cmd.AddCommand(newContentMigrationsContentListCmd(factory))
+	cmd.AddCommand(newContentMigrationsCreateCmd(factory))
 
+	return cmd
+}
+
+func newContentMigrationsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new content migration for a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			migrationType, _ := cmd.Flags().GetString("type")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if migrationType == "" {
+				return fmt.Errorf("--type is required")
+			}
+
+			body := map[string]any{"migration_type": migrationType}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/content_migrations", body)
+			if err != nil {
+				return err
+			}
+
+			var migration map[string]any
+			if err := json.Unmarshal(data, &migration); err != nil {
+				return fmt.Errorf("parse content migration: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(migration)
+			}
+
+			id, _ := migration["id"]
+			workflowState, _ := migration["workflow_state"]
+			fmt.Printf("Content migration %v created (type: %s, state: %v)\n", id, migrationType, workflowState)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("type", "", "Migration type (e.g. course_copy_importer) (required)")
 	return cmd
 }
 

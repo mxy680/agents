@@ -22,7 +22,137 @@ func newGroupsCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newGroupsGetCmd(factory))
 	cmd.AddCommand(newGroupsMembersCmd(factory))
 	cmd.AddCommand(newGroupsCategoriesCmd(factory))
+	cmd.AddCommand(newGroupsCreateCmd(factory))
+	cmd.AddCommand(newGroupsUpdateCmd(factory))
+	cmd.AddCommand(newGroupsDeleteCmd(factory))
 
+	return cmd
+}
+
+func newGroupsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new group",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			name, _ := cmd.Flags().GetString("name")
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+
+			body := map[string]any{"name": name}
+			if categoryID, _ := cmd.Flags().GetString("group-category-id"); categoryID != "" {
+				body["group_category_id"] = categoryID
+			}
+
+			data, err := client.Post(ctx, "/groups", body)
+			if err != nil {
+				return err
+			}
+
+			var group GroupSummary
+			if err := json.Unmarshal(data, &group); err != nil {
+				return fmt.Errorf("parse group: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(group)
+			}
+			fmt.Printf("Group %d created: %s\n", group.ID, group.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("name", "", "Group name (required)")
+	cmd.Flags().String("group-category-id", "", "Group category ID")
+	return cmd
+}
+
+func newGroupsUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a group",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			groupID, _ := cmd.Flags().GetString("group-id")
+			if groupID == "" {
+				return fmt.Errorf("--group-id is required")
+			}
+
+			body := map[string]any{}
+			if name, _ := cmd.Flags().GetString("name"); name != "" {
+				body["name"] = name
+			}
+			if description, _ := cmd.Flags().GetString("description"); description != "" {
+				body["description"] = description
+			}
+
+			data, err := client.Put(ctx, "/groups/"+groupID, body)
+			if err != nil {
+				return err
+			}
+
+			var group GroupSummary
+			if err := json.Unmarshal(data, &group); err != nil {
+				return fmt.Errorf("parse group: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(group)
+			}
+			fmt.Printf("Group %s updated\n", groupID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("group-id", "", "Canvas group ID (required)")
+	cmd.Flags().String("name", "", "New name")
+	cmd.Flags().String("description", "", "New description")
+	return cmd
+}
+
+func newGroupsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a group",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			groupID, _ := cmd.Flags().GetString("group-id")
+			if groupID == "" {
+				return fmt.Errorf("--group-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the group"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/groups/"+groupID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Group %s deleted\n", groupID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("group-id", "", "Canvas group ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }
 

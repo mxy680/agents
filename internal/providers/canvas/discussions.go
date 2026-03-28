@@ -21,7 +21,263 @@ func newDiscussionsCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newDiscussionsListCmd(factory))
 	cmd.AddCommand(newDiscussionsGetCmd(factory))
 	cmd.AddCommand(newDiscussionsEntriesCmd(factory))
+	cmd.AddCommand(newDiscussionsCreateCmd(factory))
+	cmd.AddCommand(newDiscussionsUpdateCmd(factory))
+	cmd.AddCommand(newDiscussionsDeleteCmd(factory))
+	cmd.AddCommand(newDiscussionsReplyCmd(factory))
+	cmd.AddCommand(newDiscussionsMarkReadCmd(factory))
 
+	return cmd
+}
+
+func newDiscussionsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new discussion topic in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			title, _ := cmd.Flags().GetString("title")
+			message, _ := cmd.Flags().GetString("message")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create discussion topic: "+title, map[string]any{
+					"course_id": courseID, "title": title, "message": message,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"title": title, "message": message}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/discussion_topics", body)
+			if err != nil {
+				return err
+			}
+
+			var topic DiscussionSummary
+			if err := json.Unmarshal(data, &topic); err != nil {
+				return fmt.Errorf("parse discussion topic: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(topic)
+			}
+			fmt.Printf("Discussion topic %d created: %s\n", topic.ID, topic.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("title", "", "Topic title (required)")
+	cmd.Flags().String("message", "", "Topic message/body")
+	return cmd
+}
+
+func newDiscussionsUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a discussion topic",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			topicID, _ := cmd.Flags().GetString("topic-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if topicID == "" {
+				return fmt.Errorf("--topic-id is required")
+			}
+
+			body := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				body["title"] = title
+			}
+			if message, _ := cmd.Flags().GetString("message"); message != "" {
+				body["message"] = message
+			}
+			if pinned, _ := cmd.Flags().GetBool("pinned"); pinned {
+				body["pinned"] = true
+			}
+			if locked, _ := cmd.Flags().GetBool("locked"); locked {
+				body["locked"] = true
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/discussion_topics/"+topicID, body)
+			if err != nil {
+				return err
+			}
+
+			var topic DiscussionSummary
+			if err := json.Unmarshal(data, &topic); err != nil {
+				return fmt.Errorf("parse discussion topic: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(topic)
+			}
+			fmt.Printf("Discussion topic %s updated\n", topicID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("topic-id", "", "Canvas discussion topic ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("message", "", "New message")
+	cmd.Flags().Bool("pinned", false, "Pin the topic")
+	cmd.Flags().Bool("locked", false, "Lock the topic")
+	return cmd
+}
+
+func newDiscussionsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a discussion topic",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			topicID, _ := cmd.Flags().GetString("topic-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if topicID == "" {
+				return fmt.Errorf("--topic-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the discussion topic"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/discussion_topics/"+topicID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Discussion topic %s deleted\n", topicID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("topic-id", "", "Canvas discussion topic ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
+func newDiscussionsReplyCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reply",
+		Short: "Post a reply/entry to a discussion topic",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			topicID, _ := cmd.Flags().GetString("topic-id")
+			message, _ := cmd.Flags().GetString("message")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if topicID == "" {
+				return fmt.Errorf("--topic-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "reply to discussion topic "+topicID, map[string]any{
+					"message": message,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"message": message}
+			path := "/courses/" + courseID + "/discussion_topics/" + topicID + "/entries"
+			data, err := client.Post(ctx, path, body)
+			if err != nil {
+				return err
+			}
+
+			var entry DiscussionEntry
+			if err := json.Unmarshal(data, &entry); err != nil {
+				return fmt.Errorf("parse entry: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(entry)
+			}
+			fmt.Printf("Reply %d posted to discussion topic %s\n", entry.ID, topicID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("topic-id", "", "Canvas discussion topic ID (required)")
+	cmd.Flags().String("message", "", "Reply message")
+	return cmd
+}
+
+func newDiscussionsMarkReadCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mark-read",
+		Short: "Mark all entries in a discussion topic as read",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			topicID, _ := cmd.Flags().GetString("topic-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if topicID == "" {
+				return fmt.Errorf("--topic-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "mark discussion topic "+topicID+" as read", nil)
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			path := "/courses/" + courseID + "/discussion_topics/" + topicID + "/read_all"
+			if _, err := client.Put(ctx, path, nil); err != nil {
+				return err
+			}
+
+			fmt.Printf("Discussion topic %s marked as read\n", topicID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("topic-id", "", "Canvas discussion topic ID (required)")
 	return cmd
 }
 

@@ -20,7 +20,53 @@ func newAssignmentsCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newAssignmentsListCmd(factory))
 	cmd.AddCommand(newAssignmentsGetCmd(factory))
+	cmd.AddCommand(newAssignmentsDeleteCmd(factory))
 
+	return cmd
+}
+
+func newAssignmentsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete an assignment from a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			assignmentID, _ := cmd.Flags().GetString("assignment-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if assignmentID == "" {
+				return fmt.Errorf("--assignment-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "delete assignment "+assignmentID, nil)
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the assignment"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/assignments/"+assignmentID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Assignment %s deleted\n", assignmentID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("assignment-id", "", "Canvas assignment ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }
 
