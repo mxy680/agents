@@ -42,7 +42,7 @@ export default function ClientChatLayout({
     async function load() {
       try {
         const res = await fetch(
-          `/api/client/conversations?code=${encodeURIComponent(code)}&agent=${agent}`
+          `/api/conversations?code=${encodeURIComponent(code)}&agent=${agent}`
         )
         if (res.ok) {
           const data = await res.json() as { conversations: Conversation[] }
@@ -58,16 +58,16 @@ export default function ClientChatLayout({
   }, [code, agent])
 
   function newChat() {
-    router.push(`/client/chat/${encodeURIComponent(code)}?agent=${agent}`)
+    router.push(`/chat/${encodeURIComponent(code)}?agent=${agent}`)
     setSidebarOpen(false)
     // Force reload to clear conversation state
-    window.location.href = `/client/chat/${encodeURIComponent(code)}?agent=${agent}`
+    window.location.href = `/chat/${encodeURIComponent(code)}?agent=${agent}`
   }
 
   function openConversation(id: string) {
-    router.push(`/client/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`)
+    router.push(`/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`)
     setSidebarOpen(false)
-    window.location.href = `/client/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`
+    window.location.href = `/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`
   }
 
   return (
@@ -88,7 +88,7 @@ export default function ClientChatLayout({
       >
         <div className="flex items-center justify-between p-3 border-b border-neutral-800">
           <button
-            onClick={() => router.push("/client")}
+            onClick={() => router.push("/")}
             className="text-xs text-neutral-500 hover:text-white flex items-center gap-1 transition-colors"
           >
             <IconChevronLeft className="size-3" />
@@ -137,7 +137,7 @@ export default function ClientChatLayout({
                     onClick={async (e) => {
                       e.stopPropagation()
                       try {
-                        await fetch(`/api/client/conversations?id=${conv.id}&code=${encodeURIComponent(code)}`, { method: "DELETE" })
+                        await fetch(`/api/conversations?id=${conv.id}&code=${encodeURIComponent(code)}`, { method: "DELETE" })
                         setConversations((prev) => prev.filter((c) => c.id !== conv.id))
                         if (convId === conv.id) newChat()
                       } catch {}

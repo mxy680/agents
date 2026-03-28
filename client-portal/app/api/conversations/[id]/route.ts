@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
- * GET /api/client/conversations/[id]?code=XXX
+ * GET /api/conversations/[id]?code=XXX
  *
  * Load a conversation with its messages (validates access code).
  */

@@ -28,7 +28,7 @@ export default function ClientEntryPage() {
     setError("")
 
     try {
-      const res = await fetch("/api/client/verify", {
+      const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: trimmed }),
@@ -73,7 +73,7 @@ export default function ClientEntryPage() {
                 key={agent.name}
                 onClick={() =>
                   router.push(
-                    `/client/chat/${encodeURIComponent(code.trim())}?agent=${agent.name}`
+                    `/chat/${encodeURIComponent(code.trim())}?agent=${agent.name}`
                   )
                 }
                 className="flex items-center gap-4 w-full text-left bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 transition-colors group"

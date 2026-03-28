@@ -86,7 +86,7 @@ export default function ClientChatPage({
 
     async function verify() {
       try {
-        const res = await fetch("/api/client/verify", {
+        const res = await fetch("/api/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code: decodeURIComponent(code) }),
@@ -108,7 +108,7 @@ export default function ClientChatPage({
           if (conv) {
             setConversationId(conv)
             try {
-              const convRes = await fetch(`/api/client/conversations/${conv}?code=${encodeURIComponent(decodeURIComponent(code))}`)
+              const convRes = await fetch(`/api/conversations/${conv}?code=${encodeURIComponent(decodeURIComponent(code))}`)
               if (convRes.ok) {
                 const convData = await convRes.json() as { messages: Array<{ id: string; role: "user" | "assistant"; blocks: ContentBlock[] }> }
                 setMessages(
@@ -125,10 +125,10 @@ export default function ClientChatPage({
 
           setVerified(true)
         } else {
-          router.push("/client")
+          router.push("/")
         }
       } catch {
-        router.push("/client")
+        router.push("/")
       }
     }
     verify()
@@ -175,7 +175,7 @@ export default function ClientChatPage({
     abortRef.current = abort
 
     try {
-      const res = await fetch("/api/client/chat", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

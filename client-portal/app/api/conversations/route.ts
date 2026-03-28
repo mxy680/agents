@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
- * GET /api/client/conversations?code=XXX&agent=YYY
+ * GET /api/conversations?code=XXX&agent=YYY
  *
  * List conversations for a client access code + agent.
  */
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * DELETE /api/client/conversations?id=XXX&code=YYY
+ * DELETE /api/conversations?id=XXX&code=YYY
  *
  * Delete a conversation (validates access code first).
  */

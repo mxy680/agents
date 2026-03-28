@@ -15,9 +15,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/sync-templates ./cmd/
 # Stage 2: Build Next.js portal
 FROM node:22-bookworm-slim AS portal-builder
 WORKDIR /build/portal
-COPY portal/package.json portal/package-lock.json ./
+COPY client-portal/package.json client-portal/package-lock.json ./
 RUN npm ci --production=false
-COPY portal/ ./
+COPY client-portal/ ./
 # Build requires env vars at build time for Next.js
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
