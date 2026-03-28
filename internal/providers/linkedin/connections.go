@@ -28,6 +28,7 @@ func newConnectionsCmd(factory ClientFactory) *cobra.Command {
 	}
 	connectionsCmd.AddCommand(newConnectionsListCmd(factory))
 	connectionsCmd.AddCommand(newConnectionsGetCmd(factory))
+	connectionsCmd.AddCommand(newConnectionsRemoveCmd(factory))
 	return connectionsCmd
 }
 
@@ -163,6 +164,55 @@ func makeRunConnectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 			Location:  entity.GeoLocationName,
 		}
 		return printProfileDetail(cmd, detail)
+	}
+}
+
+// newConnectionsRemoveCmd builds the "connections remove" command.
+func newConnectionsRemoveCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "Remove a LinkedIn connection",
+		RunE:  makeRunConnectionsRemove(factory),
+	}
+	cmd.Flags().String("urn", "", "Connection member URN (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm the remove action")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("urn")
+	return cmd
+}
+
+func makeRunConnectionsRemove(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		urn, _ := cmd.Flags().GetString("urn")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("remove connection %s", urn), map[string]string{"urn": urn})
+		}
+
+		if err := confirmDestructive(cmd); err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"memberUrn":   urn,
+			"actionType":  "REMOVE",
+		}
+		_, err = client.PostJSON(ctx, "/voyager/api/relationships/dash/connections", body)
+		if err != nil {
+			return fmt.Errorf("removing connection %s: %w", urn, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "removed", "urn": urn})
+		}
+		fmt.Printf("Connection removed: %s\n", urn)
+		return nil
 	}
 }
 

@@ -38,6 +38,10 @@ func newInvitationsCmd(factory ClientFactory) *cobra.Command {
 		Aliases: []string{"invite"},
 	}
 	invitationsCmd.AddCommand(newInvitationsListCmd(factory))
+	invitationsCmd.AddCommand(newInvitationsSendCmd(factory))
+	invitationsCmd.AddCommand(newInvitationsAcceptCmd(factory))
+	invitationsCmd.AddCommand(newInvitationsRejectCmd(factory))
+	invitationsCmd.AddCommand(newInvitationsWithdrawCmd(factory))
 	return invitationsCmd
 }
 
@@ -113,6 +117,184 @@ func makeRunInvitationsList(factory ClientFactory) func(*cobra.Command, []string
 		}
 
 		return printInvitationSummaries(cmd, summaries)
+	}
+}
+
+// newInvitationsSendCmd builds the "invitations send" command.
+func newInvitationsSendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "send",
+		Short: "Send a connection invitation",
+		RunE:  makeRunInvitationsSend(factory),
+	}
+	cmd.Flags().String("urn", "", "Profile URN or public identifier (required)")
+	cmd.Flags().String("message", "", "Optional invitation message")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("urn")
+	return cmd
+}
+
+func makeRunInvitationsSend(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		urn, _ := cmd.Flags().GetString("urn")
+		message, _ := cmd.Flags().GetString("message")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("send invitation to %s", urn), map[string]string{"urn": urn, "message": message})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"emberInvitee": map[string]any{
+				"com.linkedin.voyager.growth.invitation.InviteToConnect": map[string]any{
+					"memberUrn": urn,
+				},
+			},
+			"message": message,
+		}
+		_, err = client.PostJSON(ctx, "/voyager/api/relationships/invitation", body)
+		if err != nil {
+			return fmt.Errorf("sending invitation to %s: %w", urn, err)
+		}
+
+		fmt.Printf("Invitation sent to %s\n", urn)
+		return nil
+	}
+}
+
+// newInvitationsAcceptCmd builds the "invitations accept" command.
+func newInvitationsAcceptCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "accept",
+		Short: "Accept a received invitation",
+		RunE:  makeRunInvitationsAccept(factory),
+	}
+	cmd.Flags().String("invitation-id", "", "Invitation ID (required)")
+	cmd.Flags().String("shared-secret", "", "Invitation shared secret")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("invitation-id")
+	return cmd
+}
+
+func makeRunInvitationsAccept(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		invitationID, _ := cmd.Flags().GetString("invitation-id")
+		sharedSecret, _ := cmd.Flags().GetString("shared-secret")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("accept invitation %s", invitationID),
+				map[string]string{"status": "accepted", "invitation_id": invitationID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"invitationId":       invitationID,
+			"sharedSecret":       sharedSecret,
+			"isGenericInvitation": false,
+		}
+		path := "/voyager/api/relationships/invitations/" + url.PathEscape(invitationID)
+		_, err = client.PutJSON(ctx, path, body)
+		if err != nil {
+			return fmt.Errorf("accepting invitation %s: %w", invitationID, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "accepted", "invitation_id": invitationID})
+		}
+		fmt.Printf("Invitation %s accepted\n", invitationID)
+		return nil
+	}
+}
+
+// newInvitationsRejectCmd builds the "invitations reject" command.
+func newInvitationsRejectCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reject",
+		Short: "Reject a received invitation",
+		RunE:  makeRunInvitationsReject(factory),
+	}
+	cmd.Flags().String("invitation-id", "", "Invitation ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("invitation-id")
+	return cmd
+}
+
+func makeRunInvitationsReject(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		invitationID, _ := cmd.Flags().GetString("invitation-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("reject invitation %s", invitationID),
+				map[string]string{"status": "rejected", "invitation_id": invitationID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"invitationId":       invitationID,
+			"isGenericInvitation": false,
+		}
+		path := "/voyager/api/relationships/invitations/" + url.PathEscape(invitationID)
+		_, err = client.PutJSON(ctx, path, body)
+		if err != nil {
+			return fmt.Errorf("rejecting invitation %s: %w", invitationID, err)
+		}
+
+		fmt.Printf("Invitation %s rejected\n", invitationID)
+		return nil
+	}
+}
+
+// newInvitationsWithdrawCmd builds the "invitations withdraw" command.
+func newInvitationsWithdrawCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "withdraw",
+		Short: "Withdraw a sent invitation",
+		RunE:  makeRunInvitationsWithdraw(factory),
+	}
+	cmd.Flags().String("invitation-id", "", "Invitation ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("invitation-id")
+	return cmd
+}
+
+func makeRunInvitationsWithdraw(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		invitationID, _ := cmd.Flags().GetString("invitation-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("withdraw invitation %s", invitationID),
+				map[string]string{"status": "withdrawn", "invitation_id": invitationID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/relationships/sentInvitationViewsV2/" + url.PathEscape(invitationID)
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("withdrawing invitation %s: %w", invitationID, err)
+		}
+
+		fmt.Printf("Invitation %s withdrawn\n", invitationID)
+		return nil
 	}
 }
 

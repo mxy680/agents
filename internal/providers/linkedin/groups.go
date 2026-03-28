@@ -89,6 +89,8 @@ func newGroupsCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newGroupsGetCmd(factory))
 	cmd.AddCommand(newGroupsMembersCmd(factory))
 	cmd.AddCommand(newGroupsPostsCmd(factory))
+	cmd.AddCommand(newGroupsJoinCmd(factory))
+	cmd.AddCommand(newGroupsLeaveCmd(factory))
 	return cmd
 }
 
@@ -165,6 +167,92 @@ func makeRunGroupsMembers(_ ClientFactory) func(*cobra.Command, []string) error 
 func makeRunGroupsPosts(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
+	}
+}
+
+// newGroupsJoinCmd builds the "groups join" command.
+func newGroupsJoinCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "join",
+		Short: "Join a LinkedIn group",
+		RunE:  makeRunGroupsJoin(factory),
+	}
+	cmd.Flags().String("group-id", "", "Group ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("group-id")
+	return cmd
+}
+
+func makeRunGroupsJoin(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		groupID, _ := cmd.Flags().GetString("group-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("join group %s", groupID),
+				map[string]string{"joined": "true", "group_id": groupID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/groups/groups/" + groupID + "/members"
+		_, err = client.PostJSON(ctx, path, map[string]any{"groupUrn": "urn:li:fs_group:" + groupID})
+		if err != nil {
+			return fmt.Errorf("joining group %s: %w", groupID, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"joined": "true", "group_id": groupID})
+		}
+		fmt.Printf("Joined group %s\n", groupID)
+		return nil
+	}
+}
+
+// newGroupsLeaveCmd builds the "groups leave" command.
+func newGroupsLeaveCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "leave",
+		Short: "Leave a LinkedIn group",
+		RunE:  makeRunGroupsLeave(factory),
+	}
+	cmd.Flags().String("group-id", "", "Group ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm the leave action")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("group-id")
+	return cmd
+}
+
+func makeRunGroupsLeave(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		groupID, _ := cmd.Flags().GetString("group-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("leave group %s", groupID),
+				map[string]string{"group_id": groupID})
+		}
+
+		if err := confirmDestructive(cmd); err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/groups/groups/" + groupID + "/members/me"
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("leaving group %s: %w", groupID, err)
+		}
+
+		fmt.Printf("Left group %s\n", groupID)
+		return nil
 	}
 }
 

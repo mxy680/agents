@@ -15,6 +15,7 @@ func newNotificationsCmd(factory ClientFactory) *cobra.Command {
 		Aliases: []string{"notif"},
 	}
 	notifCmd.AddCommand(newNotificationsListCmd(factory))
+	notifCmd.AddCommand(newNotificationsMarkReadCmd(factory))
 	return notifCmd
 }
 
@@ -33,6 +34,26 @@ func newNotificationsListCmd(factory ClientFactory) *cobra.Command {
 
 func makeRunNotificationsList(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
+		return errEndpointDeprecated
+	}
+}
+
+// newNotificationsMarkReadCmd builds the "notifications mark-read" command.
+func newNotificationsMarkReadCmd(_ ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mark-read",
+		Short: "Mark all notifications as read",
+		RunE:  makeRunNotificationsMarkRead(),
+	}
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	return cmd
+}
+
+func makeRunNotificationsMarkRead() func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, "mark all notifications as read", nil)
+		}
 		return errEndpointDeprecated
 	}
 }

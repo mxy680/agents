@@ -1,6 +1,10 @@
 package linkedin
 
 import (
+	"fmt"
+	"net/url"
+
+	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -61,6 +65,8 @@ func newNetworkCmd(factory ClientFactory) *cobra.Command {
 	networkCmd.AddCommand(newNetworkFollowersCmd(factory))
 	networkCmd.AddCommand(newNetworkFollowingCmd(factory))
 	networkCmd.AddCommand(newNetworkSuggestionsCmd(factory))
+	networkCmd.AddCommand(newNetworkFollowCmd(factory))
+	networkCmd.AddCommand(newNetworkUnfollowCmd(factory))
 	return networkCmd
 }
 
@@ -115,6 +121,94 @@ func makeRunNetworkFollowing(_ ClientFactory) func(*cobra.Command, []string) err
 func makeRunNetworkSuggestions(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
+	}
+}
+
+// newNetworkFollowCmd builds the "network follow" command.
+func newNetworkFollowCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "follow",
+		Short: "Follow a LinkedIn member or entity",
+		RunE:  makeRunNetworkFollow(factory),
+	}
+	cmd.Flags().String("urn", "", "URN of the entity to follow (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	return cmd
+}
+
+func makeRunNetworkFollow(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		urn, _ := cmd.Flags().GetString("urn")
+		if urn == "" {
+			return fmt.Errorf("--urn is required")
+		}
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("follow %s", urn),
+				map[string]string{"status": "following", "urn": urn})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{"followedURN": urn}
+		_, err = client.PostJSON(ctx, "/voyager/api/feed/follows", body)
+		if err != nil {
+			return fmt.Errorf("following %s: %w", urn, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "following", "urn": urn})
+		}
+		fmt.Printf("Now following %s\n", urn)
+		return nil
+	}
+}
+
+// newNetworkUnfollowCmd builds the "network unfollow" command.
+func newNetworkUnfollowCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unfollow",
+		Short: "Unfollow a LinkedIn member or entity",
+		RunE:  makeRunNetworkUnfollow(factory),
+	}
+	cmd.Flags().String("urn", "", "URN of the entity to unfollow (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	return cmd
+}
+
+func makeRunNetworkUnfollow(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		urn, _ := cmd.Flags().GetString("urn")
+		if urn == "" {
+			return fmt.Errorf("--urn is required")
+		}
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("unfollow %s", urn),
+				map[string]string{"status": "unfollowed", "urn": urn})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/feed/follows/" + url.PathEscape(urn)
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("unfollowing %s: %w", urn, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "unfollowed", "urn": urn})
+		}
+		fmt.Printf("Unfollowed %s\n", urn)
+		return nil
 	}
 }
 

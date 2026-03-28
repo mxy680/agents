@@ -2,6 +2,7 @@ package linkedin
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
@@ -44,6 +45,8 @@ func newEventsCmd(factory ClientFactory) *cobra.Command {
 	}
 	cmd.AddCommand(newEventsListCmd(factory))
 	cmd.AddCommand(newEventsGetCmd(factory))
+	cmd.AddCommand(newEventsAttendCmd(factory))
+	cmd.AddCommand(newEventsUnattendCmd(factory))
 	return cmd
 }
 
@@ -80,6 +83,87 @@ func makeRunEventsList(_ ClientFactory) func(*cobra.Command, []string) error {
 func makeRunEventsGet(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
+	}
+}
+
+// newEventsAttendCmd builds the "events attend" command.
+func newEventsAttendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "attend",
+		Short: "Mark yourself as attending an event",
+		RunE:  makeRunEventsAttend(factory),
+	}
+	cmd.Flags().String("event-id", "", "Event ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("event-id")
+	return cmd
+}
+
+func makeRunEventsAttend(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		eventID, _ := cmd.Flags().GetString("event-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("attend event %s", eventID),
+				map[string]string{"attending": "true", "event_id": eventID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/events/events/" + url.PathEscape(eventID) + "/attendees"
+		_, err = client.PostJSON(ctx, path, map[string]any{"eventUrn": "urn:li:fs_event:" + eventID})
+		if err != nil {
+			return fmt.Errorf("attending event %s: %w", eventID, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"attending": "true", "event_id": eventID})
+		}
+		fmt.Printf("Now attending event %s\n", eventID)
+		return nil
+	}
+}
+
+// newEventsUnattendCmd builds the "events unattend" command.
+func newEventsUnattendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unattend",
+		Short: "Remove yourself from an event",
+		RunE:  makeRunEventsUnattend(factory),
+	}
+	cmd.Flags().String("event-id", "", "Event ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("event-id")
+	return cmd
+}
+
+func makeRunEventsUnattend(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		eventID, _ := cmd.Flags().GetString("event-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("unattend event %s", eventID),
+				map[string]string{"attending": "false", "event_id": eventID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/events/events/" + url.PathEscape(eventID) + "/attendees/me"
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("unattending event %s: %w", eventID, err)
+		}
+
+		fmt.Printf("No longer attending event %s\n", eventID)
+		return nil
 	}
 }
 

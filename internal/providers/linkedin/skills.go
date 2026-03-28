@@ -59,6 +59,7 @@ func newSkillsCmd(factory ClientFactory) *cobra.Command {
 	}
 	cmd.AddCommand(newSkillsListCmd(factory))
 	cmd.AddCommand(newSkillsEndorsementsCmd(factory))
+	cmd.AddCommand(newSkillsEndorseCmd(factory))
 	return cmd
 }
 
@@ -259,6 +260,51 @@ func makeRunSkillsEndorsements(factory ClientFactory) func(*cobra.Command, []str
 }
 
 // printSkillSummaries outputs skill summaries as JSON or text.
+// newSkillsEndorseCmd builds the "skills endorse" command.
+func newSkillsEndorseCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "endorse",
+		Short: "Endorse a skill on a LinkedIn profile",
+		RunE:  makeRunSkillsEndorse(factory),
+	}
+	cmd.Flags().String("urn", "", "Skill URN (required)")
+	cmd.Flags().String("skill-id", "", "Skill ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("urn")
+	_ = cmd.MarkFlagRequired("skill-id")
+	return cmd
+}
+
+func makeRunSkillsEndorse(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		skillURN, _ := cmd.Flags().GetString("urn")
+		skillID, _ := cmd.Flags().GetString("skill-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("endorse skill %s", skillID),
+				map[string]string{"endorsed": "true", "skill_id": skillID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/identity/normEntities/" + url.PathEscape(skillURN) + "/endorse"
+		_, err = client.PostJSON(ctx, path, map[string]any{"skillId": skillID})
+		if err != nil {
+			return fmt.Errorf("endorsing skill %s: %w", skillID, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"endorsed": "true", "skill_id": skillID})
+		}
+		fmt.Printf("Endorsed skill %s\n", skillID)
+		return nil
+	}
+}
+
 func printSkillSummaries(cmd *cobra.Command, skills []SkillSummary) error {
 	if cli.IsJSONOutput(cmd) {
 		return cli.PrintJSON(skills)
