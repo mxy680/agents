@@ -20,7 +20,6 @@ except ImportError:
     def put_cached(p, e, d, **kw): return False
 
 OUT_DIR = "/tmp/probate_monitor"
-SEEN_FILE = f"{OUT_DIR}/seen_bbls.json"
 TODAY = datetime.now()
 LOOKBACK_DAYS = 7
 
@@ -39,21 +38,17 @@ def curl_socrata(url_base, params):
         return []
 
 
-def load_seen():
-    """Load previously seen BBLs."""
-    if os.path.exists(SEEN_FILE):
-        try:
-            with open(SEEN_FILE) as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+def load_seen() -> set:
+    """Load previously seen BBLs from Supabase cache."""
+    cached = get_cached("probate_seen", "all_bbls")
+    if cached and isinstance(cached, dict):
+        return set(cached.get("bbls", []))
+    return set()
 
 
-def save_seen(seen):
-    """Save seen BBLs."""
-    with open(SEEN_FILE, "w") as f:
-        json.dump(seen, f, indent=2)
+def save_seen(seen: set) -> None:
+    """Save seen BBLs to Supabase cache."""
+    put_cached("probate_seen", "all_bbls", {"bbls": sorted(seen)})
 
 
 def get_probate_documents():
@@ -219,10 +214,7 @@ def main():
         alerts.append(alert)
 
         # Mark as seen
-        seen[bbl] = {
-            "first_seen": TODAY.strftime("%Y-%m-%d"),
-            "estate_name": info.get("estate_name", ""),
-        }
+        seen.add(bbl)
 
         time.sleep(0.3)
 
