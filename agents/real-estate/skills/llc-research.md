@@ -33,11 +33,15 @@ curl -s "https://geosearch.planninglabs.nyc/v2/search?text=540+West+29+Street+Ma
 curl -s "https://data.cityofnewyork.us/resource/64uk-42ks.json?bbl=BBL"
 ```
 Key fields to note:
-- `zonedist1` — is it R7+? (development potential)
-- `lotarea`, `lotfront`, `lotdepth` — lot dimensions
-- `yearbuilt`, `bldgclass` — current use
+- `ownername` — **ALWAYS include the current owner name in your report**. This is critical information for the broker.
+- `zonedist1` — zoning district (include for context, but do NOT filter by zoning — all property types matter, not just development sites)
+- `bldgclass` — building class (tells you if it's residential, commercial, mixed-use, etc.)
+- `yearbuilt` — age of building
 - `unitsres` — residential units
-- `ownername` — current owner (compare to LLC filer)
+- `lotarea`, `lotfront`, `lotdepth` — lot dimensions
+- `address` — the official address from PLUTO (may differ slightly from the LLC name)
+
+**Important**: Include ALL verified properties regardless of zoning. Many LLC formations are for existing building acquisitions, not just development sites. R1 through R6 properties are just as valuable as R7+.
 
 ### Check ACRIS for recent activity
 ```bash
@@ -138,8 +142,10 @@ Entity names like "BRONX PORTFOLIO HOLDINGS LLC" or "METROPOLITAN CAPITAL VENTUR
 When presenting findings, always include:
 1. **Entity name** and formation date
 2. **Property address** (if identified) with ZoLa link
-3. **Zoning and lot data** from PLUTO
-4. **Recent ACRIS activity** (deeds, mortgages, judgments)
-5. **Filer name and address** — who is behind this
-6. **Your assessment** — what's happening and what the broker should do
-7. **Recommended action** — specific next steps (call the listing agent, watch for the deed, research the filer's portfolio)
+3. **Current owner** from PLUTO `ownername` — this is essential for the broker
+4. **Property details** — building class, year built, units, lot size
+5. **Zoning** — include for context but don't filter on it
+6. **Recent ACRIS activity** (deeds, mortgages, judgments)
+7. **Filer name and address** — who is behind the LLC
+8. **Your assessment** — what's happening (acquisition, restructuring, development, etc.)
+9. **Recommended action** — specific next steps (call the listing agent, contact the owner, watch for the deed, research the filer's portfolio)

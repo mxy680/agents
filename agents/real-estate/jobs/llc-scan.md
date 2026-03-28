@@ -29,10 +29,13 @@ For each candidate, use your reasoning and research tools to determine if it's a
 
 ### What to look for in your analysis:
 1. **Does the entity name reference a real NYC address?** Verify via geocoding.
-2. **Is the address in an R7+ zone?** Check PLUTO zoning.
-3. **Are there any active listings or recent sales at that address?** Check ACRIS.
-4. **Is the filer associated with other real estate LLCs?** Look for patterns in filer names.
-5. **Does the entity name match common real estate LLC naming conventions?** (address + LLC, address + HOLDINGS, etc.)
+2. **Who is the current owner?** Check PLUTO `ownername` — ALWAYS include this in your report.
+3. **What type of property is it?** Check PLUTO for building class, year built, units — include ALL property types, not just development sites.
+4. **Are there any active listings or recent sales at that address?** Check ACRIS.
+5. **Is the filer associated with other real estate LLCs?** Look for patterns in filer names.
+6. **Does the entity name match common real estate LLC naming conventions?** (address + LLC, address + HOLDINGS, etc.)
+
+**IMPORTANT**: Do NOT filter by zoning. Include all properties regardless of zone (R1 through R10, commercial, mixed-use). Many LLC formations are for existing building acquisitions, not development.
 
 ### Batch your research efficiently:
 - Process all "strong" matches first (address patterns, RE keywords)
@@ -63,13 +66,14 @@ For each entity you've confirmed as real estate, include a detailed entry:
 | Entity Name | e.g., "540 WEST 29TH STREET LLC" |
 | Formation Date | Filing date |
 | Property Address | The actual NYC address (if identified) |
+| **Current Owner** | **From PLUTO `ownername` — ALWAYS include this** |
 | Borough / Neighborhood | Where the property is |
-| Zoning | From PLUTO (R7-2, R8A, C4-4D, etc.) |
+| Property Type | Building class, year built, residential/commercial/mixed, number of units |
+| Zoning | From PLUTO (for context, not filtering) |
 | Lot Area | From PLUTO |
-| Current Use | Year built, building class, units |
 | Recent ACRIS Activity | Any recent deeds, mortgages, judgments |
 | Filer / Attorney | Name and address — who filed the LLC |
-| Analysis | Your assessment: what's happening here (acquisition, development, holding company?) |
+| Analysis | Your assessment: what's happening here (acquisition, restructuring, development?) |
 | Recommended Action | What the broker should do next |
 
 ### Watchlist (secondary section)
