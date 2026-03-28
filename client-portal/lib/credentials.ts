@@ -64,6 +64,10 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.token) env.VERCEL_TOKEN = credJson.token
       if (credJson.team_id) env.VERCEL_TEAM_ID = credJson.team_id
       break
+    case "cloudflare":
+      if (credJson.token) env.CLOUDFLARE_API_TOKEN = credJson.token
+      if (credJson.account_id) env.CLOUDFLARE_ACCOUNT_ID = credJson.account_id
+      break
   }
   return env
 }

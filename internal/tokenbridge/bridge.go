@@ -117,6 +117,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"token":   "VERCEL_TOKEN",
 			"team_id": "VERCEL_TEAM_ID",
 		})
+	case "cloudflare":
+		mapCredentials(creds, env, map[string]string{
+			"token":      "CLOUDFLARE_API_TOKEN",
+			"account_id": "CLOUDFLARE_ACCOUNT_ID",
+		})
 	}
 	return nil
 }

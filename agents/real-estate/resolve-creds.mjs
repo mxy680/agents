@@ -62,6 +62,10 @@ function credentialsToEnv(provider, creds) {
       if (creds.token) env.VERCEL_TOKEN = creds.token
       if (creds.team_id) env.VERCEL_TEAM_ID = creds.team_id
       break
+    case "cloudflare":
+      if (creds.token) env.CLOUDFLARE_API_TOKEN = creds.token
+      if (creds.account_id) env.CLOUDFLARE_ACCOUNT_ID = creds.account_id
+      break
   }
   return env
 }

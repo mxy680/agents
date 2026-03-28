@@ -47,6 +47,7 @@ import {
   IconCertificate,
   IconCheck,
   IconBrandVercel,
+  IconBrandCloudflare,
 } from "@tabler/icons-react"
 
 const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
@@ -118,6 +119,13 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     name: "Vercel",
     description: "Projects, Deployments, Domains",
     icon: IconBrandVercel,
+    connectType: "api-key" as const,
+  },
+  {
+    id: "cloudflare",
+    name: "Cloudflare",
+    description: "Zones, DNS, Workers, Pages, R2, KV",
+    icon: IconBrandCloudflare,
     connectType: "api-key" as const,
   },
   {
