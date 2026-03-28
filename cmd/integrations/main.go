@@ -22,6 +22,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/citibike"
 	"github.com/emdash-projects/agents/internal/providers/dof"
 	"github.com/emdash-projects/agents/internal/providers/hmda"
+	vercelprovider "github.com/emdash-projects/agents/internal/providers/vercel"
 	"github.com/emdash-projects/agents/internal/providers/nydos"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
@@ -103,6 +104,9 @@ func main() {
 
 	dofProvider := dof.New()
 	dofProvider.RegisterCommands(cli.RootCmd())
+
+	vercelProvider := vercelprovider.New()
+	vercelProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

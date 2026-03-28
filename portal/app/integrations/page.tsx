@@ -45,6 +45,7 @@ import {
   IconMapPin,
   IconCertificate,
   IconCheck,
+  IconBrandVercel,
 } from "@tabler/icons-react"
 
 const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
@@ -110,6 +111,13 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
     connectType: "cookie-paste" as const,
+  },
+  {
+    id: "vercel",
+    name: "Vercel",
+    description: "Projects, Deployments, Domains",
+    icon: IconBrandVercel,
+    connectType: "none" as const,
   },
   {
     id: "citibike",

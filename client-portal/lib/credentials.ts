@@ -60,6 +60,10 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.all_cookies) env.ZILLOW_COOKIES = credJson.all_cookies
       if (credJson.proxy_url) env.ZILLOW_PROXY_URL = credJson.proxy_url
       break
+    case "vercel":
+      if (credJson.token) env.VERCEL_TOKEN = credJson.token
+      if (credJson.team_id) env.VERCEL_TEAM_ID = credJson.team_id
+      break
   }
   return env
 }

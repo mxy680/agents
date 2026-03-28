@@ -112,6 +112,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"all_cookies": "ZILLOW_COOKIES",
 			"proxy_url":   "ZILLOW_PROXY_URL",
 		})
+	case "vercel":
+		mapCredentials(creds, env, map[string]string{
+			"token":   "VERCEL_TOKEN",
+			"team_id": "VERCEL_TEAM_ID",
+		})
 	}
 	return nil
 }

@@ -58,6 +58,10 @@ function credentialsToEnv(provider, creds) {
       if (creds.all_cookies) env.ZILLOW_COOKIES = creds.all_cookies
       if (creds.proxy_url) env.ZILLOW_PROXY_URL = creds.proxy_url
       break
+    case "vercel":
+      if (creds.token) env.VERCEL_TOKEN = creds.token
+      if (creds.team_id) env.VERCEL_TEAM_ID = creds.team_id
+      break
   }
   return env
 }
