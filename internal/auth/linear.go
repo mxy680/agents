@@ -33,7 +33,7 @@ type linearBearerTransport struct {
 
 func (t *linearBearerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = req.Clone(req.Context())
-	req.Header.Set("Authorization", "Bearer "+t.apiKey)
+	req.Header.Set("Authorization", t.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	return t.base.RoundTrip(req)
 }
