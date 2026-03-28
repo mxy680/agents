@@ -23,6 +23,7 @@ import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { CookiePasteDialog } from "@/components/cookie-paste-dialog"
+import { ApiKeyDialog } from "@/components/api-key-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -117,7 +118,7 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     name: "Vercel",
     description: "Projects, Deployments, Domains",
     icon: IconBrandVercel,
-    connectType: "none" as const,
+    connectType: "api-key" as const,
   },
   {
     id: "citibike",
@@ -305,6 +306,16 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
                       </CookieCaptureButton>
+                    ) : provider.connectType === "api-key" ? (
+                      <ApiKeyDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Update token" : "Connect"}
+                        </Button>
+                      </ApiKeyDialog>
                     ) : provider.connectType === "cookie-paste" ? (
                       <CookiePasteDialog
                         provider={provider.id}
