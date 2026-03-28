@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 320px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a;
+      color: #ededed;
+      padding: 16px;
+    }
+    h1 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
+    .provider {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      transition: border-color 0.15s;
+    }
+    .provider:hover { border-color: #555; }
+    .provider-name { font-size: 13px; font-weight: 500; }
+    .provider-domain { font-size: 11px; color: #666; }
+    .capture-btn {
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .capture-btn:hover { background: #ddd; }
+    .capture-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .capture-btn.success { background: #22c55e; color: #fff; }
+    .capture-btn.error { background: #ef4444; color: #fff; }
+    .status { font-size: 11px; color: #888; margin-top: 12px; text-align: center; }
+    .status.error { color: #ef4444; }
+    .status.success { color: #22c55e; }
+    .detected {
+      background: #1a1a2e;
+      border-color: #4a4ae0;
+    }
+    .detected .provider-name::after {
+      content: ' (active tab)';
+      color: #4a4ae0;
+      font-weight: 400;
+      font-size: 11px;
+    }
+    .settings {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #222;
+    }
+    .settings label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
+    .settings input {
+      width: 100%;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #ededed;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Engagent</h1>
+  <p class="subtitle">Capture cookies for integrations</p>
+  <div id="providers"></div>
+  <div id="status" class="status"></div>
+  <div class="settings">
+    <label>Portal URL</label>
+    <input type="text" id="portalUrl" value="http://localhost:3000" />
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
