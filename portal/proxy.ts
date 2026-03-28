@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const host = request.headers.get("host") ?? ""
-  const isProduction = host.includes("agents.markshteyn.com") || host.includes("fly.dev")
+  const isProduction = host.includes("engagent.dev") || host.includes("fly.dev")
 
   // Production: only /client and /api/client are accessible
   if (isProduction) {
