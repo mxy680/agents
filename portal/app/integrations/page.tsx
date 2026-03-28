@@ -48,6 +48,7 @@ import {
   IconCheck,
   IconBrandVercel,
   IconBrandCloudflare,
+  IconLayoutKanban,
 } from "@tabler/icons-react"
 
 const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
@@ -126,6 +127,13 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     name: "Cloudflare",
     description: "Zones, DNS, Workers, Pages, R2, KV",
     icon: IconBrandCloudflare,
+    connectType: "api-key" as const,
+  },
+  {
+    id: "linear",
+    name: "Linear",
+    description: "Issues, Projects, Cycles, Teams",
+    icon: IconLayoutKanban,
     connectType: "api-key" as const,
   },
   {

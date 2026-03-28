@@ -122,6 +122,10 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"token":      "CLOUDFLARE_API_TOKEN",
 			"account_id": "CLOUDFLARE_ACCOUNT_ID",
 		})
+	case "linear":
+		mapCredentials(creds, env, map[string]string{
+			"token": "LINEAR_API_KEY",
+		})
 	}
 	return nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/hmda"
 	vercelprovider "github.com/emdash-projects/agents/internal/providers/vercel"
 	cloudflareprovider "github.com/emdash-projects/agents/internal/providers/cloudflare"
+	linearprovider "github.com/emdash-projects/agents/internal/providers/linear"
 	"github.com/emdash-projects/agents/internal/providers/nydos"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
@@ -111,6 +112,9 @@ func main() {
 
 	cloudflareProvider := cloudflareprovider.New()
 	cloudflareProvider.RegisterCommands(cli.RootCmd())
+
+	linearProvider := linearprovider.New()
+	linearProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

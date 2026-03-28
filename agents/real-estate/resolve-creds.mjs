@@ -66,6 +66,9 @@ function credentialsToEnv(provider, creds) {
       if (creds.token) env.CLOUDFLARE_API_TOKEN = creds.token
       if (creds.account_id) env.CLOUDFLARE_ACCOUNT_ID = creds.account_id
       break
+    case "linear":
+      if (creds.token) env.LINEAR_API_KEY = creds.token
+      break
   }
   return env
 }

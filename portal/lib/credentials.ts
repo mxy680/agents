@@ -68,6 +68,9 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.token) env.CLOUDFLARE_API_TOKEN = credJson.token
       if (credJson.account_id) env.CLOUDFLARE_ACCOUNT_ID = credJson.account_id
       break
+    case "linear":
+      if (credJson.token) env.LINEAR_API_KEY = credJson.token
+      break
   }
   return env
 }
