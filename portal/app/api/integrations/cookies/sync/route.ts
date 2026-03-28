@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Allowlist of providers that support cookie sync
-  const ALLOWED_PROVIDERS = ["zillow", "streeteasy"]
+  const ALLOWED_PROVIDERS = ["zillow"]
   if (!ALLOWED_PROVIDERS.includes(provider)) {
     return NextResponse.json(
       { error: `Unknown provider: ${provider}` },

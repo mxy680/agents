@@ -11,7 +11,6 @@ const DOMAIN_TO_PROVIDER = {
   "instagram.com": "instagram",
   "x.com": "x",
   "twitter.com": "x",
-  "streeteasy.com": "streeteasy",
   "zillow.com": "zillow",
   "instructure.com": "canvas",
 };

@@ -34,7 +34,6 @@ import {
   IconBrandSupabase,
   IconMessage,
   IconSchool,
-  IconBuildingSkyscraper,
   IconPlus,
   IconBike,
   IconBuildingBank,
@@ -110,13 +109,6 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     name: "Canvas LMS",
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
-    connectType: "cookie-paste" as const,
-  },
-  {
-    id: "streeteasy",
-    name: "StreetEasy",
-    description: "Listings, Price History, Market Data",
-    icon: IconBuildingSkyscraper,
     connectType: "cookie-paste" as const,
   },
   {

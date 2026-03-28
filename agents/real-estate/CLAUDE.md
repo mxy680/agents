@@ -8,8 +8,7 @@
 4. **DO NOT use `integrations nysla`** — NY SLA dataset is locked behind login auth. No fix available. Skip it.
 5. **`integrations obituaries` is untested** — Legacy.com API may be unreliable. Skip if it fails.
 6. **DO NOT spawn sub-agents via the Agent tool** — run commands directly
-7. **Run CLI commands directly**: `integrations streeteasy listings search --location="Bronx" --json`
-8. **Use the pipeline scripts** when doing full scans: `bash scripts/run_pipeline.sh`
+7. **Use the pipeline scripts** when doing full scans: `bash scripts/run_pipeline.sh`
 9. **For ad-hoc queries**, use curl for Socrata APIs and the `integrations` CLI for providers that work
 
 ## What Works
@@ -23,7 +22,6 @@
 | NYC Finance | Works | `curl -s -G` with `--data-urlencode` |
 | 311 | Works | `curl -s -G` with `--data-urlencode` |
 | ECB/OATH | Works | `curl -s -G` with `--data-urlencode` |
-| StreetEasy CLI | Works | `integrations streeteasy listings search --location="..." --json` |
 | Citi Bike CLI | Works | `integrations citibike stations density --lat=X --lng=Y --json` |
 | HMDA CLI | Works | `integrations hmda loans summary --county=bronx --json` |
 | Census CLI | Works | `integrations census tracts profile --tract=FIPS --json` |
@@ -471,39 +469,7 @@ Note: NYSCEF search requires hCaptcha and cannot be automated. Use ACRIS party n
 
 ---
 
-## Tool 15: StreetEasy CLI — Price History + Listing Cycles
-
-Requires STREETEASY_COOKIES env var (captured via Playwright in the portal).
-
-**Search listings:**
-```bash
-integrations streeteasy listings search --location="Bronx, NY 10452" --status=for_sale --limit=20 --json
-```
-
-**Get price history for a property:**
-```bash
-integrations streeteasy listings history --address="1226 Shakespeare Ave Bronx NY" --json
-```
-
-Returns: array of `{date, event, price}` entries showing every list, delist, relist, and price change.
-
-### Signal interpretation
-- Property listed → delisted → relisted at lower price = **motivated seller**
-- 3+ listing cycles with declining prices = **desperate seller**
-- Price drop > 10% from original listing = **significant negotiation leverage**
-- Fresh price drop (last 7 days) = **act now — make an offer this week**
-
-### Composite scoring additions
-
-| Signal | Points | Source |
-|--------|--------|--------|
-| Price drop > 10% from original | +3 | StreetEasy |
-| 3+ listing/delisting cycles | +4 | StreetEasy |
-| Price drop in last 30 days | +2 | StreetEasy |
-
----
-
-## Tool 16: Professional XLSX Spreadsheet (via openpyxl)
+## Tool 15: Professional XLSX Spreadsheet (via openpyxl)
 
 Create styled .xlsx, upload to Google Drive with `--convert` flag for native Google Sheet:
 ```bash
@@ -553,9 +519,6 @@ Each qualifying R7+ lot gets a composite score:
 | HPD open violations 5-9 | +2 | HPD |
 | HPD open violations 10+ | +4 (not cumulative with above) | HPD |
 | Adjacent lot also for sale | +4 | Zillow + PLUTO |
-| Price drop > 10% from original | +3 | StreetEasy |
-| 3+ listing/delisting cycles | +4 | StreetEasy |
-| Price drop in last 30 days | +2 | StreetEasy |
 | ACRIS party name contains "ESTATE OF" or "EXECUTOR" | +5 | ACRIS |
 | 311 complaints 10+ in 12 months | +3 | 311 |
 | Local Law 97 grade D or F | +3 | LL97 Energy |
@@ -592,7 +555,6 @@ Each qualifying R7+ lot gets a composite score:
    - DOB: check for demolition/new building permits on the same block
    - HPD: count open violations
    - NYC Finance: check tax lien list
-   - StreetEasy: check price history for drops and relisting cycles
    - 311: complaint volume at address in last 12 months
    - LL97 energy grade (if building >25k sqft)
    - ECB/OATH: defaulted environmental violations

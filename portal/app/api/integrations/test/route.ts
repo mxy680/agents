@@ -30,7 +30,6 @@ const TEST_COMMANDS: Record<string, string[] | null> = {
   bluebubbles: ["imessage", "server", "info", "--json"],
   canvas: ["canvas", "users", "me", "--json"],
   zillow: ["zillow", "properties", "search", "--location=Denver, CO", "--limit=1", "--json"],
-  streeteasy: ["streeteasy", "listings", "search", "--location=Bronx, NY 10452", "--limit=1", "--json"],
 }
 
 export async function POST(request: NextRequest) {

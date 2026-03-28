@@ -27,7 +27,6 @@ import (
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
 	"github.com/emdash-projects/agents/internal/providers/obituaries"
 	"github.com/emdash-projects/agents/internal/providers/trends"
-	"github.com/emdash-projects/agents/internal/providers/streeteasy"
 	"github.com/emdash-projects/agents/internal/providers/zillow"
 )
 
@@ -80,9 +79,6 @@ func main() {
 
 	nyscefProvider := nyscef.New()
 	nyscefProvider.RegisterCommands(cli.RootCmd())
-
-	streeteasyProvider := streeteasy.New()
-	streeteasyProvider.RegisterCommands(cli.RootCmd())
 
 	censusProvider := census.New()
 	censusProvider.RegisterCommands(cli.RootCmd())

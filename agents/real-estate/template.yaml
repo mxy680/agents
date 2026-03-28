@@ -4,7 +4,6 @@ description: Automated NYC real estate intelligence — assemblage scanning, off
 git_path: agents/real-estate
 required_integrations:
   - google
-  - streeteasy
   - citibike
   - nydos
   - dof
