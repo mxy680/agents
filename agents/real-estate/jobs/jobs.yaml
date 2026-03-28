@@ -9,11 +9,11 @@ jobs:
 
   - slug: probate-scan
     display_name: Probate Scan
-    description: ACRIS estate filings → filter 15K+ SF or 5+ units → alerts
+    description: ACRIS estate filings → deep ACRIS/HPD research per property → prioritized report
     schedule: ""
     prompt_file: probate-scan.md
-    timeout_minutes: 30
-    estimated_minutes: 5
+    timeout_minutes: 120
+    estimated_minutes: 20
 
   - slug: llc-scan
     display_name: LLC Formation Scan
@@ -25,8 +25,8 @@ jobs:
 
   - slug: wide-lot-scan
     display_name: Bronx Wide Lot Scan
-    description: 1-2 family homes with 50ft+ lot frontage in Bronx R8+ zones (falls back to R7+ if few hits)
+    description: Wide-lot 1-2 family homes → deep ACRIS/HPD/DOB research → cluster detection → scored report
     schedule: ""
     prompt_file: wide-lot-scan.md
-    timeout_minutes: 30
-    estimated_minutes: 5
+    timeout_minutes: 120
+    estimated_minutes: 20
