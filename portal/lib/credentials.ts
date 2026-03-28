@@ -71,6 +71,9 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
     case "linear":
       if (credJson.token) env.LINEAR_API_KEY = credJson.token
       break
+    case "fly":
+      if (credJson.token) env.FLY_API_TOKEN = credJson.token
+      break
   }
   return env
 }

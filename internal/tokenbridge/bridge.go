@@ -126,6 +126,10 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		mapCredentials(creds, env, map[string]string{
 			"token": "LINEAR_API_KEY",
 		})
+	case "fly":
+		mapCredentials(creds, env, map[string]string{
+			"token": "FLY_API_TOKEN",
+		})
 	}
 	return nil
 }

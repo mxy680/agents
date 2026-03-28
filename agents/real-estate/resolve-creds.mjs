@@ -69,6 +69,9 @@ function credentialsToEnv(provider, creds) {
     case "linear":
       if (creds.token) env.LINEAR_API_KEY = creds.token
       break
+    case "fly":
+      if (creds.token) env.FLY_API_TOKEN = creds.token
+      break
   }
   return env
 }
