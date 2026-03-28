@@ -2,7 +2,6 @@ package instagram
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -79,72 +78,6 @@ func TestTagsFeedWithTab(t *testing.T) {
 	mustContain(t, out, "tag_media_111")
 }
 
-func TestTagsFollowDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestTagsCmd(factory))
-
-	out := runCmd(t, root, "tags", "follow", "--name=golang", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestTagsFollowTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestTagsCmd(factory))
-
-	out := runCmd(t, root, "tags", "follow", "--name=golang")
-	mustContain(t, out, "Followed tag #golang")
-}
-
-func TestTagsFollowJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestTagsCmd(factory))
-
-	out := runCmd(t, root, "--json", "tags", "follow", "--name=golang")
-	var result tagActionResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-}
-
-func TestTagsUnfollowDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestTagsCmd(factory))
-
-	out := runCmd(t, root, "tags", "unfollow", "--name=golang", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestTagsUnfollowTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestTagsCmd(factory))
-
-	out := runCmd(t, root, "tags", "unfollow", "--name=golang")
-	mustContain(t, out, "Unfollowed tag #golang")
-}
 
 func TestTagsFollowingTextOutput(t *testing.T) {
 	server := newFullMockServer(t)

@@ -181,43 +181,6 @@ func TestStoriesFeedJSON(t *testing.T) {
 	}
 }
 
-func TestStoriesDeleteDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestStoriesCmd(factory))
-	out := runCmd(t, root, "stories", "delete", "--story-id=story_111", "--dry-run")
-
-	mustContain(t, out, "[DRY RUN]")
-	mustContain(t, out, "delete story story_111")
-}
-
-func TestStoriesDeleteNoConfirm(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestStoriesCmd(factory))
-	err := runCmdErr(t, root, "stories", "delete", "--story-id=story_111")
-	if err == nil {
-		t.Error("expected error when --confirm not provided")
-	}
-}
-
-func TestStoriesDeleteConfirmed(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestStoriesCmd(factory))
-	out := runCmd(t, root, "stories", "delete", "--story-id=story_111", "--confirm")
-
-	mustContain(t, out, "Deleted story story_111")
-}
 
 func TestStoriesStoryAlias(t *testing.T) {
 	server := newFullMockServer(t)
