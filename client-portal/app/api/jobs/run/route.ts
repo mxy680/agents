@@ -126,7 +126,7 @@ This makes the file downloadable directly in the portal. Do this for EVERY deliv
   writeFileSync(sessionFile, JSON.stringify({
     prompt: fullPrompt,
     systemPrompt,
-    model: "claude-sonnet-4-6",
+    model: "claude-opus-4-6",
     maxTurns: 500,
   }))
 

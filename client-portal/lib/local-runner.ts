@@ -63,7 +63,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   const sessionData: { prompt: string; systemPrompt: string; model?: string; sessionId?: string } = {
     prompt: message,
     systemPrompt,
-    model: model ?? "claude-sonnet-4-6",
+    model: model ?? "claude-opus-4-6",
   }
   if (sessionId) sessionData.sessionId = sessionId
 
