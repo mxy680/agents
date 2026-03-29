@@ -14,12 +14,29 @@ import {
 
 // Optional cookie mappers keyed by provider. If no mapper exists for a
 // provider, cookies are stored as-is (passthrough).
+function mapGCPConsoleCookies(cookies: Record<string, string>): Record<string, string> {
+  // Filter to only Google auth cookies — the full set can be 15KB+ which breaks HTTP headers
+  const keep = new Set([
+    "SID", "__Secure-1PSID", "__Secure-3PSID",
+    "HSID", "SSID", "APISID", "SAPISID",
+    "__Secure-1PAPISID", "__Secure-3PAPISID",
+    "NID", "__Secure-1PSIDTS", "__Secure-3PSIDTS",
+    "SIDCC", "__Secure-1PSIDCC", "__Secure-3PSIDCC",
+  ])
+  const filtered = Object.entries(cookies)
+    .filter(([k]) => keep.has(k))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ")
+  return { all_cookies: filtered }
+}
+
 const COOKIE_MAPPERS: Record<string, (c: Record<string, string>) => Record<string, string>> = {
   instagram: mapInstagramCookies,
   linkedin: mapLinkedinCookies,
   x: mapXCookies,
   canvas: mapCanvasCookies,
   zillow: mapZillowCookies,
+  "gcp-console": mapGCPConsoleCookies,
 }
 
 export async function POST(request: NextRequest) {
