@@ -43,24 +43,33 @@ integrations github repos create --name=todo-app --description="Autonomous todo 
 
    Note: Always write content to a temp file and pipe through `base64` — do NOT use `echo -n "..." | base64` for multi-line content.
 
-3. **Create a Vercel project** and link to the GitHub repo:
+3. **Create a NEW Supabase project** for the todo app:
+```bash
+integrations supabase projects create --name=todo-app --org-id=<org_id> --db-pass=<generate_a_strong_password> --region=us-east-1 --json
+```
+First get the org ID: `integrations supabase orgs list --json`
+Wait 2 minutes for the project to be ready, then get the project details:
+```bash
+integrations supabase projects list --json
+```
+Extract the `url` and `anon_key` from the new `todo-app` project. **NEVER use the existing `engagent` project.**
+
+4. **Create the todos table** on the NEW Supabase project:
+Use the new project's URL and service role key (get from project API keys):
+```bash
+integrations supabase projects api-keys --ref=<todo-app-ref> --json
+```
+Then create the table via SQL.
+
+5. **Create a Vercel project** and link to the GitHub repo:
 ```bash
 integrations vercel projects create --name=todo-app --framework=nextjs --json
 ```
 
-4. **Set environment variables on Vercel**:
+6. **Set environment variables on Vercel** using the NEW Supabase project's credentials (NOT the engagent project's):
 ```bash
-integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_URL --value="$NEXT_PUBLIC_SUPABASE_URL" --target=production --json
-integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_ANON_KEY --value="$NEXT_PUBLIC_SUPABASE_ANON_KEY" --target=production --json
-```
-
-5. **Create the Supabase table** via curl:
-```bash
-curl -s -X POST "${NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/exec_sql" \
-  -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-  -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"query": "CREATE TABLE IF NOT EXISTS todos (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, title text NOT NULL, completed boolean DEFAULT false, created_at timestamptz DEFAULT now())"}'
+integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_URL --value="<new-project-url>" --target=production --json
+integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_ANON_KEY --value="<new-project-anon-key>" --target=production --json
 ```
 
 6. **Create a Linear issue** documenting the initial scaffold:

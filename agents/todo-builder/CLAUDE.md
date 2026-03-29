@@ -9,8 +9,9 @@
 5. **Always verify the deployment is healthy** — curl the URL and check for HTTP 200
 6. **Close the Linear issue with a summary when done**
 7. **The GitHub org is `mxy680`**, the repo name should be `todo-app`
-8. **Use the Supabase project that's already connected** — credentials are in your environment
+8. **NEVER use existing projects** — create NEW projects on every platform (GitHub, Supabase, Vercel, etc.). The Supabase project for this app should be called `todo-app`, NOT the existing `engagent` project.
 9. **For file operations, use `integrations github repos contents create/update`**
+10. **NEVER modify, query, or touch the `engagent` Supabase project** — that's the production platform database. Create a separate Supabase project for the todo app.
 
 ## Authentication
 All credentials are pre-configured via environment variables. Run commands directly — no `doppler run` needed.
