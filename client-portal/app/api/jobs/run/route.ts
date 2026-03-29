@@ -19,7 +19,7 @@ const REPO_ROOT = (() => {
 })()
 
 // Allowlist of agents that can be triggered via this route
-const ALLOWED_AGENTS = ["real-estate"]
+const ALLOWED_AGENTS = ["real-estate", "campusreach"]
 
 // Map agent+job to the script path relative to agents/{agent}/scripts/
 const JOB_SCRIPT_MAP: Record<string, string> = {

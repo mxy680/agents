@@ -1,0 +1,8 @@
+name: campusreach
+display_name: CampusReach Manager
+description: Autonomous developer for CampusReach — a volunteer management platform for CWRU. Builds features, fixes bugs, deploys updates.
+required_integrations:
+  - github
+  - supabase
+  - vercel
+  - linear

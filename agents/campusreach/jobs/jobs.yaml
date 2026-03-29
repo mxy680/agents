@@ -1,0 +1,16 @@
+jobs:
+  - slug: evolve
+    display_name: Evolve CampusReach
+    description: Autonomously build new features or improve the platform
+    schedule: "0 */6 * * *"
+    prompt_file: evolve.md
+    timeout_minutes: 60
+    estimated_minutes: 20
+
+  - slug: nuke
+    display_name: Nuke Everything
+    description: Delete ALL CampusReach resources — complete reset (manual only)
+    schedule: ""
+    prompt_file: nuke.md
+    timeout_minutes: 15
+    estimated_minutes: 3
