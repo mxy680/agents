@@ -10,27 +10,30 @@ import (
 
 // GCPConsoleEnvConfig holds the environment variable names for GCP Console cookie auth.
 var GCPConsoleEnvConfig = struct {
-	SAPISID string
-	SID     string
-	HSID    string
-	SSID    string
-	APISID  string
+	SAPISID    string
+	SID        string
+	HSID       string
+	SSID       string
+	APISID     string
+	AllCookies string
 }{
-	SAPISID: "GCP_CONSOLE_SAPISID",
-	SID:     "GCP_CONSOLE_SID",
-	HSID:    "GCP_CONSOLE_HSID",
-	SSID:    "GCP_CONSOLE_SSID",
-	APISID:  "GCP_CONSOLE_APISID",
+	SAPISID:    "GCP_CONSOLE_SAPISID",
+	SID:        "GCP_CONSOLE_SID",
+	HSID:       "GCP_CONSOLE_HSID",
+	SSID:       "GCP_CONSOLE_SSID",
+	APISID:     "GCP_CONSOLE_APISID",
+	AllCookies: "GCP_CONSOLE_ALL_COOKIES",
 }
 
 // GCPConsoleSession holds the cookie-based credentials required to authenticate
 // requests to the GCP Console internal API via SAPISIDHASH.
 type GCPConsoleSession struct {
-	SAPISID string // required: used to compute the SAPISIDHASH
-	SID     string // required: included in Cookie header
-	HSID    string // optional
-	SSID    string // optional
-	APISID  string // optional
+	SAPISID    string // required: used to compute the SAPISIDHASH
+	SID        string // required: included in Cookie header
+	HSID       string // optional
+	SSID       string // optional
+	APISID     string // optional
+	AllCookies string // optional: full cookie string (overrides individual cookies)
 }
 
 // NewGCPConsoleSession reads GCP Console cookie credentials from environment variables.
@@ -47,11 +50,12 @@ func NewGCPConsoleSession() (*GCPConsoleSession, error) {
 	}
 
 	return &GCPConsoleSession{
-		SAPISID: sapisid,
-		SID:     sid,
-		HSID:    os.Getenv(GCPConsoleEnvConfig.HSID),
-		SSID:    os.Getenv(GCPConsoleEnvConfig.SSID),
-		APISID:  os.Getenv(GCPConsoleEnvConfig.APISID),
+		SAPISID:    sapisid,
+		SID:        sid,
+		HSID:       os.Getenv(GCPConsoleEnvConfig.HSID),
+		SSID:       os.Getenv(GCPConsoleEnvConfig.SSID),
+		APISID:     os.Getenv(GCPConsoleEnvConfig.APISID),
+		AllCookies: os.Getenv(GCPConsoleEnvConfig.AllCookies),
 	}, nil
 }
 
@@ -63,15 +67,22 @@ func (s *GCPConsoleSession) SAPISIDHash() string {
 }
 
 // computeSAPISIDHash is the pure function used for both production and testing.
+// Google expects multiple hash variants in the Authorization header.
 func computeSAPISIDHash(timestamp int64, sapisid string) string {
-	input := fmt.Sprintf("%d %s https://console.cloud.google.com", timestamp, sapisid)
+	origin := "https://console.cloud.google.com"
+	input := fmt.Sprintf("%d %s %s", timestamp, sapisid, origin)
 	//nolint:gosec // SHA1 is required by Google's SAPISIDHASH protocol — not a security choice
 	h := sha1.Sum([]byte(input))
-	return fmt.Sprintf("SAPISIDHASH %d_%x", timestamp, h)
+	hash := fmt.Sprintf("%d_%x", timestamp, h)
+	return fmt.Sprintf("SAPISIDHASH %s SAPISID1PHASH %s SAPISID3PHASH %s", hash, hash, hash)
 }
 
 // CookieString builds the Cookie header value from the session fields.
+// If AllCookies is set (full cookie string from extension), it's used directly.
 func (s *GCPConsoleSession) CookieString() string {
+	if s.AllCookies != "" {
+		return s.AllCookies
+	}
 	cookie := fmt.Sprintf("SAPISID=%s; SID=%s", s.SAPISID, s.SID)
 	if s.HSID != "" {
 		cookie += "; HSID=" + s.HSID
