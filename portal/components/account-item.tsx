@@ -12,6 +12,7 @@ interface AccountItemProps {
   id: string
   label: string
   status: string
+  autoTest?: boolean
   provider: string
   connectType: ConnectType
 }
@@ -26,6 +27,17 @@ export function AccountItem({ id, label, status, provider, connectType }: Accoun
   const [refreshStatus, setRefreshStatus] = useState<"idle" | "launching" | "waiting" | "done" | "error">("idle")
   const [refreshMessage, setRefreshMessage] = useState("")
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const autoTestedRef = useRef(false)
+
+  // Auto-test on mount
+  useEffect(() => {
+    if (!autoTestedRef.current) {
+      autoTestedRef.current = true
+      handleTest(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -47,7 +59,7 @@ export function AccountItem({ id, label, status, provider, connectType }: Accoun
     }
   }
 
-  async function handleTest() {
+  async function handleTest(persist = false) {
     setTesting(true)
     setTestResult(null)
     setTestError("")
@@ -69,10 +81,12 @@ export function AccountItem({ id, label, status, provider, connectType }: Accoun
       setTestError("Network error")
     } finally {
       setTesting(false)
-      setTimeout(() => {
-        setTestResult(null)
-        setTestError("")
-      }, 8000)
+      if (!persist) {
+        setTimeout(() => {
+          setTestResult(null)
+          setTestError("")
+        }, 8000)
+      }
     }
   }
 
