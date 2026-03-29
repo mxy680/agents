@@ -86,13 +86,9 @@ function credentialsToEnv(provider, creds) {
       if (creds.project_id) env.GCP_PROJECT_ID = creds.project_id
       break
     case "gcp-console":
-      if (creds.sapisid) env.GCP_CONSOLE_SAPISID = creds.sapisid
-      if (creds.SID) env.GCP_CONSOLE_SID = creds.SID
-      if (creds.HSID) env.GCP_CONSOLE_HSID = creds.HSID
-      if (creds.SSID) env.GCP_CONSOLE_SSID = creds.SSID
-      if (creds.APISID) env.GCP_CONSOLE_APISID = creds.APISID
-      break
-  }
+      if (creds.all_cookies) env.GCP_CONSOLE_ALL_COOKIES = creds.all_cookies
+      if (creds.SAPISID) env.GCP_CONSOLE_SAPISID = creds.SAPISID
+      break  }
   return env
 }
 

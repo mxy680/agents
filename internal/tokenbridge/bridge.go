@@ -138,11 +138,8 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		})
 	case "gcp-console":
 		mapCredentials(creds, env, map[string]string{
-			"sapisid": "GCP_CONSOLE_SAPISID",
-			"SID":     "GCP_CONSOLE_SID",
-			"HSID":    "GCP_CONSOLE_HSID",
-			"SSID":    "GCP_CONSOLE_SSID",
-			"APISID":  "GCP_CONSOLE_APISID",
+			"all_cookies": "GCP_CONSOLE_ALL_COOKIES",
+			"SAPISID":     "GCP_CONSOLE_SAPISID",
 		})
 	}
 	return nil

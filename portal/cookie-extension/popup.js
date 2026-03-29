@@ -13,6 +13,8 @@ const DOMAIN_TO_PROVIDER = {
   "twitter.com": "x",
   "zillow.com": "zillow",
   "instructure.com": "canvas",
+  "console.cloud.google.com": "gcp-console",
+  "cloud.google.com": "gcp-console",
 };
 
 function getProvider(hostname) {
@@ -75,7 +77,11 @@ async function init() {
         cookieMap[c.name] = c.value;
       }
 
+      // For GCP Console, also build the full cookie string (needed for SAPISIDHASH auth)
       const provider = getProvider(hostname);
+      if (provider === "gcp-console") {
+        cookieMap.all_cookies = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+      }
 
       const res = await fetch(`${PORTAL_URL}/api/integrations/save-cookies`, {
         method: "POST",
