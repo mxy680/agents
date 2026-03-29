@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server"
 const FLY_APP_URL = "https://engagent.fly.dev"
 
 // Allowlist of agents that can be triggered via this route
-const ALLOWED_AGENTS = ["real-estate", "todo-builder"]
+const ALLOWED_AGENTS = ["real-estate"]
 
 export async function POST(request: NextRequest) {
   let agent: string
