@@ -33,7 +33,7 @@ func makeRunServicesList(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/services?filter=state:ENABLED", serviceUsageBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/services?filter=state:ENABLED", client.serviceUsageURL, project)
 		var resp struct {
 			Services []map[string]any `json:"services"`
 		}
@@ -87,7 +87,7 @@ func makeRunServicesEnable(factory ClientFactory) func(*cobra.Command, []string)
 			})
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/services/%s:enable", serviceUsageBaseURL, project, service)
+		url := fmt.Sprintf("%s/projects/%s/services/%s:enable", client.serviceUsageURL, project, service)
 		var op Operation
 		if err := client.doJSON(ctx, http.MethodPost, url, map[string]any{}, &op); err != nil {
 			return fmt.Errorf("enabling service %q: %w", service, err)
@@ -147,7 +147,7 @@ func makeRunServicesDisable(factory ClientFactory) func(*cobra.Command, []string
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/services/%s:disable", serviceUsageBaseURL, project, service)
+		url := fmt.Sprintf("%s/projects/%s/services/%s:disable", client.serviceUsageURL, project, service)
 		var op Operation
 		if err := client.doJSON(ctx, http.MethodPost, url, map[string]any{}, &op); err != nil {
 			return fmt.Errorf("disabling service %q: %w", service, err)

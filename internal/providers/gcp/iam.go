@@ -33,7 +33,7 @@ func makeRunIAMList(factory ClientFactory) func(*cobra.Command, []string) error 
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/serviceAccounts", iamBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/serviceAccounts", client.iamURL, project)
 		var resp struct {
 			Accounts []map[string]any `json:"accounts"`
 		}
@@ -101,7 +101,7 @@ func makeRunIAMCreate(factory ClientFactory) func(*cobra.Command, []string) erro
 			},
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/serviceAccounts", iamBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/serviceAccounts", client.iamURL, project)
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodPost, url, body, &data); err != nil {
 			return fmt.Errorf("creating service account %q: %w", accountID, err)
@@ -153,7 +153,7 @@ func makeRunIAMCreateKey(factory ClientFactory) func(*cobra.Command, []string) e
 			})
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/serviceAccounts/%s/keys", iamBaseURL, project, email)
+		url := fmt.Sprintf("%s/projects/%s/serviceAccounts/%s/keys", client.iamURL, project, email)
 		var data map[string]any
 		// Empty body uses defaults: JSON key type, no key algorithm override.
 		if err := client.doJSON(ctx, http.MethodPost, url, map[string]any{}, &data); err != nil {
@@ -218,7 +218,7 @@ func makeRunIAMDelete(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/serviceAccounts/%s", iamBaseURL, project, email)
+		url := fmt.Sprintf("%s/projects/%s/serviceAccounts/%s", client.iamURL, project, email)
 		if _, err := client.do(ctx, http.MethodDelete, url, nil); err != nil {
 			return fmt.Errorf("deleting service account %q: %w", email, err)
 		}

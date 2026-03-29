@@ -33,7 +33,7 @@ func makeRunBrandsList(factory ClientFactory) func(*cobra.Command, []string) err
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/brands", iapBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/brands", client.iapURL, project)
 		var resp struct {
 			Brands []map[string]any `json:"brands"`
 		}
@@ -110,7 +110,7 @@ func makeRunBrandsCreate(factory ClientFactory) func(*cobra.Command, []string) e
 			"supportEmail":     supportEmail,
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/brands", iapBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/brands", client.iapURL, project)
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodPost, url, body, &data); err != nil {
 			return fmt.Errorf("creating brand: %w", err)
@@ -153,7 +153,7 @@ func makeRunBrandsGet(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/brands/%s", iapBaseURL, project, brandID)
+		url := fmt.Sprintf("%s/projects/%s/brands/%s", client.iapURL, project, brandID)
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodGet, url, nil, &data); err != nil {
 			return fmt.Errorf("getting brand %q: %w", brandID, err)

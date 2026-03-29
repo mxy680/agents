@@ -27,6 +27,13 @@ const (
 type Client struct {
 	http      *http.Client
 	projectID string
+
+	// Base URLs for each API surface. Default to the package-level constants;
+	// overridden in tests to point all traffic at the mock server.
+	resourceManagerURL string
+	serviceUsageURL    string
+	iamURL             string
+	iapURL             string
 }
 
 // ClientFactory creates an authenticated GCP Client.
@@ -40,8 +47,12 @@ func NewClient(ctx context.Context) (*Client, error) {
 	}
 
 	return &Client{
-		http:      httpClient,
-		projectID: auth.GCPDefaultProject(),
+		http:               httpClient,
+		projectID:          auth.GCPDefaultProject(),
+		resourceManagerURL: resourceManagerBaseURL,
+		serviceUsageURL:    serviceUsageBaseURL,
+		iamURL:             iamBaseURL,
+		iapURL:             iapBaseURL,
 	}, nil
 }
 
@@ -141,7 +152,7 @@ func (c *Client) waitForOperation(ctx context.Context, op *Operation) (*Operatio
 	// Determine the base URL for the operation type.
 	// Operation names look like: "operations/xxx" or "projects/{id}/operations/{id}"
 	// Use cloudresourcemanager for project operations, serviceusage for service ops.
-	baseURL := resourceManagerBaseURL
+	baseURL := c.resourceManagerURL
 	delay := 2 * time.Second
 
 	for !op.Done {

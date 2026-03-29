@@ -34,7 +34,7 @@ func makeRunOAuthList(factory ClientFactory) func(*cobra.Command, []string) erro
 			return err
 		}
 
-		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients", iamBaseURL, project)
+		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients", client.iamURL, project)
 		var resp struct {
 			OAuthClients []map[string]any `json:"oauthClients"`
 		}
@@ -106,7 +106,7 @@ func makeRunOAuthCreate(factory ClientFactory) func(*cobra.Command, []string) er
 		}
 
 		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients?oauthClientId=%s",
-			iamBaseURL, project, clientID)
+			client.iamURL, project, clientID)
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodPost, url, body, &data); err != nil {
 			return fmt.Errorf("creating OAuth client %q: %w", clientID, err)
@@ -167,7 +167,7 @@ func makeRunOAuthUpdate(factory ClientFactory) func(*cobra.Command, []string) er
 		}
 
 		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients/%s?updateMask=allowedRedirectUris",
-			iamBaseURL, project, clientID)
+			client.iamURL, project, clientID)
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodPatch, url, body, &data); err != nil {
 			return fmt.Errorf("updating OAuth client %q: %w", clientID, err)
@@ -226,7 +226,7 @@ func makeRunOAuthDelete(factory ClientFactory) func(*cobra.Command, []string) er
 		}
 
 		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients/%s",
-			iamBaseURL, project, clientID)
+			client.iamURL, project, clientID)
 		if _, err := client.do(ctx, http.MethodDelete, url, nil); err != nil {
 			return fmt.Errorf("deleting OAuth client %q: %w", clientID, err)
 		}
@@ -277,7 +277,7 @@ func makeRunOAuthCreateCredentials(factory ClientFactory) func(*cobra.Command, [
 		}
 
 		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients/%s/credentials",
-			iamBaseURL, project, clientID)
+			client.iamURL, project, clientID)
 		var data map[string]any
 		// POST with empty body creates a new credential.
 		if err := client.doJSON(ctx, http.MethodPost, url, map[string]any{}, &data); err != nil {
@@ -327,7 +327,7 @@ func makeRunOAuthListCredentials(factory ClientFactory) func(*cobra.Command, []s
 		}
 
 		url := fmt.Sprintf("%s/projects/%s/locations/global/oauthClients/%s/credentials",
-			iamBaseURL, project, clientID)
+			client.iamURL, project, clientID)
 		var resp struct {
 			OAuthClientCredentials []map[string]any `json:"oauthClientCredentials"`
 		}

@@ -28,7 +28,7 @@ func makeRunProjectsList(factory ClientFactory) func(*cobra.Command, []string) e
 			return err
 		}
 
-		url := resourceManagerBaseURL + "/projects"
+		url := client.resourceManagerURL + "/projects"
 		if parent != "" {
 			url += "?parent=" + parent
 		}
@@ -70,7 +70,7 @@ func makeRunProjectsGet(factory ClientFactory) func(*cobra.Command, []string) er
 			return err
 		}
 
-		url := resourceManagerBaseURL + "/projects/" + project
+		url := client.resourceManagerURL + "/projects/" + project
 		var data map[string]any
 		if err := client.doJSON(ctx, http.MethodGet, url, nil, &data); err != nil {
 			return fmt.Errorf("getting project %q: %w", project, err)
@@ -141,7 +141,7 @@ func makeRunProjectsCreate(factory ClientFactory) func(*cobra.Command, []string)
 			body["parent"] = parent
 		}
 
-		url := resourceManagerBaseURL + "/projects"
+		url := client.resourceManagerURL + "/projects"
 		var op Operation
 		if err := client.doJSON(ctx, http.MethodPost, url, body, &op); err != nil {
 			return fmt.Errorf("creating project %q: %w", projectID, err)
@@ -198,7 +198,7 @@ func makeRunProjectsDelete(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		url := resourceManagerBaseURL + "/projects/" + project
+		url := client.resourceManagerURL + "/projects/" + project
 		if _, err := client.do(ctx, http.MethodDelete, url, nil); err != nil {
 			return fmt.Errorf("deleting project %q: %w", project, err)
 		}
