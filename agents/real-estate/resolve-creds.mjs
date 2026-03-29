@@ -54,6 +54,10 @@ function credentialsToEnv(provider, creds) {
       if (creds.access_token) env.GOOGLE_ACCESS_TOKEN = creds.access_token
       if (creds.refresh_token) env.GOOGLE_REFRESH_TOKEN = creds.refresh_token
       break
+    case "github":
+      if (creds.access_token) env.GITHUB_ACCESS_TOKEN = creds.access_token
+      if (creds.refresh_token) env.GITHUB_REFRESH_TOKEN = creds.refresh_token
+      break
     case "zillow":
       if (creds.all_cookies) env.ZILLOW_COOKIES = creds.all_cookies
       if (creds.proxy_url) env.ZILLOW_PROXY_URL = creds.proxy_url
