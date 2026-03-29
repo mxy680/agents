@@ -79,6 +79,13 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       if (credJson.service_account_json) env.GCP_SERVICE_ACCOUNT_JSON = credJson.service_account_json
       if (credJson.project_id) env.GCP_PROJECT_ID = credJson.project_id
       break
+    case "gcp-console":
+      if (credJson.sapisid) env.GCP_CONSOLE_SAPISID = credJson.sapisid
+      if (credJson.SID) env.GCP_CONSOLE_SID = credJson.SID
+      if (credJson.HSID) env.GCP_CONSOLE_HSID = credJson.HSID
+      if (credJson.SSID) env.GCP_CONSOLE_SSID = credJson.SSID
+      if (credJson.APISID) env.GCP_CONSOLE_APISID = credJson.APISID
+      break
   }
   return env
 }

@@ -136,6 +136,14 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"service_account_json": "GCP_SERVICE_ACCOUNT_JSON",
 			"project_id":           "GCP_PROJECT_ID",
 		})
+	case "gcp-console":
+		mapCredentials(creds, env, map[string]string{
+			"sapisid": "GCP_CONSOLE_SAPISID",
+			"SID":     "GCP_CONSOLE_SID",
+			"HSID":    "GCP_CONSOLE_HSID",
+			"SSID":    "GCP_CONSOLE_SSID",
+			"APISID":  "GCP_CONSOLE_APISID",
+		})
 	}
 	return nil
 }

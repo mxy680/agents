@@ -154,6 +154,13 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     connectType: "gcp" as const,
   },
   {
+    id: "gcp-console",
+    name: "Google Cloud Console",
+    description: "OAuth clients, consent screen (session cookies)",
+    icon: IconBrandGoogle,
+    connectType: "cookie-paste" as const,
+  },
+  {
     id: "citibike",
     name: "Citi Bike",
     description: "Station density, transit accessibility signals",

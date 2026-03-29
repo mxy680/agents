@@ -27,6 +27,7 @@ import (
 	linearprovider "github.com/emdash-projects/agents/internal/providers/linear"
 	flyprovider "github.com/emdash-projects/agents/internal/providers/fly"
 	gcpprovider "github.com/emdash-projects/agents/internal/providers/gcp"
+	gcpconsoleprovider "github.com/emdash-projects/agents/internal/providers/gcpconsole"
 	"github.com/emdash-projects/agents/internal/providers/nydos"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
@@ -123,6 +124,9 @@ func main() {
 
 	gcpProvider := gcpprovider.New()
 	gcpProvider.RegisterCommands(cli.RootCmd())
+
+	gcpConsoleProvider := gcpconsoleprovider.New()
+	gcpConsoleProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)
