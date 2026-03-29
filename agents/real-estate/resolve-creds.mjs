@@ -72,6 +72,10 @@ function credentialsToEnv(provider, creds) {
     case "fly":
       if (creds.token) env.FLY_API_TOKEN = creds.token
       break
+    case "gcp":
+      if (creds.token) env.GCP_ACCESS_TOKEN = creds.token
+      if (creds.project_id) env.GCP_PROJECT_ID = creds.project_id
+      break
   }
   return env
 }

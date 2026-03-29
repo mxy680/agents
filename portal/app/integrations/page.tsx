@@ -24,6 +24,7 @@ import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialo
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
 import { CookiePasteDialog } from "@/components/cookie-paste-dialog"
 import { ApiKeyDialog } from "@/components/api-key-dialog"
+import { GCPConnectDialog } from "@/components/gcp-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -50,6 +51,7 @@ import {
   IconBrandCloudflare,
   IconLayoutKanban,
   IconRocket,
+  IconCloud,
 } from "@tabler/icons-react"
 
 const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
@@ -143,6 +145,13 @@ const providers: Array<{ id: string; name: string; description: string; icon: ty
     description: "Apps, Machines, Volumes, Certificates, Secrets",
     icon: IconRocket,
     connectType: "api-key" as const,
+  },
+  {
+    id: "gcp",
+    name: "Google Cloud Platform",
+    description: "Projects, APIs, OAuth clients, IAM, Service Accounts",
+    icon: IconCloud,
+    connectType: "gcp" as const,
   },
   {
     id: "citibike",
@@ -330,6 +339,13 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
                       </CookieCaptureButton>
+                    ) : provider.connectType === "gcp" ? (
+                      <GCPConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Update token" : "Connect"}
+                        </Button>
+                      </GCPConnectDialog>
                     ) : provider.connectType === "api-key" ? (
                       <ApiKeyDialog
                         provider={provider.id}

@@ -74,6 +74,10 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
     case "fly":
       if (credJson.token) env.FLY_API_TOKEN = credJson.token
       break
+    case "gcp":
+      if (credJson.token) env.GCP_ACCESS_TOKEN = credJson.token
+      if (credJson.project_id) env.GCP_PROJECT_ID = credJson.project_id
+      break
   }
   return env
 }

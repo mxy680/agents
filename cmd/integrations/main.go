@@ -26,6 +26,7 @@ import (
 	cloudflareprovider "github.com/emdash-projects/agents/internal/providers/cloudflare"
 	linearprovider "github.com/emdash-projects/agents/internal/providers/linear"
 	flyprovider "github.com/emdash-projects/agents/internal/providers/fly"
+	gcpprovider "github.com/emdash-projects/agents/internal/providers/gcp"
 	"github.com/emdash-projects/agents/internal/providers/nydos"
 	"github.com/emdash-projects/agents/internal/providers/nysla"
 	"github.com/emdash-projects/agents/internal/providers/nyscef"
@@ -119,6 +120,9 @@ func main() {
 
 	flyProvider := flyprovider.New()
 	flyProvider.RegisterCommands(cli.RootCmd())
+
+	gcpProvider := gcpprovider.New()
+	gcpProvider.RegisterCommands(cli.RootCmd())
 
 	if err := cli.Execute(); err != nil {
 		os.Exit(1)

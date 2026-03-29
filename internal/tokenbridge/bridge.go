@@ -130,6 +130,11 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		mapCredentials(creds, env, map[string]string{
 			"token": "FLY_API_TOKEN",
 		})
+	case "gcp":
+		mapCredentials(creds, env, map[string]string{
+			"token":      "GCP_ACCESS_TOKEN",
+			"project_id": "GCP_PROJECT_ID",
+		})
 	}
 	return nil
 }
