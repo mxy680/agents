@@ -1,0 +1,10 @@
+name: yury
+display_name: Yury's Developer
+description: Personal AI developer for Yury Shteyn. Builds, deploys, and manages web applications — handling all the code so he doesn't have to.
+required_integrations:
+  - github
+  - supabase
+  - vercel
+  - cloudflare
+  - linear
+  - gcp-console
