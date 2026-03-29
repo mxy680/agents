@@ -152,6 +152,15 @@ fi
 export PATH="${binPath}:$PATH"
 export FORCE_TTY=1
 source "$CREDS_FILE"
+
+# Unset platform infrastructure vars — agents must NOT access the platform database
+unset NEXT_PUBLIC_SUPABASE_URL
+unset NEXT_PUBLIC_SUPABASE_ANON_KEY
+unset SUPABASE_SERVICE_ROLE_KEY
+unset SUPABASE_DB_URL
+unset SUPABASE_JWT_SECRET
+unset ENCRYPTION_MASTER_KEY
+
 node "${entrypointScript}" "${sessionFile}" >> "$LOG_FILE" 2>&1
 EXIT_CODE=$?
 

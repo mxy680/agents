@@ -55,6 +55,14 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
     NODE_PATH: existingNodePath ? `${npmGlobalRoot}:${existingNodePath}` : npmGlobalRoot,
   }
 
+  // Remove platform infrastructure vars — agents must NOT access the platform database
+  delete env.NEXT_PUBLIC_SUPABASE_URL
+  delete env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  delete env.SUPABASE_SERVICE_ROLE_KEY
+  delete env.SUPABASE_DB_URL
+  delete env.SUPABASE_JWT_SECRET
+  delete env.ENCRYPTION_MASTER_KEY
+
   // Create a temp directory for the session file.
   const tmpDir = mkdtempSync(path.join(os.tmpdir(), `local-agent-${agentName}-`))
   mkdirSync(tmpDir, { recursive: true })
