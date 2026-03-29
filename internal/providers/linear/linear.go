@@ -73,6 +73,7 @@ func (p *Provider) RegisterCommands(parent *cobra.Command) {
 	}
 	teamsCmd.AddCommand(newTeamsListCmd(p.ClientFactory))
 	teamsCmd.AddCommand(newTeamsGetCmd(p.ClientFactory))
+	teamsCmd.AddCommand(newTeamsCreateCmd(p.ClientFactory))
 	teamsCmd.AddCommand(newTeamsMembersCmd(p.ClientFactory))
 	linearCmd.AddCommand(teamsCmd)
 

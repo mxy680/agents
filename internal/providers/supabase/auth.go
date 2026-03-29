@@ -20,6 +20,8 @@ func newAuthCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(
 		newAuthGetCmd(factory),
 		newAuthUpdateCmd(factory),
+		newAuthGetConfigCmd(factory),
+		newAuthUpdateConfigCmd(factory),
 		newAuthSigningKeysCmd(factory),
 		newAuthThirdPartyCmd(factory),
 	)
@@ -513,5 +515,105 @@ func makeRunThirdPartyDelete(factory ClientFactory) func(*cobra.Command, []strin
 		}
 		fmt.Printf("Deleted third-party auth provider: %s\n", tpaID)
 		return nil
+	}
+}
+
+// --- auth get-config ---
+
+func newAuthGetConfigCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get-config",
+		Short: "Get the Auth configuration for a project",
+		RunE:  makeRunAuthGetConfig(factory),
+	}
+	cmd.Flags().String("ref", "", "Project ref (required)")
+	_ = cmd.MarkFlagRequired("ref")
+	return cmd
+}
+
+func makeRunAuthGetConfig(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ref, _ := cmd.Flags().GetString("ref")
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		data, err := doSupabase(client, http.MethodGet, fmt.Sprintf("/projects/%s/config/auth", ref), nil)
+		if err != nil {
+			return fmt.Errorf("getting auth config: %w", err)
+		}
+
+		return printAuthConfigJSON(cmd, data)
+	}
+}
+
+// --- auth update-config ---
+
+func newAuthUpdateConfigCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-config",
+		Short: "Update Auth configuration settings for a project",
+		RunE:  makeRunAuthUpdateConfig(factory),
+	}
+	cmd.Flags().String("ref", "", "Project ref (required)")
+	cmd.Flags().Bool("enable-email", false, "Enable email auth provider")
+	cmd.Flags().Bool("enable-signup", false, "Enable new user signups")
+	cmd.Flags().String("site-url", "", "Site URL for redirects")
+	cmd.Flags().String("redirect-urls", "", "Comma-separated list of allowed redirect URLs")
+	_ = cmd.MarkFlagRequired("ref")
+	return cmd
+}
+
+func makeRunAuthUpdateConfig(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		ref, _ := cmd.Flags().GetString("ref")
+		enableEmail, _ := cmd.Flags().GetBool("enable-email")
+		enableSignup, _ := cmd.Flags().GetBool("enable-signup")
+		siteURL, _ := cmd.Flags().GetString("site-url")
+		redirectURLs, _ := cmd.Flags().GetString("redirect-urls")
+
+		body := map[string]any{}
+		if cmd.Flags().Changed("enable-email") {
+			body["EXTERNAL_EMAIL_ENABLED"] = enableEmail
+		}
+		if cmd.Flags().Changed("enable-signup") {
+			body["ENABLE_SIGNUP"] = enableSignup
+		}
+		if siteURL != "" {
+			body["SITE_URL"] = siteURL
+		}
+		if redirectURLs != "" {
+			body["URI_ALLOW_LIST"] = redirectURLs
+		}
+
+		if cli.IsDryRun(cmd) {
+			if cli.IsJSONOutput(cmd) {
+				_ = cli.PrintJSON(map[string]any{"dryRun": fmt.Sprintf("Would update auth config for project %s", ref), "body": body})
+			} else {
+				fmt.Printf("[DRY RUN] Would update auth config for project %s with: %v\n", ref, body)
+			}
+			return nil
+		}
+
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("encoding config: %w", err)
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		data, err := doSupabase(client, http.MethodPatch, fmt.Sprintf("/projects/%s/config/auth", ref), bytes.NewReader(bodyBytes))
+		if err != nil {
+			return fmt.Errorf("updating auth config: %w", err)
+		}
+
+		return printAuthConfigJSON(cmd, data)
 	}
 }

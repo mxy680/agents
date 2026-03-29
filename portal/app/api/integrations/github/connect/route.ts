@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_INTEGRATION_CLIENT_ID!,
     redirect_uri: redirectUri,
-    scope: "repo gist read:org workflow user:email",
+    scope: "repo delete_repo gist read:org workflow user:email",
     state,
   })
 

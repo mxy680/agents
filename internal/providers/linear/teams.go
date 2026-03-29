@@ -151,6 +151,87 @@ query($id: String!) {
 	}
 }
 
+func newTeamsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new team",
+		RunE:  makeRunTeamsCreate(factory),
+	}
+	cmd.Flags().String("name", "", "Team name (required)")
+	cmd.Flags().String("key", "", "Team key, e.g. ENG (auto-generated from name if not provided)")
+	cmd.Flags().String("description", "", "Team description")
+	cmd.Flags().Bool("dry-run", false, "Print what would be created without making changes")
+	_ = cmd.MarkFlagRequired("name")
+	return cmd
+}
+
+func makeRunTeamsCreate(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		name, _ := cmd.Flags().GetString("name")
+		key, _ := cmd.Flags().GetString("key")
+		description, _ := cmd.Flags().GetString("description")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("Would create team %q", name), map[string]any{
+				"action":      "create",
+				"name":        name,
+				"key":         key,
+				"description": description,
+			})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		const q = `
+mutation($input: TeamCreateInput!) {
+  teamCreate(input: $input) {
+    team {
+      id
+      name
+      key
+    }
+    success
+  }
+}`
+
+		input := map[string]any{
+			"name": name,
+		}
+		if key != "" {
+			input["key"] = key
+		}
+		if description != "" {
+			input["description"] = description
+		}
+
+		var resp struct {
+			TeamCreate struct {
+				Team struct {
+					ID   string `json:"id"`
+					Name string `json:"name"`
+					Key  string `json:"key"`
+				} `json:"team"`
+				Success bool `json:"success"`
+			} `json:"teamCreate"`
+		}
+
+		if err := client.graphQL(ctx, q, map[string]any{"input": input}, &resp); err != nil {
+			return fmt.Errorf("creating team: %w", err)
+		}
+
+		team := resp.TeamCreate.Team
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(team)
+		}
+		fmt.Printf("Created team: %s (%s) — ID: %s\n", team.Name, team.Key, team.ID)
+		return nil
+	}
+}
+
 func newTeamsMembersCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "members",
