@@ -273,7 +273,12 @@ export default async function IntegrationsPage() {
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {providers.map((provider) => {
+            {[...providers].sort((a, b) => {
+              const aConnected = (integrationsByProvider[a.id] ?? []).length > 0 ? 0 : 1
+              const bConnected = (integrationsByProvider[b.id] ?? []).length > 0 ? 0 : 1
+              if (aConnected !== bConnected) return aConnected - bConnected
+              return a.name.localeCompare(b.name)
+            }).map((provider) => {
               const accounts = integrationsByProvider[provider.id] ?? []
               return (
                 <Card key={provider.id} id={provider.id} className="flex flex-col">
