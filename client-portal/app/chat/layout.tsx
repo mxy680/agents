@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { IconPlus, IconMessage, IconChevronLeft, IconMenu2, IconTrash } from "@tabler/icons-react"
 
@@ -22,11 +22,7 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-export default function ClientChatLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function ChatLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const agent = searchParams.get("agent") ?? ""
@@ -161,5 +157,13 @@ export default function ClientChatLayout({
         {children}
       </div>
     </div>
+  )
+}
+
+export default function ClientChatLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="flex h-dvh bg-[#0a0a0a] items-center justify-center"><div className="text-neutral-500 text-sm">Loading...</div></div>}>
+      <ChatLayoutInner>{children}</ChatLayoutInner>
+    </Suspense>
   )
 }
