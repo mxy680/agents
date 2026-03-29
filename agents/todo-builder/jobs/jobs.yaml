@@ -6,3 +6,11 @@ jobs:
     prompt_file: evolve.md
     timeout_minutes: 60
     estimated_minutes: 15
+
+  - slug: nuke
+    display_name: Nuke Everything
+    description: Delete ALL resources (GitHub repo, Vercel project, Supabase project, Linear issues) — complete reset
+    schedule: ""
+    prompt_file: nuke.md
+    timeout_minutes: 15
+    estimated_minutes: 3

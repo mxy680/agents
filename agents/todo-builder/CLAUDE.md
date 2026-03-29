@@ -3,15 +3,18 @@
 ## CRITICAL RULES
 
 1. **DO NOT prefix commands with `doppler run --`** — credentials are already in your environment
-2. **Always create a Linear issue BEFORE starting work**
-3. **Always commit to GitHub AFTER completing work**
-4. **Always deploy to Vercel AFTER committing**
-5. **Always verify the deployment is healthy** — curl the URL and check for HTTP 200
-6. **Close the Linear issue with a summary when done**
-7. **The GitHub org is `engagentdev`**, the repo name is `todo-app`
-8. **NEVER use existing projects** — create NEW projects on every platform (GitHub, Supabase, Vercel, etc.). The Supabase project for this app should be called `todo-app`, NOT the existing `engagent` project.
-9. **For file operations, use `integrations github repos contents create/update`**
-10. **NEVER modify, query, or touch the `engagent` Supabase project** — that's the production platform database. Create a separate Supabase project for the todo app.
+2. **Always read `known-issues.md` FIRST** before starting any work. This file contains issues from prior runs — avoid repeating them.
+3. **Always WRITE to `known-issues.md`** when you encounter an error or unexpected behavior. Append a line: `- [YYYY-MM-DD] [description] → [solution]`. This persists across sessions.
+4. **Always create a Linear issue BEFORE starting work** — in the `todo-app` Linear project (NOT the Engagent team)
+5. **Always commit to GitHub AFTER completing work**
+6. **Always deploy to Vercel AFTER committing**
+7. **Always verify the deployment is healthy** — curl the URL and check for HTTP 200
+8. **Close the Linear issue with a summary when done**
+9. **The GitHub org is `engagentdev`**, the repo name is `todo-app`
+10. **NEVER use existing projects** — create NEW projects on every platform (GitHub, Supabase, Vercel, Linear). The todo app gets its OWN Supabase project, its OWN Linear team/project.
+11. **For file operations, use `integrations github repos contents create/update`**
+12. **NEVER modify, query, or touch the `engagent` Supabase project or `Engagent` Linear team** — those are the production platform. Create separate resources for the todo app.
+13. **Create a Linear team called `Todo App`** (if it doesn't exist) and use that for all issues — NOT the `Engagent` (ENG) team.
 
 ## Authentication
 All credentials are pre-configured via environment variables. Run commands directly — no `doppler run` needed.

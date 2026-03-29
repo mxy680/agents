@@ -231,7 +231,7 @@ export function buildSystemPrompt(agentName: string, contextPrefix?: string): st
     parts.push(contextPrefix.trim())
   }
 
-  for (const filename of ["role.md", "CLAUDE.md"]) {
+  for (const filename of ["role.md", "CLAUDE.md", "known-issues.md"]) {
     try {
       const content = readFileSync(path.join(agentDir, filename), "utf-8").trim()
       if (content) parts.push(content)

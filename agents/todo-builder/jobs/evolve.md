@@ -1,16 +1,37 @@
 You are running an autonomous evolution cycle for the todo application.
 
-## Known Issues from Previous Runs — READ THESE FIRST
+## Step 0 — Read known issues
 
-1. **GitHub owner is `engagentdev`** (NOT `mxy680`). The repo was created under the `engagentdev` org.
-2. **Linear `--team` flag requires the team UUID**, not the key. The team UUID is `fe5ecac6-5746-4a6b-90c4-8a410f21fc69` (key: ENG).
-3. **Linear `--status` flag doesn't exist**. To close an issue, first get the "Done" state ID: `integrations linear workflows list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json`, then use `--state=<done-state-id>`.
-4. **Vercel auto-deploy from GitHub requires the Vercel GitHub integration** to be installed. If Vercel is NOT linked to GitHub, deploy files directly using the Vercel API (`/v2/files` + `/v13/deployments`).
-5. **GitHub contents create doesn't work on empty repos**. Use the Git Data API (blobs → tree → commit → ref) for the initial commit, OR create a README first via the contents API.
-6. **Use Next.js 15.5.14** — older versions have build issues on Vercel.
-7. **Vercel project flag is `--project`**, not `--name` (for get/delete commands).
+**BEFORE doing anything else**, read the known issues file:
+```bash
+cat agents/todo-builder/known-issues.md
+```
+This file contains issues from prior runs. Avoid repeating them. If you encounter a NEW issue during this run, append it to the file:
+```bash
+echo "- [$(date +%Y-%m-%d)] [description] → [solution]" >> agents/todo-builder/known-issues.md
+```
 
-## Step 1 — Check current state
+## Hardcoded Facts
+
+- **GitHub owner**: `engagentdev` (NOT `mxy680`)
+- **Linear `--team` requires UUID** — list teams with `integrations linear teams list --json` to get the UUID. Do NOT use the key (e.g., "ENG").
+- **Linear has no `--status` flag** — to close an issue, get the Done state ID from `integrations linear workflows list --team=<uuid> --json`, then use `--state=<done-state-id>`.
+- **Use Next.js 15.5.14** — other versions may have build issues.
+- **Vercel get/delete uses `--project`**, not `--name`.
+- **GitHub contents create fails on empty repos** — create a README first.
+- **Create a separate Linear team** called `Todo App` for this project — do NOT use the Engagent team.
+
+## Step 1 — Set up Linear team
+
+First, check if a `Todo App` Linear team exists:
+```bash
+integrations linear teams list --json
+```
+If there's no team with name "Todo App", create one. If the CLI doesn't support team creation, use the existing team but create issues with a `[todo-app]` prefix in the title.
+
+Save the team UUID — you'll need it for all Linear operations in this run.
+
+## Step 2 — Check current state
 
 Check if the GitHub repo exists:
 
@@ -31,7 +52,7 @@ integrations github repos create --name=todo-app --description="Autonomous todo 
 ```bash
 integrations linear issues create \
   --title="Initial scaffold: todo app" \
-  --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 \
+  --team=<todo-app-team-uuid> \
   --description="Create GitHub repo, scaffold Next.js 15 app, set up Supabase, deploy to Vercel." \
   --priority=2 \
   --json
@@ -115,7 +136,7 @@ curl -s -o /dev/null -w "%{http_code}" <deployment-url>
 
 10. **Close the Linear issue** — first get the Done state ID:
 ```bash
-integrations linear workflows list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json
+integrations linear workflows list --team=<todo-app-team-uuid> --json
 ```
 Find the state with `type: "completed"`, then:
 ```bash
@@ -132,7 +153,7 @@ integrations github repos commits list --repo=todo-app --owner=engagentdev --lim
 
 2. **Check Linear for completed work** (use team UUID):
 ```bash
-integrations linear issues list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json
+integrations linear issues list --team=<todo-app-team-uuid> --json
 ```
 
 3. **Decide what to build next**. Choose from this priority list (skip anything already done):
@@ -154,7 +175,7 @@ integrations linear issues list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --js
 ```bash
 integrations linear issues create \
   --title="Add [feature]" \
-  --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 \
+  --team=<todo-app-team-uuid> \
   --description="Description of what will be built" \
   --priority=2 \
   --json
@@ -198,5 +219,5 @@ Summarize:
 - Never delete existing functionality unless refactoring.
 - If something fails, read the error and fix it. Don't retry the same thing.
 - The GitHub org is **engagentdev** (not mxy680).
-- The Linear team UUID is **fe5ecac6-5746-4a6b-90c4-8a410f21fc69**.
+- Use the `Todo App` Linear team (find UUID via `integrations linear teams list --json`).
 - NEVER use the existing `engagent` Supabase project.
