@@ -34,6 +34,7 @@ const TEST_COMMANDS: Record<string, string[] | null> = {
   cloudflare: ["cloudflare", "zones", "list", "--json"],
   linear: ["linear", "users", "me", "--json"],
   fly: ["fly", "apps", "list", "--org=personal", "--json"],
+  "gcp-console": ["gcp-console", "oauth", "list", "--project-number=58889913836", "--json"],
   gcp: ["gcp", "projects", "get", "--project=engagent", "--json"],
 }
 
