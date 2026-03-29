@@ -10,7 +10,7 @@ func TestComputeSAPISIDHash(t *testing.T) {
 		name      string
 		timestamp int64
 		sapisid   string
-		wantFmt   string // prefix format to verify structure
+		wantFmt   string
 	}{
 		{
 			name:      "basic hash",
@@ -35,7 +35,6 @@ func TestComputeSAPISIDHash(t *testing.T) {
 			if got[:len(tc.wantFmt)] != tc.wantFmt {
 				t.Errorf("prefix mismatch: want %q, got %q", tc.wantFmt, got[:len(tc.wantFmt)])
 			}
-			// SHA1 produces a 40-char hex string
 			hash := got[len(tc.wantFmt):]
 			if len(hash) != 40 {
 				t.Errorf("SHA1 hex should be 40 chars, got %d in %q", len(hash), hash)
@@ -45,7 +44,6 @@ func TestComputeSAPISIDHash(t *testing.T) {
 }
 
 func TestComputeSAPISIDHash_Deterministic(t *testing.T) {
-	// Same inputs must produce the same output
 	ts := int64(1700000000)
 	sapisid := "test_sapisid_value"
 	h1 := computeSAPISIDHash(ts, sapisid)
@@ -56,7 +54,6 @@ func TestComputeSAPISIDHash_Deterministic(t *testing.T) {
 }
 
 func TestComputeSAPISIDHash_DifferentInputs(t *testing.T) {
-	// Different inputs must produce different hashes
 	ts := int64(1700000000)
 	h1 := computeSAPISIDHash(ts, "sapisid_a")
 	h2 := computeSAPISIDHash(ts, "sapisid_b")
@@ -65,60 +62,12 @@ func TestComputeSAPISIDHash_DifferentInputs(t *testing.T) {
 	}
 }
 
-func TestGCPConsoleSession_CookieString(t *testing.T) {
-	tests := []struct {
-		name    string
-		session GCPConsoleSession
-		want    string
-	}{
-		{
-			name: "required cookies only",
-			session: GCPConsoleSession{
-				SAPISID: "sapisid_val",
-				SID:     "sid_val",
-			},
-			want: "SAPISID=sapisid_val; SID=sid_val",
-		},
-		{
-			name: "all cookies",
-			session: GCPConsoleSession{
-				SAPISID: "sapisid_val",
-				SID:     "sid_val",
-				HSID:    "hsid_val",
-				SSID:    "ssid_val",
-				APISID:  "apisid_val",
-			},
-			want: "SAPISID=sapisid_val; SID=sid_val; HSID=hsid_val; SSID=ssid_val; APISID=apisid_val",
-		},
-		{
-			name: "with HSID only",
-			session: GCPConsoleSession{
-				SAPISID: "s",
-				SID:     "d",
-				HSID:    "h",
-			},
-			want: "SAPISID=s; SID=d; HSID=h",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := tc.session.CookieString()
-			if got != tc.want {
-				t.Errorf("CookieString() = %q, want %q", got, tc.want)
-			}
-		})
-	}
-}
-
 func TestGCPConsoleSession_SAPISIDHash_Format(t *testing.T) {
-	session := &GCPConsoleSession{SAPISID: "test_sapisid", SID: "test_sid"}
+	session := &GCPConsoleSession{SAPISID: "test_sapisid", AllCookies: "SAPISID=test_sapisid; SID=test_sid"}
 	hash := session.SAPISIDHash()
-	// Must start with "SAPISIDHASH "
 	if len(hash) < 12 || hash[:12] != "SAPISIDHASH " {
 		t.Errorf("SAPISIDHash() should start with 'SAPISIDHASH ', got %q", hash)
 	}
-	// Must contain an underscore separating timestamp from hex
 	var ts int64
 	var hexPart string
 	if _, err := fmt.Sscanf(hash[12:], "%d_%s", &ts, &hexPart); err != nil {
@@ -129,44 +78,62 @@ func TestGCPConsoleSession_SAPISIDHash_Format(t *testing.T) {
 	}
 }
 
-func TestNewGCPConsoleSession_MissingRequired(t *testing.T) {
+func TestNewGCPConsoleSession_MissingAll(t *testing.T) {
 	t.Setenv("GCP_CONSOLE_SAPISID", "")
-	t.Setenv("GCP_CONSOLE_SID", "")
+	t.Setenv("GCP_CONSOLE_ALL_COOKIES", "")
 
 	_, err := NewGCPConsoleSession()
 	if err == nil {
-		t.Error("expected error when required env vars are missing")
+		t.Error("expected error when all env vars are missing")
 	}
 }
 
-func TestNewGCPConsoleSession_MissingSID(t *testing.T) {
+func TestNewGCPConsoleSession_MissingAllCookies(t *testing.T) {
 	t.Setenv("GCP_CONSOLE_SAPISID", "some_sapisid")
-	t.Setenv("GCP_CONSOLE_SID", "")
+	t.Setenv("GCP_CONSOLE_ALL_COOKIES", "")
 
 	_, err := NewGCPConsoleSession()
 	if err == nil {
-		t.Error("expected error when GCP_CONSOLE_SID is missing")
+		t.Error("expected error when GCP_CONSOLE_ALL_COOKIES is missing")
 	}
 }
 
-func TestNewGCPConsoleSession_Success(t *testing.T) {
-	t.Setenv("GCP_CONSOLE_SAPISID", "my_sapisid")
-	t.Setenv("GCP_CONSOLE_SID", "my_sid")
-	t.Setenv("GCP_CONSOLE_HSID", "my_hsid")
-	t.Setenv("GCP_CONSOLE_SSID", "")
-	t.Setenv("GCP_CONSOLE_APISID", "")
+func TestNewGCPConsoleSession_ExtractSAPISIDFromCookies(t *testing.T) {
+	t.Setenv("GCP_CONSOLE_SAPISID", "")
+	t.Setenv("GCP_CONSOLE_ALL_COOKIES", "SID=abc; SAPISID=extracted_value; HSID=def")
 
 	session, err := NewGCPConsoleSession()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if session.SAPISID != "my_sapisid" {
-		t.Errorf("SAPISID = %q, want %q", session.SAPISID, "my_sapisid")
+	if session.SAPISID != "extracted_value" {
+		t.Errorf("SAPISID = %q, want %q", session.SAPISID, "extracted_value")
 	}
-	if session.SID != "my_sid" {
-		t.Errorf("SID = %q, want %q", session.SID, "my_sid")
+}
+
+func TestNewGCPConsoleSession_ExplicitSAPISID(t *testing.T) {
+	t.Setenv("GCP_CONSOLE_SAPISID", "explicit_value")
+	t.Setenv("GCP_CONSOLE_ALL_COOKIES", "SID=abc; SAPISID=cookie_value")
+
+	session, err := NewGCPConsoleSession()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if session.HSID != "my_hsid" {
-		t.Errorf("HSID = %q, want %q", session.HSID, "my_hsid")
+	if session.SAPISID != "explicit_value" {
+		t.Errorf("SAPISID = %q, want %q (explicit should take precedence)", session.SAPISID, "explicit_value")
+	}
+}
+
+func TestNewGCPConsoleSession_AllCookiesUsedDirectly(t *testing.T) {
+	cookies := "SID=abc; SAPISID=val; __Secure-1PSID=xyz"
+	t.Setenv("GCP_CONSOLE_SAPISID", "")
+	t.Setenv("GCP_CONSOLE_ALL_COOKIES", cookies)
+
+	session, err := NewGCPConsoleSession()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if session.AllCookies != cookies {
+		t.Errorf("AllCookies = %q, want %q", session.AllCookies, cookies)
 	}
 }

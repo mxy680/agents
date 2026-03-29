@@ -50,7 +50,7 @@ func TestLinearClient_InjectsAuthHeader(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	want := "Bearer lin_api_my_secret"
+	want := "lin_api_my_secret"
 	if gotHeader != want {
 		t.Errorf("Authorization header = %q, want %q", gotHeader, want)
 	}
