@@ -1,4 +1,4 @@
-app = "emdash-agents"
+app = "engagent"
 primary_region = "ewr"  # Newark, NJ (closest to NYC)
 
 [build]

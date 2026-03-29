@@ -3,7 +3,7 @@ export const maxDuration = 30
 import { NextRequest, NextResponse } from "next/server"
 
 // Fly.io app URL for remote job triggering
-const FLY_APP_URL = "https://emdash-agents.fly.dev"
+const FLY_APP_URL = "https://engagent.fly.dev"
 
 // Allowlist of agents that can be triggered via this route
 const ALLOWED_AGENTS = ["real-estate"]
