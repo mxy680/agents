@@ -132,8 +132,9 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 		})
 	case "gcp":
 		mapCredentials(creds, env, map[string]string{
-			"token":      "GCP_ACCESS_TOKEN",
-			"project_id": "GCP_PROJECT_ID",
+			"token":                "GCP_ACCESS_TOKEN",
+			"service_account_json": "GCP_SERVICE_ACCOUNT_JSON",
+			"project_id":           "GCP_PROJECT_ID",
 		})
 	}
 	return nil

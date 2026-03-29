@@ -30,6 +30,11 @@ const TEST_COMMANDS: Record<string, string[] | null> = {
   bluebubbles: ["imessage", "server", "info", "--json"],
   canvas: ["canvas", "users", "me", "--json"],
   zillow: ["zillow", "properties", "search", "--location=Denver, CO", "--limit=1", "--json"],
+  vercel: ["vercel", "teams", "list", "--json"],
+  cloudflare: ["cloudflare", "zones", "list", "--json"],
+  linear: ["linear", "users", "me", "--json"],
+  fly: ["fly", "apps", "list", "--org=personal", "--json"],
+  gcp: ["gcp", "projects", "get", "--json"],
 }
 
 export async function POST(request: NextRequest) {

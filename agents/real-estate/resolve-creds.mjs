@@ -74,6 +74,7 @@ function credentialsToEnv(provider, creds) {
       break
     case "gcp":
       if (creds.token) env.GCP_ACCESS_TOKEN = creds.token
+      if (creds.service_account_json) env.GCP_SERVICE_ACCOUNT_JSON = creds.service_account_json
       if (creds.project_id) env.GCP_PROJECT_ID = creds.project_id
       break
   }

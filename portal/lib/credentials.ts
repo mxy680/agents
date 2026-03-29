@@ -76,6 +76,7 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
       break
     case "gcp":
       if (credJson.token) env.GCP_ACCESS_TOKEN = credJson.token
+      if (credJson.service_account_json) env.GCP_SERVICE_ACCOUNT_JSON = credJson.service_account_json
       if (credJson.project_id) env.GCP_PROJECT_ID = credJson.project_id
       break
   }
