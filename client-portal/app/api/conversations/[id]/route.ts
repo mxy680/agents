@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
- * GET /api/conversations/[id]?code=XXX
+ * GET /api/conversations/[id]
  *
- * Load a conversation with its messages (validates access code).
+ * Load a conversation with its messages (validates session cookie).
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const code = request.nextUrl.searchParams.get("code")
+  const code = request.cookies.get("engagent_session")?.value
 
   if (!code) {
     return NextResponse.json({ error: "code required" }, { status: 400 })

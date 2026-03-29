@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { IconPlus, IconMessage, IconChevronLeft, IconMenu2, IconTrash } from "@tabler/icons-react"
 
@@ -24,12 +24,9 @@ function formatDate(iso: string): string {
 
 export default function ClientChatLayout({
   children,
-  params,
 }: {
   children: React.ReactNode
-  params: Promise<{ code: string }>
 }) {
-  const { code } = use(params)
   const router = useRouter()
   const searchParams = useSearchParams()
   const agent = searchParams.get("agent") ?? ""
@@ -41,9 +38,8 @@ export default function ClientChatLayout({
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(
-          `/api/conversations?code=${encodeURIComponent(code)}&agent=${agent}`
-        )
+        // Cookie is sent automatically — no code param needed
+        const res = await fetch(`/api/conversations?agent=${agent}`)
         if (res.ok) {
           const data = await res.json() as { conversations: Conversation[] }
           setConversations(data.conversations)
@@ -52,22 +48,19 @@ export default function ClientChatLayout({
     }
     load()
 
-    // Refresh every 10 seconds when sidebar is open
+    // Refresh every 10 seconds
     const interval = setInterval(load, 10000)
     return () => clearInterval(interval)
-  }, [code, agent])
+  }, [agent])
 
   function newChat() {
-    router.push(`/chat/${encodeURIComponent(code)}?agent=${agent}`)
     setSidebarOpen(false)
-    // Force reload to clear conversation state
-    window.location.href = `/chat/${encodeURIComponent(code)}?agent=${agent}`
+    window.location.href = `/chat?agent=${agent}`
   }
 
   function openConversation(id: string) {
-    router.push(`/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`)
     setSidebarOpen(false)
-    window.location.href = `/chat/${encodeURIComponent(code)}?agent=${agent}&conv=${id}`
+    window.location.href = `/chat?agent=${agent}&conv=${id}`
   }
 
   return (
@@ -137,7 +130,8 @@ export default function ClientChatLayout({
                     onClick={async (e) => {
                       e.stopPropagation()
                       try {
-                        await fetch(`/api/conversations?id=${conv.id}&code=${encodeURIComponent(code)}`, { method: "DELETE" })
+                        // Cookie sent automatically — no code param needed
+                        await fetch(`/api/conversations?id=${conv.id}`, { method: "DELETE" })
                         setConversations((prev) => prev.filter((c) => c.id !== conv.id))
                         if (convId === conv.id) newChat()
                       } catch {}

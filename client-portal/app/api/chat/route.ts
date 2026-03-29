@@ -11,13 +11,14 @@ type ContentBlock =
   | { type: "tool"; id: string; name: string; finalInput: string; result?: string }
 
 export async function POST(request: NextRequest) {
-  let code: string
+  let code: string | undefined
   let message: string
   let conversationId: string | undefined
   let requestedAgent: string | undefined
   try {
     const body = await request.json()
-    code = body.code
+    // Prefer cookie over body for security; fall back to body for backwards compatibility
+    code = request.cookies.get("engagent_session")?.value ?? body.code
     message = body.message
     conversationId = body.conversationId
     requestedAgent = body.agentName

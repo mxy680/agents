@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
- * GET /api/conversations?code=XXX&agent=YYY
+ * GET /api/conversations?agent=YYY
  *
- * List conversations for a client access code + agent.
+ * List conversations for a client access code (from session cookie) + agent.
  */
 export async function GET(request: NextRequest) {
-  const code = request.nextUrl.searchParams.get("code")
+  const code = request.cookies.get("engagent_session")?.value
   const agent = request.nextUrl.searchParams.get("agent")
 
   if (!code) {
@@ -47,13 +47,13 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * DELETE /api/conversations?id=XXX&code=YYY
+ * DELETE /api/conversations?id=XXX
  *
- * Delete a conversation (validates access code first).
+ * Delete a conversation (validates session cookie first).
  */
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")
-  const code = request.nextUrl.searchParams.get("code")
+  const code = request.cookies.get("engagent_session")?.value
 
   if (!id || !code) {
     return NextResponse.json({ error: "id and code required" }, { status: 400 })

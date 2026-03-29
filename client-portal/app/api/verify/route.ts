@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function POST(request: NextRequest) {
-  let code: string
+  let code: string | undefined
+
+  // Try reading code from request body first, then fall back to session cookie
   try {
     const body = await request.json()
-    code = body.code
+    code = body.code || undefined
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 })
+    // Body parse failure is OK — we may be verifying via cookie
+  }
+
+  if (!code) {
+    code = request.cookies.get("engagent_session")?.value
   }
 
   if (!code || typeof code !== "string") {
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest) {
     .select("name, display_name, description")
     .in("name", agentNames)
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     clientName: data.client_name,
     agents: (templates ?? []).map((t) => ({
@@ -44,4 +50,14 @@ export async function POST(request: NextRequest) {
       description: t.description,
     })),
   })
+
+  response.cookies.set("engagent_session", code.trim(), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+    path: "/",
+  })
+
+  return response
 }

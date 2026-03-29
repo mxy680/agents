@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useCallback, use } from "react"
+import React, { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { IconSend, IconLoader2, IconPaperclip, IconFile, IconX, IconDownload, IconPhoto } from "@tabler/icons-react"
+import { IconSend, IconLoader2, IconPaperclip, IconFile, IconX, IconDownload } from "@tabler/icons-react"
 
 interface TextBlock { type: "text"; content: string }
 interface ToolBlock { type: "tool"; id: string; name: string; finalInput: string; result?: string }
@@ -29,12 +29,7 @@ function appendText(blocks: ContentBlock[], text: string): ContentBlock[] {
   return updated
 }
 
-export default function ClientChatPage({
-  params,
-}: {
-  params: Promise<{ code: string }>
-}) {
-  const { code } = use(params)
+export default function ClientChatPage() {
   const router = useRouter()
 
   const [messages, setMessages] = useState<Message[]>([])
@@ -78,7 +73,7 @@ export default function ClientChatPage({
     }
   }
 
-  // Verify code and get agent info on mount
+  // Verify session cookie and get agent info on mount
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
     const agent = searchParams.get("agent") ?? ""
@@ -86,10 +81,12 @@ export default function ClientChatPage({
 
     async function verify() {
       try {
+        // POST to /api/verify with no body — cookie is sent automatically
+        // The endpoint validates the cookie and returns client/agent info
         const res = await fetch("/api/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: decodeURIComponent(code) }),
+          body: JSON.stringify({}),
         })
         if (res.ok) {
           const data = await res.json() as {
@@ -108,7 +105,7 @@ export default function ClientChatPage({
           if (conv) {
             setConversationId(conv)
             try {
-              const convRes = await fetch(`/api/conversations/${conv}?code=${encodeURIComponent(decodeURIComponent(code))}`)
+              const convRes = await fetch(`/api/conversations/${conv}`)
               if (convRes.ok) {
                 const convData = await convRes.json() as { messages: Array<{ id: string; role: "user" | "assistant"; blocks: ContentBlock[] }> }
                 setMessages(
@@ -125,6 +122,7 @@ export default function ClientChatPage({
 
           setVerified(true)
         } else {
+          // No valid session — redirect to code entry
           router.push("/")
         }
       } catch {
@@ -132,7 +130,7 @@ export default function ClientChatPage({
       }
     }
     verify()
-  }, [code, router])
+  }, [router])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -178,8 +176,8 @@ export default function ClientChatPage({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // No code in body — cookie is sent automatically
         body: JSON.stringify({
-          code: decodeURIComponent(code),
           message: messageText || text,
           conversationId,
           agentName,
@@ -230,9 +228,11 @@ export default function ClientChatPage({
           case "conversation":
             setConversationId(data)
             // Update URL so sidebar can highlight this conversation
-            const url = new URL(window.location.href)
-            url.searchParams.set("conv", data)
-            window.history.replaceState({}, "", url.toString())
+            {
+              const url = new URL(window.location.href)
+              url.searchParams.set("conv", data)
+              window.history.replaceState({}, "", url.toString())
+            }
             break
           case "tool_start":
             try {
@@ -295,7 +295,7 @@ export default function ClientChatPage({
       setIsLoading(false)
       abortRef.current = null
     }
-  }, [code, input, isLoading, conversationId])
+  }, [input, isLoading, conversationId, agentName, pendingFiles])
 
   if (!verified) {
     return (

@@ -72,9 +72,7 @@ export default function ClientEntryPage() {
               <button
                 key={agent.name}
                 onClick={() =>
-                  router.push(
-                    `/chat/${encodeURIComponent(code.trim())}?agent=${agent.name}`
-                  )
+                  router.push(`/chat?agent=${agent.name}`)
                 }
                 className="flex items-center gap-4 w-full text-left bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-600 transition-colors group"
               >
