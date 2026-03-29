@@ -98,9 +98,9 @@ curl -s -X POST "<NEW_PROJECT_URL>/rest/v1/rpc" \
    ```
    Then create/update each subsequent file one at a time (each is a separate commit, that's fine).
 
-6. **Create a Vercel project**:
+6. **Create a Vercel project** linked to GitHub (auto-deploys on push):
 ```bash
-integrations vercel projects create --name=todo-app --framework=nextjs --json
+integrations vercel projects create --name=todo-app --framework=nextjs --git-repo=engagentdev/todo-app --json
 ```
 
 7. **Set env vars on Vercel** (use the NEW Supabase project's keys):
@@ -109,26 +109,9 @@ integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_URL --
 integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_ANON_KEY --value="<new_anon_key>" --target=production --json
 ```
 
-8. **Deploy to Vercel** — if auto-deploy from GitHub isn't working, deploy files directly:
-   ```bash
-   # For each file, compute SHA1 and upload
-   SHA=$(shasum /tmp/myfile.tsx | cut -d' ' -f1)
-   SIZE=$(wc -c < /tmp/myfile.tsx)
-   curl -s -X POST "https://api.vercel.com/v2/files" \
-     -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-     -H "Content-Type: application/octet-stream" \
-     -H "x-vercel-digest: $SHA" \
-     -H "Content-Length: $SIZE" \
-     --data-binary @/tmp/myfile.tsx
+8. **Wait for auto-deploy** — Vercel auto-deploys from GitHub pushes. Wait 60-90 seconds:
 
-   # Then create deployment with all file references
-   curl -s -X POST "https://api.vercel.com/v13/deployments" \
-     -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-     -H "Content-Type: application/json" \
-     -d '{"name":"todo-app","files":[{"file":"package.json","sha":"...","size":N}, ...],"projectSettings":{"framework":"nextjs"},"target":"production"}'
-   ```
-
-9. **Verify deployment** — wait 60 seconds, then check:
+9. **Verify deployment** — check the production URL:
 ```bash
 sleep 60
 curl -s -o /dev/null -w "%{http_code}" <deployment-url>

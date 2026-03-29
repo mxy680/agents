@@ -114,7 +114,7 @@ func newProjectsCreateCmd(factory ClientFactory) *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Project name (required)")
 	cmd.Flags().String("framework", "", "Framework preset (e.g. nextjs, vite, remix)")
-	cmd.Flags().String("git-repo", "", "Git repository URL to link (optional)")
+	cmd.Flags().String("git-repo", "", "GitHub repo to link, e.g. engagentdev/todo-app")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -145,7 +145,10 @@ func makeRunProjectsCreate(factory ClientFactory) func(*cobra.Command, []string)
 			body["framework"] = framework
 		}
 		if gitRepo != "" {
-			body["gitRepository"] = map[string]any{"url": gitRepo}
+			body["gitRepository"] = map[string]any{
+				"type": "github",
+				"repo": gitRepo,
+			}
 		}
 
 		var data map[string]any
