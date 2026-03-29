@@ -274,9 +274,14 @@ export default async function IntegrationsPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[...providers].sort((a, b) => {
-              const aConnected = (integrationsByProvider[a.id] ?? []).length > 0 ? 0 : 1
-              const bConnected = (integrationsByProvider[b.id] ?? []).length > 0 ? 0 : 1
-              if (aConnected !== bConnected) return aConnected - bConnected
+              const aAccounts = (integrationsByProvider[a.id] ?? []).length
+              const bAccounts = (integrationsByProvider[b.id] ?? []).length
+              const aNoAuth = a.connectType === "none"
+              const bNoAuth = b.connectType === "none"
+              // Connected first, then unconnected that need auth, then no-auth at bottom
+              const aRank = aAccounts > 0 ? 0 : aNoAuth ? 2 : 1
+              const bRank = bAccounts > 0 ? 0 : bNoAuth ? 2 : 1
+              if (aRank !== bRank) return aRank - bRank
               return a.name.localeCompare(b.name)
             }).map((provider) => {
               const accounts = integrationsByProvider[provider.id] ?? []
