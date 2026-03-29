@@ -1,0 +1,8 @@
+jobs:
+  - slug: evolve
+    display_name: Evolve Todo App
+    description: Autonomously build new features or improve the todo application
+    schedule: "0 */6 * * *"
+    prompt_file: evolve.md
+    timeout_minutes: 60
+    estimated_minutes: 15

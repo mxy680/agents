@@ -1,0 +1,8 @@
+name: todo-builder
+display_name: Todo App Builder
+description: Autonomous full-stack developer that builds and evolves a todo application. Creates features, deploys to Vercel, and tracks work in Linear.
+required_integrations:
+  - github
+  - supabase
+  - vercel
+  - linear
