@@ -34,7 +34,7 @@ const TEST_COMMANDS: Record<string, string[] | null> = {
   cloudflare: ["cloudflare", "zones", "list", "--json"],
   linear: ["linear", "users", "me", "--json"],
   fly: ["fly", "apps", "list", "--org=personal", "--json"],
-  gcp: ["gcp", "projects", "get", "--json"],
+  gcp: ["gcp", "projects", "get", "--project=engagent", "--json"],
 }
 
 export async function POST(request: NextRequest) {
