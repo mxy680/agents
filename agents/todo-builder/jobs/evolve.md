@@ -1,98 +1,138 @@
 You are running an autonomous evolution cycle for the todo application.
 
+## Known Issues from Previous Runs — READ THESE FIRST
+
+1. **GitHub owner is `engagentdev`** (NOT `mxy680`). The repo was created under the `engagentdev` org.
+2. **Linear `--team` flag requires the team UUID**, not the key. The team UUID is `fe5ecac6-5746-4a6b-90c4-8a410f21fc69` (key: ENG).
+3. **Linear `--status` flag doesn't exist**. To close an issue, first get the "Done" state ID: `integrations linear workflows list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json`, then use `--state=<done-state-id>`.
+4. **Vercel auto-deploy from GitHub requires the Vercel GitHub integration** to be installed. If Vercel is NOT linked to GitHub, deploy files directly using the Vercel API (`/v2/files` + `/v13/deployments`).
+5. **GitHub contents create doesn't work on empty repos**. Use the Git Data API (blobs → tree → commit → ref) for the initial commit, OR create a README first via the contents API.
+6. **Use Next.js 15.5.14** — older versions have build issues on Vercel.
+7. **Vercel project flag is `--project`**, not `--name` (for get/delete commands).
+
 ## Step 1 — Check current state
 
-First, determine if the project exists:
+Check if the GitHub repo exists:
 
 ```bash
-integrations github repos get --repo=todo-app --owner=mxy680 --json
+integrations github repos get --repo=todo-app --owner=engagentdev --json
 ```
 
 ### If the repo does NOT exist (first run):
 
 Create everything from scratch:
 
-1. **Create the GitHub repo**:
+1. **Create the GitHub repo** under the `engagentdev` org:
 ```bash
 integrations github repos create --name=todo-app --description="Autonomous todo app built by Engagent" --private=false --json
 ```
 
-2. **Scaffold the app**: Create a complete Next.js 15 todo application with:
-   - App Router
-   - Tailwind CSS + shadcn/ui styling
-   - Supabase for data storage (todos table)
-   - CRUD operations: add, complete, delete todos
-   - Clean, modern dark UI
-   - A `package.json`, `tsconfig.json`, `next.config.mjs`, and all necessary files
-
-   Upload each file to GitHub using:
-   ```bash
-   # Write content to a temp file first, then base64-encode it
-   cat > /tmp/myfile.tsx << 'EOF'
-   // file content here
-   EOF
-   CONTENT=$(base64 < /tmp/myfile.tsx)
-   integrations github repos contents create \
-     --repo=todo-app \
-     --owner=mxy680 \
-     --path=<filepath> \
-     --message="Initial scaffold" \
-     --content="$CONTENT" \
-     --json
-   ```
-
-   Note: Always write content to a temp file and pipe through `base64` — do NOT use `echo -n "..." | base64` for multi-line content.
-
-3. **Create a NEW Supabase project** for the todo app:
-```bash
-integrations supabase projects create --name=todo-app --org-id=<org_id> --db-pass=<generate_a_strong_password> --region=us-east-1 --json
-```
-First get the org ID: `integrations supabase orgs list --json`
-Wait 2 minutes for the project to be ready, then get the project details:
-```bash
-integrations supabase projects list --json
-```
-Extract the `url` and `anon_key` from the new `todo-app` project. **NEVER use the existing `engagent` project.**
-
-4. **Create the todos table** on the NEW Supabase project:
-Use the new project's URL and service role key (get from project API keys):
-```bash
-integrations supabase projects api-keys --ref=<todo-app-ref> --json
-```
-Then create the table via SQL.
-
-5. **Create a Vercel project** and link to the GitHub repo:
-```bash
-integrations vercel projects create --name=todo-app --framework=nextjs --json
-```
-
-6. **Set environment variables on Vercel** using the NEW Supabase project's credentials (NOT the engagent project's):
-```bash
-integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_URL --value="<new-project-url>" --target=production --json
-integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_ANON_KEY --value="<new-project-anon-key>" --target=production --json
-```
-
-6. **Create a Linear issue** documenting the initial scaffold:
+2. **Create a Linear issue** for tracking (use team UUID, not key):
 ```bash
 integrations linear issues create \
   --title="Initial scaffold: todo app" \
-  --team=ENG \
-  --description="Created GitHub repo, scaffolded Next.js 15 app with Tailwind CSS and Supabase, deployed to Vercel." \
+  --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 \
+  --description="Create GitHub repo, scaffold Next.js 15 app, set up Supabase, deploy to Vercel." \
   --priority=2 \
   --json
 ```
 
-### If the repo DOES exist (subsequent runs):
-
-1. **Check what's already been built** — list the repo contents and recent commits:
+3. **Create a NEW Supabase project** (NEVER use the existing `engagent` project):
 ```bash
-integrations github repos contents list --repo=todo-app --owner=mxy680 --path=/ --json
-integrations github repos commits list --repo=todo-app --owner=mxy680 --limit=10 --json
+integrations supabase orgs list --json
+integrations supabase projects create --name=todo-app --org-id=<org_id> --db-pass=<generate_strong_password> --region=us-east-1 --json
+```
+Wait 2 minutes for provisioning, then get the project details:
+```bash
+integrations supabase projects list --json
+integrations supabase projects api-keys --ref=<todo-app-ref> --json
+```
+Extract the project URL, anon key, and service role key.
+
+4. **Create the todos table** on the NEW Supabase project:
+```bash
+curl -s -X POST "<NEW_PROJECT_URL>/rest/v1/rpc" \
+  -H "apikey: <SERVICE_ROLE_KEY>" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "CREATE TABLE IF NOT EXISTS todos (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, title text NOT NULL, completed boolean DEFAULT false, created_at timestamptz DEFAULT now()); ALTER TABLE todos ENABLE ROW LEVEL SECURITY; CREATE POLICY \"Public access\" ON todos FOR ALL USING (true);"}'
 ```
 
-2. **Check Linear for completed work**:
+5. **Scaffold the Next.js app** — write files to temp, then push to GitHub:
+   - Use **Next.js 15.5.14** (not 15.0.0 or latest — those have build issues)
+   - Include: `package.json`, `tsconfig.json`, `next.config.mjs`, `tailwind.config.ts`, `postcss.config.mjs`, `.gitignore`, `app/globals.css`, `app/layout.tsx`, `app/page.tsx`, `lib/supabase.ts`
+   - The Supabase URL and anon key should be hardcoded in the app's `.env.local` or referenced via `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+   For the FIRST commit to an empty repo, create a README first:
+   ```bash
+   cat > /tmp/readme.md << 'EOF'
+   # Todo App
+   Autonomous todo app built by Engagent.
+   EOF
+   CONTENT=$(base64 < /tmp/readme.md)
+   integrations github repos contents create \
+     --repo=todo-app --owner=engagentdev \
+     --path=README.md --message="Initial commit" \
+     --content="$CONTENT" --json
+   ```
+   Then create/update each subsequent file one at a time (each is a separate commit, that's fine).
+
+6. **Create a Vercel project**:
 ```bash
-integrations linear issues list --team=ENG --status=Done --json
+integrations vercel projects create --name=todo-app --framework=nextjs --json
+```
+
+7. **Set env vars on Vercel** (use the NEW Supabase project's keys):
+```bash
+integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_URL --value="<new_project_url>" --target=production --json
+integrations vercel env set --project=todo-app --key=NEXT_PUBLIC_SUPABASE_ANON_KEY --value="<new_anon_key>" --target=production --json
+```
+
+8. **Deploy to Vercel** — if auto-deploy from GitHub isn't working, deploy files directly:
+   ```bash
+   # For each file, compute SHA1 and upload
+   SHA=$(shasum /tmp/myfile.tsx | cut -d' ' -f1)
+   SIZE=$(wc -c < /tmp/myfile.tsx)
+   curl -s -X POST "https://api.vercel.com/v2/files" \
+     -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+     -H "Content-Type: application/octet-stream" \
+     -H "x-vercel-digest: $SHA" \
+     -H "Content-Length: $SIZE" \
+     --data-binary @/tmp/myfile.tsx
+
+   # Then create deployment with all file references
+   curl -s -X POST "https://api.vercel.com/v13/deployments" \
+     -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"todo-app","files":[{"file":"package.json","sha":"...","size":N}, ...],"projectSettings":{"framework":"nextjs"},"target":"production"}'
+   ```
+
+9. **Verify deployment** — wait 60 seconds, then check:
+```bash
+sleep 60
+curl -s -o /dev/null -w "%{http_code}" <deployment-url>
+```
+
+10. **Close the Linear issue** — first get the Done state ID:
+```bash
+integrations linear workflows list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json
+```
+Find the state with `type: "completed"`, then:
+```bash
+integrations linear issues update --id=<issue-id> --state=<done-state-id> --json
+```
+
+### If the repo DOES exist (subsequent runs):
+
+1. **Check what's already been built**:
+```bash
+integrations github repos contents list --repo=todo-app --owner=engagentdev --path=/ --json
+integrations github repos commits list --repo=todo-app --owner=engagentdev --limit=10 --json
+```
+
+2. **Check Linear for completed work** (use team UUID):
+```bash
+integrations linear issues list --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 --json
 ```
 
 3. **Decide what to build next**. Choose from this priority list (skip anything already done):
@@ -108,89 +148,55 @@ integrations linear issues list --team=ENG --status=Done --json
    - Analytics dashboard (completed vs pending over time)
    - Recurring todos
    - Sharing/collaboration
-   - Email reminders for due todos
-   - Import/export (CSV)
    - ...or anything else you think would improve the app
 
-4. **Create a Linear issue** for the feature you're about to build:
+4. **Create a Linear issue** (use team UUID):
 ```bash
 integrations linear issues create \
   --title="Add [feature]" \
-  --team=ENG \
+  --team=fe5ecac6-5746-4a6b-90c4-8a410f21fc69 \
   --description="Description of what will be built" \
   --priority=2 \
   --json
 ```
 
-5. **Implement the feature** — update/create files on GitHub.
-
-   To get the current SHA of a file before updating it:
-   ```bash
-   integrations github repos contents get --repo=todo-app --owner=mxy680 --path=<filepath> --json
-   ```
-
-   To update an existing file (requires SHA from the get command above):
-   ```bash
-   cat > /tmp/updated-file.tsx << 'EOF'
-   // updated content here
-   EOF
-   CONTENT=$(base64 < /tmp/updated-file.tsx)
-   integrations github repos contents update \
-     --repo=todo-app \
-     --owner=mxy680 \
-     --path=<filepath> \
-     --message="feat: add [feature]" \
-     --content="$CONTENT" \
-     --sha=<sha-from-get> \
-     --json
-   ```
-
-   To create a new file:
-   ```bash
-   cat > /tmp/new-file.tsx << 'EOF'
-   // new content here
-   EOF
-   CONTENT=$(base64 < /tmp/new-file.tsx)
-   integrations github repos contents create \
-     --repo=todo-app \
-     --owner=mxy680 \
-     --path=<filepath> \
-     --message="feat: add [feature]" \
-     --content="$CONTENT" \
-     --json
-   ```
-
-6. **Wait for Vercel deployment** — Vercel auto-deploys from GitHub pushes. Wait 30 seconds, then check:
+5. **Implement the feature** — get file SHA, update content:
 ```bash
-sleep 30
-integrations vercel deployments list --project=todo-app --limit=1 --json
+# Get current file SHA
+integrations github repos contents get --repo=todo-app --owner=engagentdev --path=<filepath> --json
+# Update file
+cat > /tmp/updated-file.tsx << 'EOF'
+// content
+EOF
+CONTENT=$(base64 < /tmp/updated-file.tsx)
+integrations github repos contents update \
+  --repo=todo-app --owner=engagentdev \
+  --path=<filepath> --message="feat: [description]" \
+  --content="$CONTENT" --sha=<sha> --json
 ```
 
-7. **Verify the deployment** — curl the production URL and check for HTTP 200:
-```bash
-curl -s -o /dev/null -w "%{http_code}" https://todo-app.vercel.app
-```
+6. **Deploy** — wait for auto-deploy or deploy files directly (see step 8 above).
 
-8. **Close the Linear issue** with a summary:
-```bash
-integrations linear issues update --id=<issue-id> --status=Done --json
-```
+7. **Verify** — curl the production URL for HTTP 200.
+
+8. **Close the Linear issue** using the Done state ID (see step 10 above).
 
 ## Step 2 — Generate report
 
-After completing your work, summarize:
-- What was the state of the app before this run
-- What feature/improvement you added
-- The GitHub commit(s) made
-- The deployment URL
-- The Linear issue created/closed
-- What you'd recommend building next
+Summarize:
+- State before this run
+- What was built/changed
+- GitHub commits
+- Deployment URL (with HTTP status)
+- Linear issue created/closed
+- Recommended next feature
 
 ## Important
 
-- Write CLEAN, MODERN code. Use TypeScript, Tailwind CSS, and modern React patterns.
-- Always write file content to a temp file and encode with `base64 < /tmp/file` — never inline multi-line content.
-- Never delete existing functionality unless explicitly refactoring.
-- If something fails, try to fix it. Don't give up on the first error.
-- The app should look professional — good spacing, typography, colors.
-- Always test that the deployed site loads before closing the issue.
+- Use **Next.js 15.5.14** — other versions may have build issues.
+- Write file content to temp files and encode with `base64 < /tmp/file`.
+- Never delete existing functionality unless refactoring.
+- If something fails, read the error and fix it. Don't retry the same thing.
+- The GitHub org is **engagentdev** (not mxy680).
+- The Linear team UUID is **fe5ecac6-5746-4a6b-90c4-8a410f21fc69**.
+- NEVER use the existing `engagent` Supabase project.

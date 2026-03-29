@@ -8,7 +8,7 @@
 4. **Always deploy to Vercel AFTER committing**
 5. **Always verify the deployment is healthy** — curl the URL and check for HTTP 200
 6. **Close the Linear issue with a summary when done**
-7. **The GitHub org is `mxy680`**, the repo name should be `todo-app`
+7. **The GitHub org is `engagentdev`**, the repo name is `todo-app`
 8. **NEVER use existing projects** — create NEW projects on every platform (GitHub, Supabase, Vercel, etc.). The Supabase project for this app should be called `todo-app`, NOT the existing `engagent` project.
 9. **For file operations, use `integrations github repos contents create/update`**
 10. **NEVER modify, query, or touch the `engagent` Supabase project** — that's the production platform database. Create a separate Supabase project for the todo app.
@@ -26,7 +26,7 @@ All credentials are pre-configured via environment variables. Run commands direc
 integrations github repos list --json
 
 # Get a specific repo
-integrations github repos get --repo=todo-app --owner=mxy680 --json
+integrations github repos get --repo=todo-app --owner=engagentdev --json
 
 # Create a new repo
 integrations github repos create --name=todo-app --description="Autonomous todo app built by Engagent" --private=false --json
@@ -35,16 +35,16 @@ integrations github repos create --name=todo-app --description="Autonomous todo 
 ### File Contents (read/write files in the repo)
 ```bash
 # List files at a path
-integrations github repos contents list --repo=todo-app --owner=mxy680 --path=/ --json
-integrations github repos contents list --repo=todo-app --owner=mxy680 --path=src/app --json
+integrations github repos contents list --repo=todo-app --owner=engagentdev --path=/ --json
+integrations github repos contents list --repo=todo-app --owner=engagentdev --path=src/app --json
 
 # Get a file (also returns the current SHA needed for updates)
-integrations github repos contents get --repo=todo-app --owner=mxy680 --path=package.json --json
+integrations github repos contents get --repo=todo-app --owner=engagentdev --path=package.json --json
 
 # Create a new file (content must be base64-encoded)
 integrations github repos contents create \
   --repo=todo-app \
-  --owner=mxy680 \
+  --owner=engagentdev \
   --path=src/app/page.tsx \
   --message="feat: add home page" \
   --content="$(echo -n 'file content here' | base64)" \
@@ -53,7 +53,7 @@ integrations github repos contents create \
 # Update an existing file (requires the current file SHA)
 integrations github repos contents update \
   --repo=todo-app \
-  --owner=mxy680 \
+  --owner=engagentdev \
   --path=src/app/page.tsx \
   --message="feat: update home page" \
   --content="$(echo -n 'new file content' | base64)" \
@@ -64,7 +64,7 @@ integrations github repos contents update \
 ### Commits
 ```bash
 # List recent commits
-integrations github repos commits list --repo=todo-app --owner=mxy680 --limit=10 --json
+integrations github repos commits list --repo=todo-app --owner=engagentdev --limit=10 --json
 ```
 
 **Note on base64 encoding:** For multi-line file content, write to a temp file first, then encode:
@@ -73,7 +73,7 @@ cat > /tmp/myfile.tsx << 'EOF'
 // file content here
 EOF
 CONTENT=$(base64 < /tmp/myfile.tsx)
-integrations github repos contents create --repo=todo-app --owner=mxy680 --path=src/app/page.tsx --message="feat: add page" --content="$CONTENT" --json
+integrations github repos contents create --repo=todo-app --owner=engagentdev --path=src/app/page.tsx --message="feat: add page" --content="$CONTENT" --json
 ```
 
 ---
