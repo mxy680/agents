@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { IconPlus, IconMessage, IconChevronLeft, IconMenu2, IconTrash } from "@tabler/icons-react"
+import { IconPlus, IconMessage, IconChevronLeft, IconMenu2, IconTrash, IconLogout } from "@tabler/icons-react"
 
 interface Conversation {
   id: string
@@ -141,6 +141,20 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Sign out */}
+        <div className="p-3 border-t border-neutral-800">
+          <button
+            onClick={async () => {
+              await fetch("/api/logout", { method: "POST" })
+              window.location.href = "/"
+            }}
+            className="flex items-center gap-1.5 w-full px-2.5 py-1.5 text-xs text-neutral-500 hover:text-white hover:bg-neutral-800 rounded transition-colors"
+          >
+            <IconLogout className="size-3" />
+            Sign out
+          </button>
         </div>
       </div>
 
