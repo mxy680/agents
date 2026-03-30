@@ -5,9 +5,10 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "integrations",
-	Short: "CLI for AI agents to interact with external services",
-	Long:  "A CLI binary that AI agents call inside Docker containers to interact with external services like Gmail, Calendar, and more.",
+	Use:              "integrations",
+	Short:            "CLI for AI agents to interact with external services",
+	Long:             "A CLI binary that AI agents call inside Docker containers to interact with external services like Gmail, Calendar, and more.",
+	PersistentPreRunE: resolveUserCredentials,
 }
 
 func init() {
