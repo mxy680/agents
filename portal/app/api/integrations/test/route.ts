@@ -103,8 +103,10 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Find the integrations binary
-  const binPath = path.resolve(process.cwd(), "..", "bin", "integrations")
+  // Find the integrations binary — configurable via env for worktrees / production
+  const binPath =
+    process.env.INTEGRATIONS_BIN_PATH ||
+    path.resolve(process.cwd(), "..", "bin", "integrations")
 
   try {
     await execFileAsync(binPath, testArgs, {
