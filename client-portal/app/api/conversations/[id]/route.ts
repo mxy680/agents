@@ -33,12 +33,17 @@ export async function GET(
     return NextResponse.json({ error: "Invalid code" }, { status: 401 })
   }
 
-  // Fetch conversation
+  // Fetch conversation scoped to this client (client_access_id must match when set)
   const { data: conversation } = await admin
     .from("conversations")
-    .select("id, agent_name, title, created_at")
+    .select("id, agent_name, title, created_at, client_access_id")
     .eq("id", id)
     .single()
+
+  // Enforce ownership: if client_access_id is set, it must match this client
+  if (conversation?.client_access_id && conversation.client_access_id !== access.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   if (!conversation) {
     return NextResponse.json({ error: "Conversation not found" }, { status: 404 })

@@ -30,12 +30,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid code" }, { status: 401 })
   }
 
-  // Fetch conversations — match by agent_name and a marker in the conversation
-  // Client conversations use user_id = 00000000-... as a placeholder
+  // Fetch conversations scoped to this client access record
   let query = admin
     .from("conversations")
     .select("id, title, agent_name, updated_at, created_at")
-    .eq("user_id", "00000000-0000-0000-0000-000000000000")
+    .eq("client_access_id", access.id)
     .order("updated_at", { ascending: false })
     .limit(50)
 
@@ -74,6 +73,22 @@ export async function DELETE(request: NextRequest) {
 
   if (!access) {
     return NextResponse.json({ error: "Invalid code" }, { status: 401 })
+  }
+
+  // Verify ownership before deleting
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id, client_access_id")
+    .eq("id", id)
+    .single()
+
+  if (!conv) {
+    return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
+  }
+
+  // Enforce ownership: if client_access_id is set, it must match this client
+  if (conv.client_access_id && conv.client_access_id !== access.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
   // Delete messages first (cascade may not be set up)

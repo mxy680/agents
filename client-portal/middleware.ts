@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { verifySession } from "@/lib/session"
 
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
-  const hasSession = request.cookies.has("engagent_session")
+  const signed = request.cookies.get("engagent_session")?.value
+  const hasSession = signed ? verifySession(signed) !== null : false
 
   // Root → redirect based on session
   if (pathname === "/") {

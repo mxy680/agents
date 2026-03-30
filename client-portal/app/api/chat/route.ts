@@ -18,9 +18,8 @@ export async function POST(request: NextRequest) {
   let requestedAgent: string | undefined
   try {
     const body = await request.json()
-    // Prefer signed cookie over body for security; fall back to body for backwards compatibility
     const cookieValue = request.cookies.get("engagent_session")?.value
-    code = cookieValue ? (verifySession(cookieValue) ?? undefined) : body.code
+    code = cookieValue ? (verifySession(cookieValue) ?? undefined) : undefined
     message = body.message
     conversationId = body.conversationId
     requestedAgent = body.agentName
@@ -28,12 +27,12 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 })
   }
 
-  if (code === undefined && request.cookies.has("engagent_session")) {
-    return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401 })
+  if (!code) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })
   }
 
-  if (!code || !message) {
-    return new Response(JSON.stringify({ error: "code and message required" }), { status: 400 })
+  if (!message) {
+    return new Response(JSON.stringify({ error: "message required" }), { status: 400 })
   }
 
   if (message.length > 32_000) {
@@ -71,21 +70,29 @@ export async function POST(request: NextRequest) {
         user_id: "00000000-0000-0000-0000-000000000000",
         agent_name: agentName,
         title,
+        client_access_id: access.id,
       })
       .select("id")
       .single()
     conversationId = conv?.id
   }
 
-  // Look up session_id for existing conversation
+  // Look up session_id for existing conversation — verify ownership
   let sessionId: string | undefined
   if (conversationId) {
     const { data: conv } = await admin
       .from("conversations")
-      .select("session_id")
+      .select("session_id, client_access_id")
       .eq("id", conversationId)
       .single()
-    if (conv?.session_id) {
+    if (!conv) {
+      return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404 })
+    }
+    // Enforce ownership: if client_access_id is set, it must match this client
+    if (conv.client_access_id && conv.client_access_id !== access.id) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 })
+    }
+    if (conv.session_id) {
       sessionId = conv.session_id
     }
   }

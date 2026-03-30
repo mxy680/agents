@@ -1,17 +1,18 @@
-import { createHmac } from "crypto"
+import { createHmac, timingSafeEqual } from "crypto"
 import { cookies } from "next/headers"
 
-const SECRET =
-  process.env.SESSION_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "fallback-dev-secret"
+const SECRET = process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!SECRET) {
+  console.error("WARNING: SESSION_SECRET not set — using SUPABASE_SERVICE_ROLE_KEY as fallback")
+}
+const SIGNING_KEY = SECRET || ""
 
 /**
  * Sign a value with HMAC-SHA256 so it can't be forged.
  * Format: value.signature
  */
 export function signSession(code: string): string {
-  const sig = createHmac("sha256", SECRET).update(code).digest("hex")
+  const sig = createHmac("sha256", SIGNING_KEY).update(code).digest("hex")
   return `${code}.${sig}`
 }
 
@@ -26,16 +27,15 @@ export function verifySession(signed: string): string | null {
   const code = signed.substring(0, lastDot)
   const sig = signed.substring(lastDot + 1)
 
-  const expected = createHmac("sha256", SECRET).update(code).digest("hex")
+  const expected = createHmac("sha256", SIGNING_KEY).update(code).digest("hex")
 
-  // Constant-time comparison to prevent timing attacks
-  if (sig.length !== expected.length) return null
-  let match = true
-  for (let i = 0; i < sig.length; i++) {
-    if (sig[i] !== expected[i]) match = false
+  try {
+    if (!timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expected, "hex"))) return null
+  } catch {
+    return null
   }
 
-  return match ? code : null
+  return code
 }
 
 export async function getSessionCode(): Promise<string | null> {

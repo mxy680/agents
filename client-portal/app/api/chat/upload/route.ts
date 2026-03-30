@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { verifySession } from "@/lib/session"
 
 /**
  * POST /api/chat/upload
  *
  * Upload a file for use in chat. Stores in Supabase Storage bucket 'chat-files'.
- * Accessible to both admin and client chat (no auth check — localhost only).
+ * Requires a valid session cookie.
  */
 export async function POST(request: NextRequest) {
+  const cookieValue = request.cookies.get("engagent_session")?.value
+  const code = cookieValue ? verifySession(cookieValue) : null
+  if (!code) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
   const formData = await request.formData()
   const file = formData.get("file") as File | null
