@@ -6,16 +6,16 @@ export function middleware(request: NextRequest) {
 
   // Root → redirect based on session
   if (pathname === "/") {
-    return NextResponse.redirect(new URL(hasSession ? "/chat" : "/auth", request.url))
+    return NextResponse.redirect(new URL(hasSession ? "/agents" : "/auth", request.url))
   }
 
-  // Authenticated user trying to access auth page → redirect to chat
+  // Authenticated user trying to access auth page → redirect to agents
   if (pathname === "/auth" && hasSession) {
-    return NextResponse.redirect(new URL("/chat", request.url))
+    return NextResponse.redirect(new URL("/agents", request.url))
   }
 
-  // Unauthenticated user trying to access chat → redirect to auth
-  if (pathname.startsWith("/chat") && !hasSession) {
+  // Unauthenticated user trying to access protected pages → redirect to auth
+  if ((pathname.startsWith("/chat") || pathname.startsWith("/agents")) && !hasSession) {
     return NextResponse.redirect(new URL("/auth", request.url))
   }
 
@@ -23,5 +23,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/auth", "/chat/:path*"],
+  matcher: ["/", "/auth", "/agents", "/chat/:path*"],
 }

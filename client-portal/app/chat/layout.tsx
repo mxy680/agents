@@ -77,7 +77,7 @@ function ChatLayoutInner({ children }: { children: React.ReactNode }) {
       >
         <div className="flex items-center justify-between p-3 border-b border-neutral-800">
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/agents")}
             className="text-xs text-neutral-500 hover:text-white flex items-center gap-1 transition-colors"
           >
             <IconChevronLeft className="size-3" />
