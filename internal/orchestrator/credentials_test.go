@@ -59,9 +59,9 @@ func TestNewCredentialResolver(t *testing.T) {
 	}
 }
 
-// ---- ResolveForUser with Google credentials ----
+// ---- Resolve with Google credentials ----
 
-func TestResolveForUserGoogleRefresh(t *testing.T) {
+func TestResolveGoogleRefresh(t *testing.T) {
 	store, mock := newMockStore(t)
 
 	googleCreds := encryptCreds(map[string]string{
@@ -71,7 +71,7 @@ func TestResolveForUserGoogleRefresh(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"provider", "credentials"}).
 		AddRow("google", googleCreds)
-	mock.ExpectQuery("SELECT").WithArgs("user-123").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
 	refreshCalled := false
 	fakeRefresher := func(refreshToken, clientID, clientSecret string) (string, error) {
@@ -89,9 +89,9 @@ func TestResolveForUserGoogleRefresh(t *testing.T) {
 	}
 
 	cr := newTestCredentialResolver(store, fakeRefresher)
-	env, err := cr.ResolveForUser(context.Background(), "user-123")
+	env, err := cr.Resolve(context.Background())
 	if err != nil {
-		t.Fatalf("ResolveForUser() error = %v", err)
+		t.Fatalf("Resolve() error = %v", err)
 	}
 
 	if !refreshCalled {
@@ -109,9 +109,9 @@ func TestResolveForUserGoogleRefresh(t *testing.T) {
 	}
 }
 
-// ---- ResolveForUser with GitHub credentials (no refresh) ----
+// ---- Resolve with GitHub credentials (no refresh) ----
 
-func TestResolveForUserGitHubNoRefresh(t *testing.T) {
+func TestResolveGitHubNoRefresh(t *testing.T) {
 	store, mock := newMockStore(t)
 
 	ghCreds := encryptCreds(map[string]string{
@@ -120,7 +120,7 @@ func TestResolveForUserGitHubNoRefresh(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"provider", "credentials"}).
 		AddRow("github", ghCreds)
-	mock.ExpectQuery("SELECT").WithArgs("user-456").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
 	refreshCalled := false
 	fakeRefresher := func(refreshToken, clientID, clientSecret string) (string, error) {
@@ -129,9 +129,9 @@ func TestResolveForUserGitHubNoRefresh(t *testing.T) {
 	}
 
 	cr := newTestCredentialResolver(store, fakeRefresher)
-	env, err := cr.ResolveForUser(context.Background(), "user-456")
+	env, err := cr.Resolve(context.Background())
 	if err != nil {
-		t.Fatalf("ResolveForUser() error = %v", err)
+		t.Fatalf("Resolve() error = %v", err)
 	}
 
 	if refreshCalled {
@@ -149,17 +149,17 @@ func TestResolveForUserGitHubNoRefresh(t *testing.T) {
 	}
 }
 
-// ---- ResolveForUser: query error ----
+// ---- Resolve: query error ----
 
-func TestResolveForUserQueryError(t *testing.T) {
+func TestResolveQueryError(t *testing.T) {
 	store, mock := newMockStore(t)
 
-	mock.ExpectQuery("SELECT").WithArgs("user-789").WillReturnError(fmt.Errorf("connection refused"))
+	mock.ExpectQuery("SELECT").WillReturnError(fmt.Errorf("connection refused"))
 
 	cr := newTestCredentialResolver(store, nil)
-	_, err := cr.ResolveForUser(context.Background(), "user-789")
+	_, err := cr.Resolve(context.Background())
 	if err == nil {
-		t.Fatal("ResolveForUser() expected error, got nil")
+		t.Fatal("Resolve() expected error, got nil")
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -167,9 +167,9 @@ func TestResolveForUserQueryError(t *testing.T) {
 	}
 }
 
-// ---- ResolveForUser: token refresh error ----
+// ---- Resolve: token refresh error ----
 
-func TestResolveForUserRefreshError(t *testing.T) {
+func TestResolveRefreshError(t *testing.T) {
 	store, mock := newMockStore(t)
 
 	googleCreds := encryptCreds(map[string]string{
@@ -178,16 +178,16 @@ func TestResolveForUserRefreshError(t *testing.T) {
 	})
 	rows := sqlmock.NewRows([]string{"provider", "credentials"}).
 		AddRow("google", googleCreds)
-	mock.ExpectQuery("SELECT").WithArgs("user-bad").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
 	fakeRefresher := func(refreshToken, clientID, clientSecret string) (string, error) {
 		return "", fmt.Errorf("token revoked")
 	}
 
 	cr := newTestCredentialResolver(store, fakeRefresher)
-	_, err := cr.ResolveForUser(context.Background(), "user-bad")
+	_, err := cr.Resolve(context.Background())
 	if err == nil {
-		t.Fatal("ResolveForUser() expected error, got nil")
+		t.Fatal("Resolve() expected error, got nil")
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -212,10 +212,6 @@ func TestRefreshGoogleToken(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	// We can't easily override the URL in RefreshGoogleToken (it's hardcoded),
-	// so we test the function indirectly via the injected refresher in CredentialResolver.
-	// For direct tests, we verify the real function's error paths.
-
 	t.Run("missing client id", func(t *testing.T) {
 		_, err := RefreshGoogleToken("refresh", "", "secret")
 		if err == nil {
@@ -233,10 +229,10 @@ func TestRefreshGoogleToken(t *testing.T) {
 
 func TestRefreshGoogleTokenHTTP(t *testing.T) {
 	tests := []struct {
-		name        string
-		handler     http.HandlerFunc
-		wantErr     bool
-		wantToken   string
+		name      string
+		handler   http.HandlerFunc
+		wantErr   bool
+		wantToken string
 	}{
 		{
 			name: "success",
@@ -277,8 +273,6 @@ func TestRefreshGoogleTokenHTTP(t *testing.T) {
 			srv := httptest.NewServer(tt.handler)
 			defer srv.Close()
 
-			// Use the fakeRefresher pattern to test HTTP behavior by injecting
-			// a custom refresher that calls our test server.
 			store, mock := newMockStore(t)
 
 			googleCreds := encryptCreds(map[string]string{
@@ -313,7 +307,7 @@ func TestRefreshGoogleTokenHTTP(t *testing.T) {
 			}
 
 			cr := newTestCredentialResolver(store, customRefresher)
-			env, err := cr.ResolveForUser(context.Background(), "user-test")
+			env, err := cr.Resolve(context.Background())
 
 			if tt.wantErr {
 				if err == nil {
@@ -322,7 +316,7 @@ func TestRefreshGoogleTokenHTTP(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("ResolveForUser() error = %v", err)
+				t.Fatalf("Resolve() error = %v", err)
 			}
 			if env["GOOGLE_ACCESS_TOKEN"] != tt.wantToken {
 				t.Errorf("GOOGLE_ACCESS_TOKEN = %q, want %q", env["GOOGLE_ACCESS_TOKEN"], tt.wantToken)

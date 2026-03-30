@@ -3,7 +3,6 @@
 # and writes them as shell exports to /tmp/creds/env.sh
 #
 # Environment:
-#   RESOLVE_USER_ID      — Supabase user UUID
 #   RESOLVE_PROVIDERS     — comma-separated list of providers (e.g. "google,github")
 #   SUPABASE_DB_URL       — database connection string
 #   ENCRYPTION_MASTER_KEY — decryption key
@@ -18,7 +17,7 @@ OUTPUT_FILE="/tmp/creds/env.sh"
 IFS=',' read -ra PROVIDERS <<< "$RESOLVE_PROVIDERS"
 for provider in "${PROVIDERS[@]}"; do
     echo "Resolving credentials for $provider..."
-    export-creds --user-id "$RESOLVE_USER_ID" --provider "$provider" >> "$OUTPUT_FILE"
+    export-creds --provider "$provider" >> "$OUTPUT_FILE"
 done
 
 echo "Credentials resolved for ${#PROVIDERS[@]} provider(s)"

@@ -67,7 +67,7 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check required integrations
-	missing, err := s.store.CheckUserIntegrations(r.Context(), userID, tmpl.RequiredIntegrations)
+	missing, err := s.store.CheckIntegrations(r.Context(), tmpl.RequiredIntegrations)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check integrations")
 		log.Printf("check integrations: %v", err)
@@ -97,7 +97,7 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve credentials
-	creds, err := s.creds.ResolveForUser(r.Context(), userID)
+	creds, err := s.creds.Resolve(r.Context())
 	if err != nil {
 		if uerr := s.store.UpdateInstanceStatus(r.Context(), inst.ID, StatusFailed, "", "credential resolution failed: "+err.Error()); uerr != nil {
 			log.Printf("update instance status: %v", uerr)
@@ -183,8 +183,7 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
-	userID := getUserID(r)
-	instances, err := s.store.ListInstances(r.Context(), userID)
+	instances, err := s.store.ListInstances(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list instances")
 		log.Printf("list instances: %v", err)

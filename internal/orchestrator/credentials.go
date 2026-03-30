@@ -14,7 +14,7 @@ import (
 // TokenRefresher is a function that refreshes a Google access token.
 type TokenRefresher func(refreshToken, clientID, clientSecret string) (string, error)
 
-// CredentialResolver resolves credentials for a user's integrations.
+// CredentialResolver resolves credentials for integrations.
 type CredentialResolver struct {
 	store              *Store
 	encryptionKey      string
@@ -34,9 +34,9 @@ func NewCredentialResolver(store *Store, cfg Config) *CredentialResolver {
 	}
 }
 
-// ResolveForUser returns all credential env vars for a user, with fresh Google tokens.
-func (cr *CredentialResolver) ResolveForUser(ctx context.Context, userID string) (map[string]string, error) {
-	env, err := tokenbridge.ExportEnvForUser(ctx, cr.store.DB(), userID, cr.encryptionKey)
+// Resolve returns all credential env vars, with fresh Google tokens.
+func (cr *CredentialResolver) Resolve(ctx context.Context) (map[string]string, error) {
+	env, err := tokenbridge.ExportEnv(ctx, cr.store.DB(), cr.encryptionKey)
 	if err != nil {
 		return nil, fmt.Errorf("export env: %w", err)
 	}
