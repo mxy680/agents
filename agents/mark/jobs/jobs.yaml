@@ -1,0 +1,15 @@
+- slug: learn-emails
+  display_name: Learn from Emails
+  description: Scan Mark's recent emails, extract significant memories about his life, relationships, commitments, and emotional state. Updates memory files.
+  schedule: "0 */2 * * *"
+  prompt_file: learn-emails.md
+  timeout_minutes: 30
+  estimated_minutes: 10
+
+- slug: learn-texts
+  display_name: Learn from Texts
+  description: Scan Mark's recent iMessages, extract significant memories about his relationships, daily life, and emotional patterns. Updates memory files.
+  schedule: "15 */2 * * *"
+  prompt_file: learn-texts.md
+  timeout_minutes: 30
+  estimated_minutes: 10

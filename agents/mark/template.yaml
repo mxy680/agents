@@ -1,0 +1,10 @@
+name: mark
+display_name: Mark's Personal Agent
+description: >
+  Personal AI assistant for Mark Shteyn. Manages email inboxes (personal + school),
+  acts as a therapist and life coach, and continuously learns about Mark through
+  email and text message analysis. Stores persistent memories in markdown files.
+required_integrations:
+  - google
+  - imessage
+status: active
