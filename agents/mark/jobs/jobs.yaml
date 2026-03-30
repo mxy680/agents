@@ -1,7 +1,8 @@
-- slug: learn
-  display_name: Learn about Mark
-  description: Scan Mark's recent emails and iMessages, extract significant memories about his life, relationships, commitments, and emotional state. Processes emails first, then texts, sequentially. Updates memory files.
-  schedule: "0 */2 * * *"
-  prompt_file: learn.md
-  timeout_minutes: 45
-  estimated_minutes: 20
+jobs:
+  - slug: learn
+    display_name: Learn about Mark
+    description: Scan Mark's recent emails and iMessages, extract significant memories about his life, relationships, commitments, and emotional state. Processes emails first, then texts, sequentially. Updates memory files.
+    schedule: "0 */2 * * *"
+    prompt_file: learn.md
+    timeout_minutes: 45
+    estimated_minutes: 20
