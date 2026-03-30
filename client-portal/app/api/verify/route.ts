@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { signSession } from "@/lib/session"
+import { signSession, verifySession } from "@/lib/session"
 
 const rateLimiter = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 10
@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!code) {
-    code = request.cookies.get("engagent_session")?.value
+    const signed = request.cookies.get("engagent_session")?.value
+    if (signed) {
+      code = verifySession(signed) ?? undefined
+    }
   }
 
   if (!code || typeof code !== "string") {
