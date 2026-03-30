@@ -15,7 +15,7 @@ export default async function LoginPage({
           <div className="flex size-8 items-center justify-center bg-primary">
             <IconApps className="size-5 text-primary-foreground" />
           </div>
-          <span className="text-lg font-semibold tracking-tight">Emdash Admin</span>
+          <span className="text-lg font-semibold tracking-tight">Engagent</span>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -24,7 +24,7 @@ export default async function LoginPage({
             Deploy agents for clients.
           </p>
           <p className="text-sm text-background/60">
-            Admin portal for managing integration credentials, configuring AI agents, and deploying them on behalf of clients.
+            Engineer-as-a-Service — AI agents that research, build, and deploy for your clients.
           </p>
         </div>
 
@@ -41,7 +41,7 @@ export default async function LoginPage({
             <div className="flex size-8 items-center justify-center bg-primary">
               <IconApps className="size-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">Emdash Admin</span>
+            <span className="text-lg font-semibold tracking-tight">Engagent</span>
           </div>
 
           <div className="flex flex-col gap-1">

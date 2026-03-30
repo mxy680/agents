@@ -2,7 +2,6 @@ package instagram
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -131,87 +130,6 @@ func TestLiveHeartbeatJSONOutput(t *testing.T) {
 	}
 }
 
-func TestLiveLikeDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "live", "like", "--broadcast-id=broadcast_111", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestLiveLikeTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "live", "like", "--broadcast-id=broadcast_111")
-	mustContain(t, out, "Liked broadcast")
-}
-
-func TestLiveLikeJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "--json", "live", "like", "--broadcast-id=broadcast_111")
-	var result liveLikeResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-}
-
-func TestLivePostCommentDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "live", "post-comment", "--broadcast-id=broadcast_111", "--text=Hello", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestLivePostCommentTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "live", "post-comment", "--broadcast-id=broadcast_111", "--text=Hello")
-	mustContain(t, out, "Posted comment")
-}
-
-func TestLivePostCommentJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestLiveCmd(factory))
-
-	out := runCmd(t, root, "--json", "live", "post-comment", "--broadcast-id=broadcast_111", "--text=Hello")
-	var result liveCommentResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-}
 
 func TestLiveAlias(t *testing.T) {
 	server := newFullMockServer(t)

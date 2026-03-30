@@ -16,11 +16,28 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { IconCalendarEvent } from "@tabler/icons-react"
-import { getNextRun, toHumanReadable } from "@/lib/cron"
-import { JobCard } from "./job-card"
-import { RunScanButton } from "./run-scan-button"
+import { IconCalendarEvent, IconPlayerPlay } from "@tabler/icons-react"
+import { toHumanReadable } from "@/lib/cron"
+
+interface AgentTemplate {
+  id: string
+  name: string
+  display_name: string
+}
+
+interface JobDefinition {
+  id: string
+  slug: string
+  template_id: string
+  display_name: string
+  description: string
+  schedule: string
+  estimated_minutes: number | null
+  enabled: boolean
+  agent_templates: AgentTemplate | AgentTemplate[]
+}
 
 interface LocalJobRun {
   id: string
@@ -29,36 +46,18 @@ interface LocalJobRun {
   status: string
   started_at: string | null
   completed_at: string | null
-  created_at: string
 }
 
-interface AgentTemplate {
-  id: string
-  display_name: string
-}
-
-interface JobDefinition {
-  id: string
-  template_id: string
-  display_name: string
-  description: string
-  schedule: string
-  agent_templates: AgentTemplate | AgentTemplate[]
-}
-
-interface JobRun {
-  id: string
-  status: "pending" | "running" | "completed" | "failed" | "timed_out"
-  started_at: string | null
-  completed_at: string | null
-  created_at: string
-}
-
-interface EnrichedJob {
-  definition: JobDefinition
-  agentName: string
-  lastRun: JobRun | null
-  nextRun: Date
+function StatusDot({ status }: { status: string }) {
+  const color =
+    status === "completed"
+      ? "bg-green-500"
+      : status === "running"
+        ? "bg-yellow-500"
+        : status === "failed"
+          ? "bg-red-500"
+          : "bg-muted-foreground"
+  return <span className={`inline-block size-2 rounded-full ${color}`} />
 }
 
 function formatDateShort(iso: string | null): string {
@@ -71,68 +70,11 @@ function formatDateShort(iso: string | null): string {
   })
 }
 
-function formatDuration(startedAt: string | null, completedAt: string | null): string {
-  if (!startedAt || !completedAt) return "—"
-  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime()
-  const seconds = Math.round(ms / 1000)
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  const remaining = seconds % 60
-  return `${minutes}m ${remaining}s`
-}
-
-function LocalRunStatusBadge({ status }: { status: string }) {
-  switch (status) {
-    case "completed":
-      return (
-        <Badge variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
-          Completed
-        </Badge>
-      )
-    case "failed":
-      return (
-        <Badge variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
-          Failed
-        </Badge>
-      )
-    case "running":
-      return (
-        <Badge variant="outline" className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-          Running
-        </Badge>
-      )
-    case "pending":
-    default:
-      return (
-        <Badge variant="outline" className="text-xs text-muted-foreground border-muted-foreground/30">
-          Pending
-        </Badge>
-      )
-  }
-}
-
-function LocalRunRow({ run }: { run: LocalJobRun }) {
-  return (
-    <Link
-      href={`/jobs/local/${run.id}`}
-      className="flex items-center justify-between py-2.5 px-1 hover:bg-muted/40 rounded transition-colors text-sm"
-    >
-      <div className="flex items-center gap-3">
-        <LocalRunStatusBadge status={run.status} />
-        <span className="text-muted-foreground">
-          {formatDateShort(run.started_at ?? run.created_at)}
-        </span>
-      </div>
-      <span className="text-muted-foreground text-xs">
-        {formatDuration(run.started_at, run.completed_at)}
-      </span>
-    </Link>
-  )
-}
-
 export default async function JobsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/login")
@@ -140,56 +82,34 @@ export default async function JobsPage() {
 
   const admin = createAdminClient()
 
-  // Fetch all enabled job definitions (admin-only tool, no per-user filtering)
+  // Fetch all job definitions with their agent template
   const { data: jobDefs } = await admin
     .from("job_definitions")
-    .select("id, template_id, display_name, description, schedule, agent_templates(id, display_name)")
+    .select(
+      "id, slug, template_id, display_name, description, schedule, estimated_minutes, enabled, agent_templates(id, name, display_name)"
+    )
     .eq("enabled", true)
 
   const definitions = (jobDefs ?? []) as JobDefinition[]
 
-  // For each job, fetch the most recent job run for this user
-  const enrichedJobs: EnrichedJob[] = await Promise.all(
-    definitions.map(async (def) => {
-      const { data: runs } = await supabase
-        .from("job_runs")
-        .select("id, status, started_at, completed_at, created_at")
-        .eq("job_definition_id", def.id)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-
-      const lastRun = ((runs ?? []) as JobRun[])[0] ?? null
-
-      const agentTemplate = Array.isArray(def.agent_templates)
-        ? def.agent_templates[0]
-        : def.agent_templates
-      const agentName = agentTemplate?.display_name ?? "Unknown Agent"
-
-      const nextRun = getNextRun(def.schedule)
-
-      return { definition: def, agentName, lastRun, nextRun }
-    })
-  )
-
-  // Fetch recent local job runs (real-estate pipeline)
+  // Fetch latest local run per job slug
   const { data: localRuns } = await admin
     .from("local_job_runs")
-    .select("id, agent_name, job_slug, status, started_at, completed_at, created_at")
-    .eq("agent_name", "real-estate")
+    .select("id, agent_name, job_slug, status, started_at, completed_at")
     .order("created_at", { ascending: false })
-    .limit(20)
+    .limit(50)
 
-  const recentLocalRuns = (localRuns ?? []) as LocalJobRun[]
+  const latestRunByJob: Record<string, LocalJobRun> = {}
+  for (const run of (localRuns ?? []) as LocalJobRun[]) {
+    const key = `${run.agent_name}:${run.job_slug}`
+    if (!latestRunByJob[key]) {
+      latestRunByJob[key] = run
+    }
+  }
 
   return (
     <SidebarProvider>
-      <AppSidebar
-        user={{
-          email: user.email ?? undefined,
-          name: user.user_metadata?.full_name ?? user.user_metadata?.name,
-        }}
-      />
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
@@ -209,64 +129,99 @@ export default async function JobsPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Jobs</h1>
             <p className="text-sm text-muted-foreground">
-              Scheduled tasks that run automatically on your connected integrations.
+              Scheduled tasks across all agents.
             </p>
           </div>
 
-          {/* NYC Assemblage Scan — manual trigger */}
-          <div className="flex flex-col gap-4 border border-border rounded-lg p-4">
-            <div>
-              <h2 className="text-base font-semibold">NYC Assemblage Scan</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Run the full NYC assemblage intelligence pipeline locally with live log streaming.
-              </p>
-            </div>
-            <RunScanButton />
-
-            {recentLocalRuns.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Recent Runs
-                </h3>
-                <div className="flex flex-col divide-y divide-border">
-                  {recentLocalRuns.map((run) => (
-                    <LocalRunRow key={run.id} run={run} />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {enrichedJobs.length === 0 ? (
+          {definitions.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
               <IconCalendarEvent className="size-12 text-muted-foreground/50" />
               <div>
-                <p className="text-sm font-medium">No scheduled jobs.</p>
+                <p className="text-sm font-medium">No jobs configured.</p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Jobs become available once you have approved agents with integrations connected.
+                  Jobs appear once agents are set up with templates.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {enrichedJobs.map(({ definition, agentName, lastRun, nextRun }) => (
-                <JobCard
-                  key={definition.id}
-                  definitionId={definition.id}
-                  displayName={definition.display_name}
-                  description={definition.description}
-                  agentDisplayName={agentName}
-                  schedule={definition.schedule}
-                  scheduleHuman={toHumanReadable(definition.schedule)}
-                  lastRun={lastRun ? {
-                    id: lastRun.id,
-                    status: lastRun.status,
-                    startedAt: lastRun.started_at,
-                    completedAt: lastRun.completed_at,
-                  } : null}
-                  nextRun={nextRun.toISOString()}
-                />
-              ))}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+              {definitions.map((def) => {
+                const template = Array.isArray(def.agent_templates)
+                  ? def.agent_templates[0]
+                  : def.agent_templates
+                const agentName = template?.name ?? "unknown"
+                const agentDisplayName =
+                  template?.display_name ?? "Unknown Agent"
+                const latestRun = latestRunByJob[`${agentName}:${def.slug}`]
+
+                return (
+                  <Link
+                    key={def.id}
+                    href={`/jobs/${def.slug}`}
+                    className="block"
+                  >
+                    <Card className="h-full hover:border-foreground/20 transition-colors cursor-pointer">
+                      <CardHeader>
+                        <div className="flex items-start gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center bg-muted">
+                            <IconPlayerPlay className="size-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base">
+                              {def.display_name}
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {agentDisplayName}
+                            </p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex flex-col gap-3">
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {def.description}
+                        </p>
+
+                        <div className="flex flex-col gap-1.5 text-xs">
+                          {def.schedule && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Schedule
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {toHumanReadable(def.schedule)}
+                              </Badge>
+                            </div>
+                          )}
+                          {def.estimated_minutes && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Est. time
+                              </span>
+                              <span>~{def.estimated_minutes} min</span>
+                            </div>
+                          )}
+                          {latestRun && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">
+                                Last run
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <StatusDot status={latestRun.status} />
+                                <span>
+                                  {formatDateShort(
+                                    latestRun.completed_at ??
+                                      latestRun.started_at
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>

@@ -25,6 +25,52 @@ func newContentExportsCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+func newContentExportsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new content export for a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			exportType, _ := cmd.Flags().GetString("type")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if exportType == "" {
+				return fmt.Errorf("--type is required")
+			}
+
+			body := map[string]any{"export_type": exportType}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/content_exports", body)
+			if err != nil {
+				return err
+			}
+
+			var export map[string]any
+			if err := json.Unmarshal(data, &export); err != nil {
+				return fmt.Errorf("parse content export: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(export)
+			}
+
+			id, _ := export["id"]
+			fmt.Printf("Content export %v created (type: %s)\n", id, exportType)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("type", "", "Export type (e.g. common_cartridge) (required)")
+	return cmd
+}
+
 func newContentExportsListCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -134,58 +180,3 @@ func newContentExportsGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func newContentExportsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new content export for a course",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			exportType, _ := cmd.Flags().GetString("type")
-			if exportType == "" {
-				return fmt.Errorf("--type is required")
-			}
-
-			body := map[string]any{
-				"export_type": exportType,
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create content export type %q for course %s", exportType, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/content_exports", body)
-			if err != nil {
-				return err
-			}
-
-			var export map[string]any
-			if err := json.Unmarshal(data, &export); err != nil {
-				return fmt.Errorf("parse created content export: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(export)
-			}
-			id, _ := export["id"]
-			workflowState, _ := export["workflow_state"]
-			fmt.Printf("Content export created: id=%v  state=%v\n", id, workflowState)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("type", "", "Export type: common_cartridge, qti, or zip (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}

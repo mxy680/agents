@@ -2,7 +2,6 @@ package instagram
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -138,49 +137,6 @@ func TestSearchTopJSONOutput(t *testing.T) {
 	}
 }
 
-func TestSearchClearDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSearchCmd(factory))
-
-	out := runCmd(t, root, "search", "clear", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestSearchClearTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSearchCmd(factory))
-
-	out := runCmd(t, root, "search", "clear")
-	mustContain(t, out, "cleared")
-}
-
-func TestSearchClearJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSearchCmd(factory))
-
-	out := runCmd(t, root, "--json", "search", "clear")
-	var result clearSearchResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-	if result.Status != "ok" {
-		t.Errorf("expected status ok, got %s", result.Status)
-	}
-}
 
 func TestSearchExploreTextOutput(t *testing.T) {
 	server := newFullMockServer(t)

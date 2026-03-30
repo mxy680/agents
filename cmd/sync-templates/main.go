@@ -33,12 +33,13 @@ type jobsYAML struct {
 
 // jobYAML mirrors a single job entry in jobs/jobs.yaml.
 type jobYAML struct {
-	Slug           string `yaml:"slug"`
-	DisplayName    string `yaml:"display_name"`
-	Description    string `yaml:"description"`
-	Schedule       string `yaml:"schedule"`
-	PromptFile     string `yaml:"prompt_file"`
-	TimeoutMinutes int    `yaml:"timeout_minutes"`
+	Slug             string `yaml:"slug"`
+	DisplayName      string `yaml:"display_name"`
+	Description      string `yaml:"description"`
+	Schedule         string `yaml:"schedule"`
+	PromptFile       string `yaml:"prompt_file"`
+	TimeoutMinutes   int    `yaml:"timeout_minutes"`
+	EstimatedMinutes int    `yaml:"estimated_minutes"`
 }
 
 func main() {
@@ -170,18 +171,19 @@ func syncJobs(ctx context.Context, db *sql.DB, agentsDir, agentDirName, template
 
 		_, err = db.ExecContext(ctx,
 			`INSERT INTO job_definitions
-			   (template_id, slug, display_name, description, schedule, prompt, timeout_minutes, enabled)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+			   (template_id, slug, display_name, description, schedule, prompt, timeout_minutes, estimated_minutes, enabled)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
 			 ON CONFLICT (template_id, slug) DO UPDATE SET
-			   display_name     = EXCLUDED.display_name,
-			   description      = EXCLUDED.description,
-			   schedule         = EXCLUDED.schedule,
-			   prompt           = EXCLUDED.prompt,
-			   timeout_minutes  = EXCLUDED.timeout_minutes,
-			   enabled          = true,
-			   updated_at       = now()`,
+			   display_name       = EXCLUDED.display_name,
+			   description        = EXCLUDED.description,
+			   schedule           = EXCLUDED.schedule,
+			   prompt             = EXCLUDED.prompt,
+			   timeout_minutes    = EXCLUDED.timeout_minutes,
+			   estimated_minutes  = EXCLUDED.estimated_minutes,
+			   enabled            = true,
+			   updated_at         = now()`,
 			templateID, job.Slug, job.DisplayName, job.Description,
-			job.Schedule, prompt, timeoutMinutes)
+			job.Schedule, prompt, timeoutMinutes, job.EstimatedMinutes)
 		if err != nil {
 			log.Printf("  error upserting job %s/%s: %v", templateName, job.Slug, err)
 			continue

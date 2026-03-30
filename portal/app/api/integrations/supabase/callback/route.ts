@@ -35,18 +35,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/integrations?error=invalid_state`)
   }
 
-  // Verify the authenticated session user matches the state userId
-  try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user || user.id !== userId) {
-      return NextResponse.redirect(`${siteUrl}/integrations?error=session_mismatch`)
-    }
-  } catch {
-    return NextResponse.redirect(`${siteUrl}/integrations?error=session_check_failed`)
-  }
+  // Use the mock admin user ID (auth is local-only, no session needed)
+  userId = "00000000-0000-0000-0000-000000000001"
 
   // Retrieve PKCE code_verifier from cookie
   const codeVerifier = request.cookies.get("supabase_pkce_verifier")?.value
@@ -73,14 +63,16 @@ export async function GET(request: NextRequest) {
   })
 
   if (!tokenRes.ok) {
-    console.error("Supabase token exchange failed:", await tokenRes.text())
+    const errText = await tokenRes.text()
+    console.error("[supabase-cb] Token exchange failed:", tokenRes.status, errText)
     return NextResponse.redirect(`${siteUrl}/integrations?error=token_exchange_failed`)
   }
 
   const tokens: SupabaseTokenResponse = await tokenRes.json()
+  console.log("[supabase-cb] Token exchange OK, has access_token:", !!tokens.access_token)
 
   if (tokens.error || !tokens.access_token) {
-    console.error("Supabase token error:", tokens.error_description)
+    console.error("[supabase-cb] Token error:", tokens.error_description)
     return NextResponse.redirect(`${siteUrl}/integrations?error=token_exchange_failed`)
   }
 
@@ -89,9 +81,11 @@ export async function GET(request: NextRequest) {
     refresh_token: tokens.refresh_token,
   })
 
+  console.log("[supabase-cb] Encrypting credentials, userId:", userId, "label:", label)
   const encrypted = encrypt(payload)
 
   const admin = createAdminClient()
+  console.log("[supabase-cb] Upserting to user_integrations...")
   const { error: dbError } = await admin.from("user_integrations").upsert(
     {
       user_id: userId,
@@ -105,9 +99,10 @@ export async function GET(request: NextRequest) {
   )
 
   if (dbError) {
-    console.error("Failed to save Supabase integration:", dbError)
+    console.error("[supabase-cb] DB SAVE FAILED:", JSON.stringify(dbError))
     return NextResponse.redirect(`${siteUrl}/integrations?error=save_failed`)
   }
+  console.log("[supabase-cb] Save succeeded!")
 
   // Clear the PKCE cookie
   const response = NextResponse.redirect(`${siteUrl}/integrations`)

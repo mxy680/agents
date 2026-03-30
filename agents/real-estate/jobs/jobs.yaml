@@ -1,6 +1,32 @@
 jobs:
-  - slug: weekly-scan
-    display_name: Weekly NYC Assemblage Scan
-    schedule: "0 9 * * 1"  # Every Monday at 9am ET
-    prompt_file: weekly-scan.md
+  - slug: off-market-scan
+    display_name: Off-Market R8+ Scan
+    description: All R8+ small residential in NYC → distress signals → scored report (no Zillow)
+    schedule: ""
+    prompt_file: off-market-scan.md
+    timeout_minutes: 180
+    estimated_minutes: 45
+
+  - slug: probate-scan
+    display_name: Probate Scan
+    description: ACRIS estate filings → deep ACRIS/HPD research per property → prioritized report
+    schedule: ""
+    prompt_file: probate-scan.md
     timeout_minutes: 120
+    estimated_minutes: 20
+
+  - slug: llc-scan
+    display_name: LLC Formation Scan
+    description: NY DOS new LLCs → broad filter → agent researches each candidate → verified report
+    schedule: ""
+    prompt_file: llc-scan.md
+    timeout_minutes: 120
+    estimated_minutes: 15
+
+  - slug: wide-lot-scan
+    display_name: Bronx Wide Lot Scan
+    description: Wide-lot 1-2 family homes → deep ACRIS/HPD/DOB research → cluster detection → scored report
+    schedule: ""
+    prompt_file: wide-lot-scan.md
+    timeout_minutes: 120
+    estimated_minutes: 20

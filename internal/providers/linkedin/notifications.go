@@ -32,28 +32,27 @@ func newNotificationsListCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-// newNotificationsMarkReadCmd builds the "notifications mark-read" command.
-func newNotificationsMarkReadCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "mark-read",
-		Short: "Mark all LinkedIn notifications as read",
-		RunE:  makeRunNotificationsMarkRead(factory),
-	}
-	cmd.Flags().Bool("dry-run", false, "Preview the action without making changes")
-	return cmd
-}
-
 func makeRunNotificationsList(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
 	}
 }
 
-func makeRunNotificationsMarkRead(_ ClientFactory) func(*cobra.Command, []string) error {
+// newNotificationsMarkReadCmd builds the "notifications mark-read" command.
+func newNotificationsMarkReadCmd(_ ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mark-read",
+		Short: "Mark all notifications as read",
+		RunE:  makeRunNotificationsMarkRead(),
+	}
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	return cmd
+}
+
+func makeRunNotificationsMarkRead() func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		if dryRun {
-			return dryRunResult(cmd, "Mark all notifications as read", map[string]string{"action": "markAllAsRead"})
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, "mark all notifications as read", nil)
 		}
 		return errEndpointDeprecated
 	}

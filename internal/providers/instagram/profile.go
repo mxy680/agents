@@ -59,12 +59,6 @@ type userInfoResponse struct {
 	Status string `json:"status"`
 }
 
-// editFormDataResponse is the response envelope for GET /api/v1/accounts/edit/web_form_data/.
-type editFormDataResponse struct {
-	FormData ProfileFormData `json:"form_data"`
-	Status   string          `json:"status"`
-}
-
 func newProfileGetCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
@@ -162,55 +156,6 @@ func makeRunProfileGet(factory ClientFactory) func(*cobra.Command, []string) err
 			IsProfessional: u.IsProfessional,
 		}
 		return printUserDetail(cmd, detail)
-	}
-}
-
-func newProfileEditFormCmd(factory ClientFactory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "edit-form",
-		Short: "Get the editable profile form data",
-		Long:  "Retrieve the current editable fields for your own profile from /api/v1/accounts/edit/web_form_data/.",
-		RunE:  makeRunProfileEditForm(factory),
-	}
-}
-
-func makeRunProfileEditForm(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.Get(ctx, "/api/v1/accounts/edit/web_form_data/", nil)
-		if err != nil {
-			return fmt.Errorf("getting edit form data: %w", err)
-		}
-
-		var formResp editFormDataResponse
-		if err := client.DecodeJSON(resp, &formResp); err != nil {
-			return fmt.Errorf("decoding edit form data: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(formResp.FormData)
-		}
-
-		fd := formResp.FormData
-		lines := []string{
-			fmt.Sprintf("Username:     %s", fd.Username),
-			fmt.Sprintf("First Name:   %s", fd.FirstName),
-			fmt.Sprintf("Last Name:    %s", fd.LastName),
-			fmt.Sprintf("Email:        %s", fd.Email),
-			fmt.Sprintf("Phone:        %s", fd.PhoneNumber),
-			fmt.Sprintf("Bio:          %s", fd.Biography),
-			fmt.Sprintf("Website:      %s", fd.ExternalURL),
-			fmt.Sprintf("Email Confirmed: %v", fd.IsEmailConfirmed),
-			fmt.Sprintf("Phone Confirmed: %v", fd.IsPhoneConfirmed),
-			fmt.Sprintf("Business:     %v", fd.BusinessAccount),
-		}
-		cli.PrintText(lines)
-		return nil
 	}
 }
 

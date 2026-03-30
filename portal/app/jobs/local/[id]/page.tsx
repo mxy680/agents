@@ -29,14 +29,18 @@ import {
   IconFileSpreadsheet,
   IconFileText,
   IconExternalLink,
+  IconDownload,
 } from "@tabler/icons-react"
 
 interface LocalJobRun {
   id: string
+  agent_name?: string
+  job_slug?: string
   status: string
   started_at: string | null
   completed_at: string | null
   deliverables: Record<string, string>
+  log: string
   log_length: number
 }
 
@@ -103,9 +107,15 @@ function DeliverableCards({ deliverables }: { deliverables: Deliverables }) {
 
   if (entries.length === 0) return null
 
-  function getLabel(key: string): string {
-    if (key.includes("sheet") || key.includes("spreadsheet")) return "Google Sheet"
+  function isPortalArtifact(url: string): boolean {
+    return url.includes("/storage/v1/object/public/job-artifacts/")
+  }
+
+  function getLabel(key: string, url: string): string {
     if (key.includes("pdf") || key.includes("report")) return "PDF Report"
+    if (key.includes("sheet") || key.includes("spreadsheet")) {
+      return isPortalArtifact(url) ? "Spreadsheet" : "Google Sheet"
+    }
     if (key.includes("drive")) return "Google Drive"
     if (key.includes("dashboard")) return "Dashboard"
     return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -125,19 +135,27 @@ function DeliverableCards({ deliverables }: { deliverables: Deliverables }) {
     <div className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold">Deliverables</h2>
       <div className="flex flex-wrap gap-3">
-        {entries.map(([key, url]) => (
-          <a
-            key={key}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
-          >
-            {getIcon(key)}
-            <span className="text-sm font-medium">{getLabel(key)}</span>
-            <IconExternalLink className="size-3.5 text-muted-foreground ml-1" />
-          </a>
-        ))}
+        {entries.map(([key, url]) => {
+          const isDownload = isPortalArtifact(url)
+          return (
+            <a
+              key={key}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={isDownload ? undefined : undefined}
+              className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 hover:bg-muted/60 transition-colors"
+            >
+              {getIcon(key)}
+              <span className="text-sm font-medium">{getLabel(key, url)}</span>
+              {isDownload ? (
+                <IconDownload className="size-3.5 text-muted-foreground ml-1" />
+              ) : (
+                <IconExternalLink className="size-3.5 text-muted-foreground ml-1" />
+              )}
+            </a>
+          )
+        })}
       </div>
     </div>
   )
@@ -156,6 +174,7 @@ export default function LocalJobRunPage({
   const [deliverables, setDeliverables] = useState<Deliverables>({})
   const [liveStatus, setLiveStatus] = useState<string>("")
   const [rerunning, setRerunning] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     async function fetchRun() {
@@ -181,6 +200,25 @@ export default function LocalJobRunPage({
       .catch(() => {})
   }, [id])
 
+  async function handleCancel() {
+    if (cancelling) return
+    setCancelling(true)
+    try {
+      const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" })
+      if (res.ok) {
+        setLiveStatus("failed")
+        // Refresh run metadata
+        const refreshRes = await fetch(`/api/jobs/${id}`)
+        if (refreshRes.ok) {
+          const data = await refreshRes.json() as LocalJobRun
+          setRun(data)
+        }
+      }
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   async function handleRerun() {
     if (rerunning) return
     setRerunning(true)
@@ -188,7 +226,7 @@ export default function LocalJobRunPage({
       const res = await fetch("/api/jobs/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: "real-estate", job: "weekly-scan" }),
+        body: JSON.stringify({ agent: run?.agent_name ?? "real-estate", job: run?.job_slug ?? "off-market-scan" }),
       })
       if (res.ok) {
         const { runId } = await res.json() as { runId: string }
@@ -223,7 +261,7 @@ export default function LocalJobRunPage({
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>NYC Assemblage Scan</BreadcrumbPage>
+                <BreadcrumbPage className="capitalize">{run?.job_slug?.replace(/-/g, " ") ?? "Job Run"}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -237,19 +275,35 @@ export default function LocalJobRunPage({
                 Back to Jobs
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRerun}
-              disabled={rerunning || currentStatus === "running" || currentStatus === "pending"}
-            >
-              {rerunning ? (
-                <IconLoader2 className="size-4 animate-spin" />
-              ) : (
-                <IconRefresh className="size-4" />
+            <div className="flex items-center gap-2">
+              {(currentStatus === "running" || currentStatus === "pending") && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={cancelling}
+                >
+                  {cancelling ? (
+                    <IconLoader2 className="size-4 animate-spin" />
+                  ) : (
+                    "Cancel"
+                  )}
+                </Button>
               )}
-              Rerun
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRerun}
+                disabled={rerunning || currentStatus === "running" || currentStatus === "pending"}
+              >
+                {rerunning ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  <IconRefresh className="size-4" />
+                )}
+                Rerun
+              </Button>
+            </div>
           </div>
 
           {loading ? (
@@ -264,7 +318,7 @@ export default function LocalJobRunPage({
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-2xl font-semibold tracking-tight">
-                    NYC Assemblage Scan — {runDate}
+                    <span className="capitalize">{run?.job_slug?.replace(/-/g, " ") ?? "Job Run"}</span> — {runDate}
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
@@ -283,7 +337,7 @@ export default function LocalJobRunPage({
                 <h2 className="text-sm font-semibold">Logs</h2>
                 <LogViewer
                   runId={id}
-                  initialLog={""}
+                  initialLog={run.log || ""}
                   initialStatus={run.status}
                   initialDeliverables={run.deliverables}
                   onDone={handleDone}

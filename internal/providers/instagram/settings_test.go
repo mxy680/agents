@@ -2,7 +2,6 @@ package instagram
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
@@ -37,90 +36,6 @@ func TestSettingsGetJSONOutput(t *testing.T) {
 	}
 }
 
-func TestSettingsSetPrivateDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "set-private", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestSettingsSetPrivateTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "set-private")
-	mustContain(t, out, "private")
-}
-
-func TestSettingsSetPrivateJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "--json", "settings", "set-private")
-	var result accountActionResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-	if result.Status != "ok" {
-		t.Errorf("expected status ok, got %s", result.Status)
-	}
-}
-
-func TestSettingsSetPublicDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "set-public", "--dry-run")
-	if !strings.Contains(out, "[DRY RUN]") {
-		t.Errorf("expected dry-run output, got: %s", out)
-	}
-}
-
-func TestSettingsSetPublicTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "settings", "set-public")
-	mustContain(t, out, "public")
-}
-
-func TestSettingsSetPublicJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestSettingsCmd(factory))
-
-	out := runCmd(t, root, "--json", "settings", "set-public")
-	var result accountActionResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-}
 
 func TestSettingsLoginActivityTextOutput(t *testing.T) {
 	server := newFullMockServer(t)

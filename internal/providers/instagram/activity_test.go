@@ -50,35 +50,6 @@ func TestActivityFeedWithLimit(t *testing.T) {
 	mustContain(t, out, "liked your photo")
 }
 
-func TestActivityMarkCheckedTextOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestActivityCmd(factory))
-
-	out := runCmd(t, root, "activity", "mark-checked")
-	mustContain(t, out, "marked as seen")
-}
-
-func TestActivityMarkCheckedJSONOutput(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-
-	factory := newTestClientFactory(server)
-	root := newTestRootCmd()
-	root.AddCommand(buildTestActivityCmd(factory))
-
-	out := runCmd(t, root, "--json", "activity", "mark-checked")
-	var result activityMarkCheckedResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("expected JSON object, got: %s\nerr: %v", out, err)
-	}
-	if result.Status != "ok" {
-		t.Errorf("expected status ok, got %s", result.Status)
-	}
-}
 
 func TestActivityAliases(t *testing.T) {
 	server := newFullMockServer(t)

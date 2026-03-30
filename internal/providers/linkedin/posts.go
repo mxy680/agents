@@ -96,9 +96,9 @@ func newPostsCmd(factory ClientFactory) *cobra.Command {
 	}
 	postsCmd.AddCommand(newPostsListCmd(factory))
 	postsCmd.AddCommand(newPostsGetCmd(factory))
+	postsCmd.AddCommand(newPostsReactionsCmd(factory))
 	postsCmd.AddCommand(newPostsCreateCmd(factory))
 	postsCmd.AddCommand(newPostsDeleteCmd(factory))
-	postsCmd.AddCommand(newPostsReactionsCmd(factory))
 	postsCmd.AddCommand(newPostsReactCmd(factory))
 	return postsCmd
 }
@@ -130,36 +130,6 @@ func newPostsGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-// newPostsCreateCmd builds the "posts create" command.
-func newPostsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new LinkedIn post",
-		Long:  "Share a text post on LinkedIn.",
-		RunE:  makeRunPostsCreate(factory),
-	}
-	cmd.Flags().String("text", "", "Post text content")
-	_ = cmd.MarkFlagRequired("text")
-	cmd.Flags().String("visibility", "public", "Post visibility: public or connections")
-	cmd.Flags().Bool("dry-run", false, "Print what would be sent without creating the post")
-	return cmd
-}
-
-// newPostsDeleteCmd builds the "posts delete" command.
-func newPostsDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a LinkedIn post",
-		Long:  "Delete a post by its activity URN.",
-		RunE:  makeRunPostsDelete(factory),
-	}
-	cmd.Flags().String("post-urn", "", "Activity URN of the post (e.g. urn:li:activity:1234)")
-	_ = cmd.MarkFlagRequired("post-urn")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Print what would be deleted without deleting")
-	return cmd
-}
-
 // newPostsReactionsCmd builds the "posts reactions" command.
 func newPostsReactionsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -171,22 +141,6 @@ func newPostsReactionsCmd(factory ClientFactory) *cobra.Command {
 	cmd.Flags().String("post-urn", "", "Activity URN of the post (e.g. urn:li:activity:1234)")
 	_ = cmd.MarkFlagRequired("post-urn")
 	cmd.Flags().Int("limit", 10, "Maximum number of reactions to return")
-	return cmd
-}
-
-// newPostsReactCmd builds the "posts react" command.
-func newPostsReactCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "react",
-		Short: "React to a LinkedIn post",
-		Long:  "Add a reaction to a post by its activity URN.",
-		RunE:  makeRunPostsReact(factory),
-	}
-	cmd.Flags().String("post-urn", "", "Activity URN of the post (e.g. urn:li:activity:1234)")
-	_ = cmd.MarkFlagRequired("post-urn")
-	cmd.Flags().String("type", "LIKE", "Reaction type: LIKE, CELEBRATE, SUPPORT, LOVE, INSIGHTFUL, FUNNY")
-	_ = cmd.MarkFlagRequired("type")
-	cmd.Flags().Bool("dry-run", false, "Print what would be reacted without sending")
 	return cmd
 }
 
@@ -302,91 +256,6 @@ func makeRunPostsGet(factory ClientFactory) func(*cobra.Command, []string) error
 	}
 }
 
-func makeRunPostsCreate(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		text, _ := cmd.Flags().GetString("text")
-		visibility, _ := cmd.Flags().GetString("visibility")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-
-		visibilityCode := "PUBLIC"
-		if visibility == "connections" {
-			visibilityCode = "CONNECTIONS"
-		}
-
-		body := map[string]any{
-			"commentary": text,
-			"visibility": visibilityCode,
-			"distribution": map[string]any{
-				"feedDistribution": "MAIN_FEED",
-			},
-		}
-
-		if dryRun {
-			return dryRunResult(cmd, fmt.Sprintf("create post with text %q (visibility=%s)", truncate(text, 60), visibilityCode), body)
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.PostJSON(ctx, "/voyager/api/contentCreation/normalizedContent", body)
-		if err != nil {
-			return fmt.Errorf("creating post: %w", err)
-		}
-
-		var result struct {
-			Value struct {
-				URN string `json:"entityUrn"`
-			} `json:"value"`
-		}
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding create response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{"urn": result.Value.URN})
-		}
-		fmt.Printf("Post created: %s\n", result.Value.URN)
-		return nil
-	}
-}
-
-func makeRunPostsDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		postURN, _ := cmd.Flags().GetString("post-urn")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-
-		if dryRun {
-			return dryRunResult(cmd, fmt.Sprintf("delete post %s", postURN), map[string]string{"post_urn": postURN})
-		}
-
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/feed/updates/" + url.PathEscape(postURN)
-		resp, err := client.Delete(ctx, path)
-		if err != nil {
-			return fmt.Errorf("deleting post %s: %w", postURN, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{"status": "deleted", "post_urn": postURN})
-		}
-		fmt.Printf("Post deleted: %s\n", postURN)
-		return nil
-	}
-}
-
 func makeRunPostsReactions(factory ClientFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		postURN, _ := cmd.Flags().GetString("post-urn")
@@ -444,39 +313,6 @@ func makeRunPostsReactions(factory ClientFactory) func(*cobra.Command, []string)
 	}
 }
 
-func makeRunPostsReact(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		postURN, _ := cmd.Flags().GetString("post-urn")
-		reactionType, _ := cmd.Flags().GetString("type")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-
-		body := map[string]string{"reactionType": reactionType}
-
-		if dryRun {
-			return dryRunResult(cmd, fmt.Sprintf("react to post %s with %s", postURN, reactionType), body)
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/socialActions/" + url.PathEscape(postURN) + "/reactions"
-		resp, err := client.PostJSON(ctx, path, body)
-		if err != nil {
-			return fmt.Errorf("reacting to post %s: %w", postURN, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{"status": "reacted", "reaction_type": reactionType, "post_urn": postURN})
-		}
-		fmt.Printf("Reacted to post %s with %s\n", postURN, reactionType)
-		return nil
-	}
-}
-
 // feedElementToPostSummary converts a voyagerFeedElement to PostSummary.
 func feedElementToPostSummary(el voyagerFeedElement) PostSummary {
 	post := PostSummary{Timestamp: el.CreatedAt}
@@ -520,4 +356,160 @@ func singlePostResponseToSummary(urn string, raw voyagerSinglePostResponse) Post
 	}
 	post.Timestamp = raw.CreatedAt
 	return post
+}
+
+// newPostsCreateCmd builds the "posts create" command.
+func newPostsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new LinkedIn post",
+		RunE:  makeRunPostsCreate(factory),
+	}
+	cmd.Flags().String("text", "", "Post text (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("text")
+	return cmd
+}
+
+func makeRunPostsCreate(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		text, _ := cmd.Flags().GetString("text")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, "create post", map[string]string{"text": text})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"author":     "urn:li:fs_miniProfile:me",
+			"commentary": text,
+			"visibility": map[string]any{
+				"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC",
+			},
+			"lifecycleState": "PUBLISHED",
+			"specificContent": map[string]any{
+				"com.linkedin.ugc.ShareContent": map[string]any{
+					"shareCommentary": map[string]any{"text": text},
+					"shareMediaCategory": "NONE",
+				},
+			},
+		}
+		resp, err := client.PostJSON(ctx, "/voyager/api/contentCreation/normalizedContent", body)
+		if err != nil {
+			return fmt.Errorf("creating post: %w", err)
+		}
+
+		var result struct {
+			Value struct {
+				EntityURN string `json:"entityUrn"`
+			} `json:"value"`
+		}
+		if err := client.DecodeJSON(resp, &result); err == nil && result.Value.EntityURN != "" {
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(map[string]string{"urn": result.Value.EntityURN})
+			}
+			fmt.Println(result.Value.EntityURN)
+		} else {
+			fmt.Println("Post created")
+		}
+		return nil
+	}
+}
+
+// newPostsDeleteCmd builds the "posts delete" command.
+func newPostsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a LinkedIn post",
+		RunE:  makeRunPostsDelete(factory),
+	}
+	cmd.Flags().String("post-urn", "", "Activity URN of the post (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm the delete action")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("post-urn")
+	return cmd
+}
+
+func makeRunPostsDelete(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		postURN, _ := cmd.Flags().GetString("post-urn")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("delete post %s", postURN),
+				map[string]string{"status": "deleted", "post_urn": postURN})
+		}
+
+		if err := confirmDestructive(cmd); err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/feed/updates/" + url.PathEscape(postURN)
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("deleting post %s: %w", postURN, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "deleted", "post_urn": postURN})
+		}
+		fmt.Printf("Post %s deleted\n", postURN)
+		return nil
+	}
+}
+
+// newPostsReactCmd builds the "posts react" command.
+func newPostsReactCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "react",
+		Short: "React to a LinkedIn post",
+		RunE:  makeRunPostsReact(factory),
+	}
+	cmd.Flags().String("post-urn", "", "Activity URN of the post (required)")
+	cmd.Flags().String("type", "", "Reaction type: LIKE, CELEBRATE, SUPPORT, FUNNY, LOVE, INSIGHTFUL (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("post-urn")
+	_ = cmd.MarkFlagRequired("type")
+	return cmd
+}
+
+func makeRunPostsReact(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		postURN, _ := cmd.Flags().GetString("post-urn")
+		reactionType, _ := cmd.Flags().GetString("type")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("react to post %s with %s", postURN, reactionType),
+				map[string]string{"status": "reacted", "post_urn": postURN, "type": reactionType})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{"reactionType": reactionType}
+		path := "/voyager/api/socialActions/" + url.PathEscape(postURN) + "/reactions"
+		_, err = client.PostJSON(ctx, path, body)
+		if err != nil {
+			return fmt.Errorf("reacting to post %s: %w", postURN, err)
+		}
+
+		if cli.IsJSONOutput(cmd) {
+			return cli.PrintJSON(map[string]string{"status": "reacted", "post_urn": postURN, "type": reactionType})
+		}
+		fmt.Printf("Reacted to post %s with %s\n", postURN, reactionType)
+		return nil
+	}
 }

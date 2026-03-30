@@ -3,7 +3,7 @@
 # Run the Bronx Assemblage Scout locally.
 #
 # Usage:
-#   ./run-local.sh                    # Run the weekly scan job
+#   ./run-local.sh                    # Run the off-market scan job
 #   ./run-local.sh "custom prompt"    # Run with a custom prompt
 #
 set -euo pipefail
@@ -15,7 +15,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 if [ $# -gt 0 ]; then
   PROMPT="$1"
 else
-  PROMPT="$(cat "$SCRIPT_DIR/jobs/weekly-scan.md")"
+  PROMPT="$(cat "$SCRIPT_DIR/jobs/off-market-scan.md")"
 fi
 
 # Build system prompt from role.md + CLAUDE.md

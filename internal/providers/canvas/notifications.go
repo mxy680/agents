@@ -116,38 +116,31 @@ func newNotificationsPreferencesCmd(factory ClientFactory) *cobra.Command {
 func newNotificationsUpdatePreferenceCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update-preference",
-		Short: "Update a notification preference category",
+		Short: "Update a notification preference frequency",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
 			category, _ := cmd.Flags().GetString("category")
+			frequency, _ := cmd.Flags().GetString("frequency")
 			if category == "" {
 				return fmt.Errorf("--category is required")
 			}
-			frequency, _ := cmd.Flags().GetString("frequency")
 			if frequency == "" {
-				return fmt.Errorf("--frequency is required")
+				frequency = "immediately"
 			}
 
 			validFrequencies := map[string]bool{
-				"immediately": true,
-				"daily":       true,
-				"weekly":      true,
-				"never":       true,
+				"immediately": true, "daily": true, "weekly": true, "never": true,
 			}
 			if !validFrequencies[frequency] {
-				return fmt.Errorf("--frequency must be one of: immediately, daily, weekly, never")
-			}
-
-			body := map[string]any{
-				"notification_preferences": map[string]any{
-					"frequency": frequency,
-				},
+				return fmt.Errorf("invalid frequency %q: must be immediately, daily, weekly, or never", frequency)
 			}
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update notification preference %q to %s", category, frequency), body)
+				return dryRunResult(cmd, "update notification preference: "+category, map[string]any{
+					"category": category, "frequency": frequency,
+				})
 			}
 
 			client, err := factory(ctx)
@@ -156,6 +149,11 @@ func newNotificationsUpdatePreferenceCmd(factory ClientFactory) *cobra.Command {
 			}
 
 			path := "/users/self/communication_channels/email/self/notification_preferences/" + category
+			body := map[string]any{
+				"notification_preferences": []map[string]any{
+					{"notification": category, "frequency": frequency},
+				},
+			}
 			data, err := client.Put(ctx, path, body)
 			if err != nil {
 				return err
@@ -163,19 +161,18 @@ func newNotificationsUpdatePreferenceCmd(factory ClientFactory) *cobra.Command {
 
 			var result map[string]any
 			if err := json.Unmarshal(data, &result); err != nil {
-				return fmt.Errorf("parse update response: %w", err)
+				return fmt.Errorf("parse preference response: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
 				return cli.PrintJSON(result)
 			}
-			fmt.Printf("Notification preference %q updated to %s.\n", category, frequency)
+			fmt.Printf("Notification preference '%s' updated to '%s'\n", category, frequency)
 			return nil
 		},
 	}
 
-	cmd.Flags().String("category", "", "Notification category name (required)")
-	cmd.Flags().String("frequency", "", "Frequency: immediately, daily, weekly, or never (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("category", "", "Notification category (required)")
+	cmd.Flags().String("frequency", "immediately", "Frequency: immediately|daily|weekly|never")
 	return cmd
 }

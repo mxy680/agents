@@ -5,8 +5,12 @@
 export function checkOrigin(request: Request): Response | null {
   const origin = request.headers.get("origin")
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-  if (!origin || origin !== siteUrl) {
+  if (!origin) {
     return Response.json({ error: "Forbidden" }, { status: 403 })
   }
-  return null
+  // Allow: same site, localhost, and Chrome extensions
+  if (origin === siteUrl || origin.startsWith("http://localhost") || origin.startsWith("chrome-extension://")) {
+    return null
+  }
+  return Response.json({ error: "Forbidden" }, { status: 403 })
 }

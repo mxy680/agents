@@ -2,7 +2,7 @@ import { spawn } from "child_process"
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs"
 import path from "path"
 import os from "os"
-import { type ChatSSEEvent, mapAgentEvent } from "@/lib/agent-events"
+import { type ChatSSEEvent, type StreamState, mapAgentEvent } from "@/lib/agent-events"
 import { resolveAdminCredentials } from "@/lib/credentials"
 
 export type { ChatSSEEvent }
@@ -17,8 +17,20 @@ export interface LocalRunnerOptions {
   timeoutMs?: number
 }
 
-// Resolve the repo root relative to the portal (portal is one level down from repo root).
-const REPO_ROOT = path.resolve(process.cwd(), "..")
+// Resolve the repo root. In local dev, portal is one level down from repo root.
+// In Docker/Fly, agents are copied to /app/agents/ alongside the portal.
+const REPO_ROOT = (() => {
+  const fromCwd = path.resolve(process.cwd(), "..")
+  // Check if agents dir exists at the parent (local dev)
+  try {
+    const { statSync } = require("fs")
+    statSync(path.join(fromCwd, "agents"))
+    return fromCwd
+  } catch {
+    // Fallback: agents are in the same dir as portal (Docker)
+    return process.cwd()
+  }
+})()
 
 /**
  * Spawns `node entrypoint.mjs session.json` for a local agent (no Docker).
@@ -59,7 +71,8 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   writeFileSync(sessionFile, JSON.stringify(sessionData))
 
   // Agent entrypoint path: <repo>/agents/<agentName>/entrypoint.mjs
-  const entrypointPath = path.join(REPO_ROOT, "agents", agentName, "entrypoint.mjs")
+  // NOTE: path constructed via array join to prevent Turbopack from analyzing it as a module
+  const entrypointPath = [REPO_ROOT, "agents", agentName, "entrypoint.mjs"].join(path.sep)
 
   // Verify the entrypoint exists before spawning.
   try {
@@ -78,7 +91,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
 
   const proc = spawn("node", [entrypointPath, sessionFile], {
     stdio: ["ignore", "pipe", "pipe"],
-    env,
+    env: env as NodeJS.ProcessEnv,
     cwd: agentCwd,
   })
 
@@ -125,6 +138,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
   // Track tool input accumulation per tool use id.
   const toolInputAccum: Record<string, string> = {}
   let currentToolId: string | null = null
+  const streamState: StreamState = { hasReceivedDeltas: false }
 
   // Parse NDJSON stdout line by line.
   let lineBuffer = ""
@@ -150,7 +164,7 @@ export async function* runLocal(opts: LocalRunnerOptions): AsyncGenerator<ChatSS
         get currentToolId() { return currentToolId },
         set currentToolId(v: string | null) { currentToolId = v },
       }
-      const events = mapAgentEvent(parsed, toolInputAccum, toolIdRef)
+      const events = mapAgentEvent(parsed, toolInputAccum, toolIdRef, streamState)
       for (const e of events) {
         enqueue(e)
       }
@@ -209,13 +223,30 @@ export function buildSystemPrompt(agentName: string, contextPrefix?: string): st
     parts.push(contextPrefix.trim())
   }
 
-  for (const filename of ["role.md", "CLAUDE.md"]) {
+  for (const filename of ["role.md", "CLAUDE.md", "known-issues.md"]) {
     try {
       const content = readFileSync(path.join(agentDir, filename), "utf-8").trim()
       if (content) parts.push(content)
     } catch {
       // File missing — skip.
     }
+  }
+
+  // Include skill files from agents/<name>/skills/
+  const skillsDir = path.join(agentDir, "skills")
+  try {
+    const { readdirSync } = require("fs")
+    const skillFiles = (readdirSync(skillsDir) as string[]).filter((f: string) => f.endsWith(".md")).sort()
+    for (const sf of skillFiles) {
+      try {
+        const content = readFileSync(path.join(skillsDir, sf), "utf-8").trim()
+        if (content) parts.push(content)
+      } catch {
+        // Skip unreadable skill files
+      }
+    }
+  } catch {
+    // Skills directory doesn't exist — skip
   }
 
   return parts.join("\n\n")

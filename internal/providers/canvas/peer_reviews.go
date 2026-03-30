@@ -3,7 +3,6 @@ package canvas
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -84,6 +83,10 @@ func newPeerReviewsCreateCmd(factory ClientFactory) *cobra.Command {
 		Short: "Assign a peer reviewer to a submission",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
 
 			courseID, _ := cmd.Flags().GetString("course-id")
 			assignmentID, _ := cmd.Flags().GetString("assignment-id")
@@ -102,55 +105,39 @@ func newPeerReviewsCreateCmd(factory ClientFactory) *cobra.Command {
 				return fmt.Errorf("--reviewer-id is required")
 			}
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf(
-					"assign reviewer %s to submission by user %s (assignment %s, course %s)",
-					reviewerID, userID, assignmentID, courseID,
-				), map[string]any{"user_id": reviewerID})
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
 			path := "/courses/" + courseID + "/assignments/" + assignmentID + "/submissions/" + userID + "/peer_reviews"
-			params := url.Values{}
-			params.Set("user_id", reviewerID)
-
-			// Canvas expects user_id as a query parameter for the reviewer.
-			fullPath := path + "?" + params.Encode()
-			data, err := client.Post(ctx, fullPath, nil)
+			body := map[string]any{"user_id": reviewerID}
+			data, err := client.Post(ctx, path, body)
 			if err != nil {
 				return err
 			}
 
-			var result map[string]any
-			if err := json.Unmarshal(data, &result); err != nil {
-				return fmt.Errorf("parse created peer review: %w", err)
+			var review map[string]any
+			if err := json.Unmarshal(data, &review); err != nil {
+				return fmt.Errorf("parse peer review: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(result)
+				return cli.PrintJSON(review)
 			}
-			fmt.Printf("Peer review assigned: reviewer %s → submission by user %s.\n", reviewerID, userID)
+			assessorID, _ := review["assessor_id"]
+			workflowState, _ := review["workflow_state"].(string)
+			fmt.Printf("Peer reviewer %v assigned (state: %s)\n", assessorID, workflowState)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("assignment-id", "", "Canvas assignment ID (required)")
-	cmd.Flags().String("user-id", "", "User ID of the submission author (required)")
-	cmd.Flags().String("reviewer-id", "", "User ID of the peer reviewer to assign (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("user-id", "", "Submission owner user ID (required)")
+	cmd.Flags().String("reviewer-id", "", "Reviewer user ID (required)")
 	return cmd
 }
 
 func newPeerReviewsDeleteCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Remove a peer reviewer from a submission",
+		Short: "Remove a peer review assignment",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -175,46 +162,25 @@ func newPeerReviewsDeleteCmd(factory ClientFactory) *cobra.Command {
 				return err
 			}
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf(
-					"remove reviewer %s from submission by user %s (assignment %s, course %s)",
-					reviewerID, userID, assignmentID, courseID,
-				), nil)
-			}
-
 			client, err := factory(ctx)
 			if err != nil {
 				return err
 			}
 
-			params := url.Values{}
-			params.Set("user_id", reviewerID)
-			path := "/courses/" + courseID + "/assignments/" + assignmentID + "/submissions/" + userID + "/peer_reviews?" + params.Encode()
-
-			_, err = client.Delete(ctx, path)
-			if err != nil {
+			path := "/courses/" + courseID + "/assignments/" + assignmentID + "/submissions/" + userID + "/peer_reviews"
+			if _, err := client.Delete(ctx, path); err != nil {
 				return err
 			}
 
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{
-					"deleted":       true,
-					"reviewer_id":   reviewerID,
-					"user_id":       userID,
-					"assignment_id": assignmentID,
-				})
-			}
-			fmt.Printf("Peer review assignment removed: reviewer %s from submission by user %s.\n", reviewerID, userID)
+			fmt.Printf("Peer reviewer %s removed from submission\n", reviewerID)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("assignment-id", "", "Canvas assignment ID (required)")
-	cmd.Flags().String("user-id", "", "User ID of the submission author (required)")
-	cmd.Flags().String("reviewer-id", "", "User ID of the peer reviewer to remove (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm removal")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("user-id", "", "Submission owner user ID (required)")
+	cmd.Flags().String("reviewer-id", "", "Reviewer user ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }

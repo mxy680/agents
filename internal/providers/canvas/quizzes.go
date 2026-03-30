@@ -20,11 +20,11 @@ func newQuizzesCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newQuizzesListCmd(factory))
 	cmd.AddCommand(newQuizzesGetCmd(factory))
+	cmd.AddCommand(newQuizzesQuestionsCmd(factory))
+	cmd.AddCommand(newQuizzesSubmissionsCmd(factory))
 	cmd.AddCommand(newQuizzesCreateCmd(factory))
 	cmd.AddCommand(newQuizzesUpdateCmd(factory))
 	cmd.AddCommand(newQuizzesDeleteCmd(factory))
-	cmd.AddCommand(newQuizzesQuestionsCmd(factory))
-	cmd.AddCommand(newQuizzesSubmissionsCmd(factory))
 
 	return cmd
 }
@@ -149,211 +149,6 @@ func newQuizzesGetCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
-	return cmd
-}
-
-func newQuizzesCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new quiz",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			title, _ := cmd.Flags().GetString("title")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if title == "" {
-				return fmt.Errorf("--title is required")
-			}
-
-			quizBody := map[string]any{"title": title}
-			if cmd.Flags().Changed("description") {
-				v, _ := cmd.Flags().GetString("description")
-				quizBody["description"] = v
-			}
-			if cmd.Flags().Changed("quiz-type") {
-				v, _ := cmd.Flags().GetString("quiz-type")
-				quizBody["quiz_type"] = v
-			}
-			if cmd.Flags().Changed("time-limit") {
-				v, _ := cmd.Flags().GetInt("time-limit")
-				quizBody["time_limit"] = v
-			}
-			if cmd.Flags().Changed("points") {
-				v, _ := cmd.Flags().GetFloat64("points")
-				quizBody["points_possible"] = v
-			}
-			if cmd.Flags().Changed("published") {
-				v, _ := cmd.Flags().GetBool("published")
-				quizBody["published"] = v
-			}
-
-			body := map[string]any{"quiz": quizBody}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create quiz %q in course %s", title, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/quizzes", body)
-			if err != nil {
-				return err
-			}
-
-			var quiz QuizSummary
-			if err := json.Unmarshal(data, &quiz); err != nil {
-				return fmt.Errorf("parse quiz: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(quiz)
-			}
-
-			fmt.Printf("Created quiz %d: %s\n", quiz.ID, quiz.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("title", "", "Quiz title (required)")
-	cmd.Flags().String("description", "", "Quiz description")
-	cmd.Flags().String("quiz-type", "", "Quiz type: practice_quiz, assignment, graded_survey, or survey")
-	cmd.Flags().Int("time-limit", 0, "Time limit in minutes")
-	cmd.Flags().Float64("points", 0, "Total points possible")
-	cmd.Flags().Bool("published", false, "Publish the quiz immediately")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newQuizzesUpdateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update an existing quiz",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			quizID, _ := cmd.Flags().GetString("quiz-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if quizID == "" {
-				return fmt.Errorf("--quiz-id is required")
-			}
-
-			quizBody := map[string]any{}
-			if cmd.Flags().Changed("title") {
-				v, _ := cmd.Flags().GetString("title")
-				quizBody["title"] = v
-			}
-			if cmd.Flags().Changed("description") {
-				v, _ := cmd.Flags().GetString("description")
-				quizBody["description"] = v
-			}
-			if cmd.Flags().Changed("time-limit") {
-				v, _ := cmd.Flags().GetInt("time-limit")
-				quizBody["time_limit"] = v
-			}
-			if cmd.Flags().Changed("published") {
-				v, _ := cmd.Flags().GetBool("published")
-				quizBody["published"] = v
-			}
-
-			body := map[string]any{"quiz": quizBody}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update quiz %s in course %s", quizID, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Put(ctx, "/courses/"+courseID+"/quizzes/"+quizID, body)
-			if err != nil {
-				return err
-			}
-
-			var quiz QuizSummary
-			if err := json.Unmarshal(data, &quiz); err != nil {
-				return fmt.Errorf("parse quiz: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(quiz)
-			}
-
-			fmt.Printf("Updated quiz %d: %s\n", quiz.ID, quiz.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
-	cmd.Flags().String("title", "", "New quiz title")
-	cmd.Flags().String("description", "", "New quiz description")
-	cmd.Flags().Int("time-limit", 0, "New time limit in minutes")
-	cmd.Flags().Bool("published", false, "Publish or unpublish the quiz")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newQuizzesDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a quiz",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			quizID, _ := cmd.Flags().GetString("quiz-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if quizID == "" {
-				return fmt.Errorf("--quiz-id is required")
-			}
-
-			if err := confirmDestructive(cmd, "this will permanently delete the quiz"); err != nil {
-				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete quiz %s in course %s", quizID, courseID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Delete(ctx, "/courses/"+courseID+"/quizzes/"+quizID)
-			if err != nil {
-				return err
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "quiz_id": quizID})
-			}
-			fmt.Printf("Quiz %s deleted.\n", quizID)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }
 
@@ -486,5 +281,177 @@ func newQuizzesSubmissionsCmd(factory ClientFactory) *cobra.Command {
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
 	cmd.Flags().Int("limit", 0, "Maximum number of submissions to return")
+	return cmd
+}
+
+func newQuizzesCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new quiz in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			title, _ := cmd.Flags().GetString("title")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create quiz: "+title, map[string]any{"course_id": courseID, "title": title})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			quiz := map[string]any{"title": title}
+			if desc, _ := cmd.Flags().GetString("description"); desc != "" {
+				quiz["description"] = desc
+			}
+			if quizType, _ := cmd.Flags().GetString("quiz-type"); quizType != "" {
+				quiz["quiz_type"] = quizType
+			}
+			if timeLimit, _ := cmd.Flags().GetInt("time-limit"); timeLimit > 0 {
+				quiz["time_limit"] = timeLimit
+			}
+			if points, _ := cmd.Flags().GetFloat64("points"); points > 0 {
+				quiz["points_possible"] = points
+			}
+			if published, _ := cmd.Flags().GetBool("published"); published {
+				quiz["published"] = true
+			}
+
+			data, err := client.Post(ctx, "/courses/"+courseID+"/quizzes", map[string]any{"quiz": quiz})
+			if err != nil {
+				return err
+			}
+
+			var q QuizSummary
+			if err := json.Unmarshal(data, &q); err != nil {
+				return fmt.Errorf("parse quiz: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(q)
+			}
+			fmt.Printf("Quiz %d created: %s\n", q.ID, q.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("title", "", "Quiz title (required)")
+	cmd.Flags().String("description", "", "Quiz description")
+	cmd.Flags().String("quiz-type", "", "Quiz type (assignment, practice_quiz, etc.)")
+	cmd.Flags().Int("time-limit", 0, "Time limit in minutes")
+	cmd.Flags().Float64("points", 0, "Points possible")
+	cmd.Flags().Bool("published", false, "Publish quiz")
+	return cmd
+}
+
+func newQuizzesUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a quiz",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			quizID, _ := cmd.Flags().GetString("quiz-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if quizID == "" {
+				return fmt.Errorf("--quiz-id is required")
+			}
+
+			quiz := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				quiz["title"] = title
+			}
+			if desc, _ := cmd.Flags().GetString("description"); desc != "" {
+				quiz["description"] = desc
+			}
+			if timeLimit, _ := cmd.Flags().GetInt("time-limit"); timeLimit > 0 {
+				quiz["time_limit"] = timeLimit
+			}
+			if published, _ := cmd.Flags().GetBool("published"); published {
+				quiz["published"] = true
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/quizzes/"+quizID, map[string]any{"quiz": quiz})
+			if err != nil {
+				return err
+			}
+
+			var q QuizSummary
+			if err := json.Unmarshal(data, &q); err != nil {
+				return fmt.Errorf("parse quiz: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(q)
+			}
+			fmt.Printf("Quiz %s updated\n", quizID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("description", "", "New description")
+	cmd.Flags().Int("time-limit", 0, "New time limit in minutes")
+	cmd.Flags().Bool("published", false, "Publish quiz")
+	return cmd
+}
+
+func newQuizzesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a quiz",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			quizID, _ := cmd.Flags().GetString("quiz-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if quizID == "" {
+				return fmt.Errorf("--quiz-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the quiz"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/quizzes/"+quizID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Quiz %s deleted\n", quizID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("quiz-id", "", "Canvas quiz ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }

@@ -61,17 +61,6 @@ func toMediaSummary(item rawMediaItem) MediaSummary {
 	}
 }
 
-// mediaDeleteResponse is the response for POST /api/v1/media/{id}/delete/.
-type mediaDeleteResponse struct {
-	DidDelete bool   `json:"did_delete"`
-	Status    string `json:"status"`
-}
-
-// mediaActionResponse is a generic response for archive/save/unsave operations.
-type mediaActionResponse struct {
-	Status string `json:"status"`
-}
-
 // mediaLikersResponse is the response for GET /api/v1/media/{id}/likers/.
 type mediaLikersResponse struct {
 	Users  []rawUser `json:"users"`
@@ -92,17 +81,12 @@ type rawUser struct {
 func newMediaCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "media",
-		Short:   "View and manage posts/media",
+		Short:   "View posts/media",
 		Aliases: []string{"post", "posts"},
 	}
 	cmd.AddCommand(newMediaListCmd(factory))
 	cmd.AddCommand(newMediaGetCmd(factory))
-	cmd.AddCommand(newMediaDeleteCmd(factory))
-	cmd.AddCommand(newMediaArchiveCmd(factory))
-	cmd.AddCommand(newMediaUnarchiveCmd(factory))
 	cmd.AddCommand(newMediaLikersCmd(factory))
-	cmd.AddCommand(newMediaSaveCmd(factory))
-	cmd.AddCommand(newMediaUnsaveCmd(factory))
 	return cmd
 }
 
@@ -221,143 +205,6 @@ func makeRunMediaGet(factory ClientFactory) func(*cobra.Command, []string) error
 	}
 }
 
-func newMediaDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a post",
-		Long:  "Permanently delete one of your own posts.",
-		RunE:  makeRunMediaDelete(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to delete")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion (required)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunMediaDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("delete media %s", mediaID), map[string]string{"media_id": mediaID})
-		}
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/delete/", nil)
-		if err != nil {
-			return fmt.Errorf("deleting media %s: %w", mediaID, err)
-		}
-
-		var result mediaDeleteResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding delete response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Deleted media %s\n", mediaID)
-		return nil
-	}
-}
-
-func newMediaArchiveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "archive",
-		Short: "Archive a post (make only visible to you)",
-		RunE:  makeRunMediaArchive(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to archive")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunMediaArchive(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("archive media %s", mediaID), map[string]string{"media_id": mediaID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/only_me/", nil)
-		if err != nil {
-			return fmt.Errorf("archiving media %s: %w", mediaID, err)
-		}
-
-		var result mediaActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding archive response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Archived media %s\n", mediaID)
-		return nil
-	}
-}
-
-func newMediaUnarchiveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unarchive",
-		Short: "Unarchive a post (make visible to everyone)",
-		RunE:  makeRunMediaUnarchive(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to unarchive")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunMediaUnarchive(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("unarchive media %s", mediaID), map[string]string{"media_id": mediaID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/undo_only_me/", nil)
-		if err != nil {
-			return fmt.Errorf("unarchiving media %s: %w", mediaID, err)
-		}
-
-		var result mediaActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding unarchive response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Unarchived media %s\n", mediaID)
-		return nil
-	}
-}
-
 func newMediaLikersCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "likers",
@@ -411,97 +258,4 @@ func makeRunMediaLikers(factory ClientFactory) func(*cobra.Command, []string) er
 	}
 }
 
-func newMediaSaveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "save",
-		Short: "Save/bookmark a post",
-		RunE:  makeRunMediaSave(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to save")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().String("collection-id", "", "Collection ID to save into (optional)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
 
-func makeRunMediaSave(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-		collectionID, _ := cmd.Flags().GetString("collection-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("save media %s", mediaID), map[string]string{"media_id": mediaID, "collection_id": collectionID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := url.Values{}
-		if collectionID != "" {
-			body.Set("collection_ids", collectionID)
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/save/", body)
-		if err != nil {
-			return fmt.Errorf("saving media %s: %w", mediaID, err)
-		}
-
-		var result mediaActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding save response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Saved media %s\n", mediaID)
-		return nil
-	}
-}
-
-func newMediaUnsaveCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unsave",
-		Short: "Remove a post from saved/bookmarks",
-		RunE:  makeRunMediaUnsave(factory),
-	}
-	cmd.Flags().String("media-id", "", "Media/post ID to unsave")
-	_ = cmd.MarkFlagRequired("media-id")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunMediaUnsave(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		mediaID, _ := cmd.Flags().GetString("media-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("unsave media %s", mediaID), map[string]string{"media_id": mediaID})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/unsave/", nil)
-		if err != nil {
-			return fmt.Errorf("unsaving media %s: %w", mediaID, err)
-		}
-
-		var result mediaActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding unsave response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Unsaved media %s\n", mediaID)
-		return nil
-	}
-}

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 import { isAdmin } from "@/lib/admin"
 import { AppSidebar } from "@/components/app-sidebar"
@@ -21,6 +22,9 @@ import { PlaywrightConnectDialog } from "@/components/playwright-connect-dialog"
 import { FramerConnectDialog } from "@/components/framer-connect-dialog"
 import { BlueBubblesConnectDialog } from "@/components/bluebubbles-connect-dialog"
 import { CookieCaptureButton } from "@/components/cookie-capture-button"
+import { CookiePasteDialog } from "@/components/cookie-paste-dialog"
+import { ApiKeyDialog } from "@/components/api-key-dialog"
+import { GCPConnectDialog } from "@/components/gcp-connect-dialog"
 import { AccountItem } from "@/components/account-item"
 import {
   IconBrandGoogle,
@@ -32,12 +36,25 @@ import {
   IconBrandSupabase,
   IconMessage,
   IconSchool,
-  IconHome,
-  IconBuildingSkyscraper,
   IconPlus,
+  IconBike,
+  IconBuildingBank,
+  IconChartLine,
+  IconCoffin,
+  IconBottle,
+  IconUsers,
+  IconBuildingCommunity,
+  IconMapPin,
+  IconCertificate,
+  IconCheck,
+  IconBrandVercel,
+  IconBrandCloudflare,
+  IconLayoutKanban,
+  IconRocket,
+  IconCloud,
 } from "@tabler/icons-react"
 
-const providers = [
+const providers: Array<{ id: string; name: string; description: string; icon: typeof IconCheck; connectType: string }> = [
   {
     id: "google",
     name: "Google",
@@ -57,21 +74,21 @@ const providers = [
     name: "Instagram",
     description: "Media, Stories, Comments, Messages",
     icon: IconBrandInstagram,
-    connectType: "playwright" as const,
+    connectType: "cookie-paste" as const,
   },
   {
     id: "linkedin",
     name: "LinkedIn",
     description: "Posts, Connections, Messages, Jobs",
     icon: IconBrandLinkedin,
-    connectType: "playwright" as const,
+    connectType: "cookie-paste" as const,
   },
   {
     id: "x",
     name: "X",
     description: "Posts, Likes, DMs, Lists, Communities",
     icon: IconBrandX,
-    connectType: "playwright" as const,
+    connectType: "cookie-paste" as const,
   },
   {
     id: "framer",
@@ -99,21 +116,112 @@ const providers = [
     name: "Canvas LMS",
     description: "Courses, Assignments, Grades, Discussions",
     icon: IconSchool,
-    connectType: "playwright" as const,
+    connectType: "cookie-paste" as const,
   },
   {
-    id: "zillow",
-    name: "Zillow",
-    description: "Properties, Zestimates, Agents, Mortgage Rates",
-    icon: IconHome,
-    connectType: "cookie-capture" as const,
+    id: "vercel",
+    name: "Vercel",
+    description: "Projects, Deployments, Domains",
+    icon: IconBrandVercel,
+    connectType: "api-key" as const,
   },
   {
-    id: "streeteasy",
-    name: "StreetEasy",
-    description: "Listings, Price History, Market Data",
-    icon: IconBuildingSkyscraper,
-    connectType: "cookie-capture" as const,
+    id: "cloudflare",
+    name: "Cloudflare",
+    description: "Zones, DNS, Workers, Pages, R2, KV",
+    icon: IconBrandCloudflare,
+    connectType: "api-key" as const,
+  },
+  {
+    id: "linear",
+    name: "Linear",
+    description: "Issues, Projects, Cycles, Teams",
+    icon: IconLayoutKanban,
+    connectType: "api-key" as const,
+  },
+  {
+    id: "fly",
+    name: "Fly.io",
+    description: "Apps, Machines, Volumes, Certificates, Secrets",
+    icon: IconRocket,
+    connectType: "api-key" as const,
+  },
+  {
+    id: "gcp",
+    name: "Google Cloud Platform",
+    description: "Projects, APIs, OAuth clients, IAM, Service Accounts",
+    icon: IconCloud,
+    connectType: "gcp" as const,
+  },
+  {
+    id: "gcp-console",
+    name: "Google Cloud Console",
+    description: "OAuth clients, consent screen (session cookies)",
+    icon: IconBrandGoogle,
+    connectType: "cookie-paste" as const,
+  },
+  {
+    id: "citibike",
+    name: "Citi Bike",
+    description: "Station density, transit accessibility signals",
+    icon: IconBike,
+    connectType: "none" as const,
+  },
+  {
+    id: "hmda",
+    name: "HMDA",
+    description: "Mortgage originations, investor activity by census tract",
+    icon: IconBuildingBank,
+    connectType: "none" as const,
+  },
+  {
+    id: "census",
+    name: "Census ACS",
+    description: "Demographics, income, rent burden, vacancy by tract",
+    icon: IconUsers,
+    connectType: "none" as const,
+  },
+  {
+    id: "nydos",
+    name: "NY Dept of State",
+    description: "LLC formations, entity search, address matching",
+    icon: IconCertificate,
+    connectType: "none" as const,
+  },
+  {
+    id: "dof",
+    name: "NYC Dept of Finance",
+    description: "Property owners, tax assessments, entity lookup",
+    icon: IconBuildingCommunity,
+    connectType: "none" as const,
+  },
+  {
+    id: "obituaries",
+    name: "Obituaries",
+    description: "Estate property detection via Legacy.com",
+    icon: IconCoffin,
+    connectType: "none" as const,
+  },
+  {
+    id: "trends",
+    name: "Google Trends",
+    description: "Neighborhood search momentum signals",
+    icon: IconChartLine,
+    connectType: "none" as const,
+  },
+  {
+    id: "places",
+    name: "Google Places",
+    description: "Nearby amenities, transit, business activity",
+    icon: IconMapPin,
+    connectType: "none" as const,
+  },
+  {
+    id: "nyscef",
+    name: "NYSCEF",
+    description: "Court records, foreclosure proceedings",
+    icon: IconBuildingBank,
+    connectType: "none" as const,
   },
 ]
 
@@ -129,8 +237,9 @@ export default async function IntegrationsPage() {
     redirect("/login?error=not_authorized")
   }
 
-  // Fetch all active integrations (admin sees everything)
-  const { data: integrations } = await supabase
+  // Fetch all active integrations using admin client (no RLS)
+  const admin = createAdminClient()
+  const { data: integrations } = await admin
     .from("user_integrations")
     .select("id, provider, label, status, created_at")
     .eq("user_id", user.id)
@@ -147,12 +256,7 @@ export default async function IntegrationsPage() {
 
   return (
     <SidebarProvider>
-      <AppSidebar
-        user={{
-          email: user.email ?? undefined,
-          name: user.user_metadata?.full_name ?? user.user_metadata?.name,
-        }}
-      />
+      <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
@@ -176,10 +280,20 @@ export default async function IntegrationsPage() {
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {providers.map((provider) => {
+            {[...providers].sort((a, b) => {
+              const aAccounts = (integrationsByProvider[a.id] ?? []).length
+              const bAccounts = (integrationsByProvider[b.id] ?? []).length
+              const aNoAuth = a.connectType === "none"
+              const bNoAuth = b.connectType === "none"
+              // Connected first, then unconnected that need auth, then no-auth at bottom
+              const aRank = aAccounts > 0 ? 0 : aNoAuth ? 2 : 1
+              const bRank = bAccounts > 0 ? 0 : bNoAuth ? 2 : 1
+              if (aRank !== bRank) return aRank - bRank
+              return a.name.localeCompare(b.name)
+            }).map((provider) => {
               const accounts = integrationsByProvider[provider.id] ?? []
               return (
-                <Card key={provider.id} id={provider.id}>
+                <Card key={provider.id} id={provider.id} className="flex flex-col">
                   <CardHeader>
                     <div className="flex items-center gap-3">
                       <div className="flex size-10 items-center justify-center bg-muted">
@@ -191,7 +305,7 @@ export default async function IntegrationsPage() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-3">
+                  <CardContent className="flex flex-col gap-3 mt-auto">
                     {accounts.length > 0 && (
                       <div className="flex flex-col gap-2">
                         {accounts.map((account) => (
@@ -200,11 +314,18 @@ export default async function IntegrationsPage() {
                             id={account.id}
                             label={account.label}
                             status={account.status}
+                            provider={provider.id}
+                            connectType={provider.connectType}
                           />
                         ))}
                       </div>
                     )}
-                    {provider.connectType === "playwright" ? (
+                    {provider.connectType === "none" ? (
+                      <div className="flex items-center gap-1.5 text-xs text-green-500">
+                        <IconCheck className="size-3.5" />
+                        <span>No auth required — public API</span>
+                      </div>
+                    ) : provider.connectType === "playwright" ? (
                       <PlaywrightConnectDialog
                         provider={provider.id}
                         providerName={provider.name}
@@ -235,6 +356,33 @@ export default async function IntegrationsPage() {
                           {accounts.length > 0 ? "Refresh cookies" : "Capture cookies"}
                         </Button>
                       </CookieCaptureButton>
+                    ) : provider.connectType === "gcp" ? (
+                      <GCPConnectDialog>
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Update token" : "Connect"}
+                        </Button>
+                      </GCPConnectDialog>
+                    ) : provider.connectType === "api-key" ? (
+                      <ApiKeyDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Update token" : "Connect"}
+                        </Button>
+                      </ApiKeyDialog>
+                    ) : provider.connectType === "cookie-paste" ? (
+                      <CookiePasteDialog
+                        provider={provider.id}
+                        providerName={provider.name}
+                      >
+                        <Button variant="outline" size="sm" className="w-full">
+                          <IconPlus />
+                          {accounts.length > 0 ? "Refresh cookies" : "Paste cookies"}
+                        </Button>
+                      </CookiePasteDialog>
                     ) : (
                       <ConnectDialog
                         provider={provider.id}

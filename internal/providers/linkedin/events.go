@@ -74,32 +74,6 @@ func newEventsGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-// newEventsAttendCmd builds the "events attend" command.
-func newEventsAttendCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "attend",
-		Short: "RSVP to attend an event",
-		RunE:  makeRunEventsAttend(factory),
-	}
-	cmd.Flags().String("event-id", "", "Event ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without attending")
-	_ = cmd.MarkFlagRequired("event-id")
-	return cmd
-}
-
-// newEventsUnattendCmd builds the "events unattend" command.
-func newEventsUnattendCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unattend",
-		Short: "Cancel attendance at an event",
-		RunE:  makeRunEventsUnattend(factory),
-	}
-	cmd.Flags().String("event-id", "", "Event ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without cancelling")
-	_ = cmd.MarkFlagRequired("event-id")
-	return cmd
-}
-
 func makeRunEventsList(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
@@ -112,15 +86,26 @@ func makeRunEventsGet(_ ClientFactory) func(*cobra.Command, []string) error {
 	}
 }
 
+// newEventsAttendCmd builds the "events attend" command.
+func newEventsAttendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "attend",
+		Short: "Mark yourself as attending an event",
+		RunE:  makeRunEventsAttend(factory),
+	}
+	cmd.Flags().String("event-id", "", "Event ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("event-id")
+	return cmd
+}
+
 func makeRunEventsAttend(factory ClientFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		eventID, _ := cmd.Flags().GetString("event-id")
 
 		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would attend event %s", eventID), map[string]any{
-				"action":   "attend",
-				"event_id": eventID,
-			})
+			return dryRunResult(cmd, fmt.Sprintf("attend event %s", eventID),
+				map[string]string{"attending": "true", "event_id": eventID})
 		}
 
 		ctx := cmd.Context()
@@ -130,18 +115,30 @@ func makeRunEventsAttend(factory ClientFactory) func(*cobra.Command, []string) e
 		}
 
 		path := "/voyager/api/events/events/" + url.PathEscape(eventID) + "/attendees"
-		resp, err := client.PostJSON(ctx, path, map[string]any{})
+		_, err = client.PostJSON(ctx, path, map[string]any{"eventUrn": "urn:li:fs_event:" + eventID})
 		if err != nil {
 			return fmt.Errorf("attending event %s: %w", eventID, err)
 		}
-		resp.Body.Close()
 
 		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"attending": true, "event_id": eventID})
+			return cli.PrintJSON(map[string]string{"attending": "true", "event_id": eventID})
 		}
-		fmt.Printf("Attending event %s\n", eventID)
+		fmt.Printf("Now attending event %s\n", eventID)
 		return nil
 	}
+}
+
+// newEventsUnattendCmd builds the "events unattend" command.
+func newEventsUnattendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "unattend",
+		Short: "Remove yourself from an event",
+		RunE:  makeRunEventsUnattend(factory),
+	}
+	cmd.Flags().String("event-id", "", "Event ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("event-id")
+	return cmd
 }
 
 func makeRunEventsUnattend(factory ClientFactory) func(*cobra.Command, []string) error {
@@ -149,10 +146,8 @@ func makeRunEventsUnattend(factory ClientFactory) func(*cobra.Command, []string)
 		eventID, _ := cmd.Flags().GetString("event-id")
 
 		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would cancel attendance for event %s", eventID), map[string]any{
-				"action":   "unattend",
-				"event_id": eventID,
-			})
+			return dryRunResult(cmd, fmt.Sprintf("unattend event %s", eventID),
+				map[string]string{"attending": "false", "event_id": eventID})
 		}
 
 		ctx := cmd.Context()
@@ -161,18 +156,13 @@ func makeRunEventsUnattend(factory ClientFactory) func(*cobra.Command, []string)
 			return err
 		}
 
-		// Use "me" as the attendee ID sentinel for the current user.
 		path := "/voyager/api/events/events/" + url.PathEscape(eventID) + "/attendees/me"
-		resp, err := client.Delete(ctx, path)
+		_, err = client.Delete(ctx, path)
 		if err != nil {
-			return fmt.Errorf("cancelling attendance for event %s: %w", eventID, err)
+			return fmt.Errorf("unattending event %s: %w", eventID, err)
 		}
-		resp.Body.Close()
 
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"unattended": true, "event_id": eventID})
-		}
-		fmt.Printf("Cancelled attendance for event %s\n", eventID)
+		fmt.Printf("No longer attending event %s\n", eventID)
 		return nil
 	}
 }

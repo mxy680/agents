@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emdash Zillow Scraper</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0a0a0a;
+      color: #e5e5e5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      min-width: 300px;
+      padding: 16px;
+    }
+    .header { margin-bottom: 14px; }
+    .title { font-size: 14px; font-weight: 600; color: #fafafa; margin-bottom: 2px; }
+    .subtitle { font-size: 11px; color: #525252; }
+
+    button {
+      width: 100%; padding: 10px 14px; background-color: #2563eb; color: #fff;
+      border: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background-color 0.15s;
+    }
+    button:hover { background-color: #1d4ed8; }
+    button:disabled { background-color: #1e3a5f; color: #6b7280; cursor: not-allowed; }
+
+    .progress {
+      margin-top: 12px; padding: 10px; background-color: #1a1a1a;
+      border-radius: 6px; font-size: 12px; display: none;
+    }
+    .progress.visible { display: block; }
+    .progress-bar {
+      height: 4px; background: #262626; border-radius: 2px; margin-top: 8px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: #2563eb; border-radius: 2px; transition: width 0.3s ease;
+    }
+    .progress-row {
+      display: flex; justify-content: space-between; color: #a3a3a3; margin-top: 6px;
+    }
+    .progress-row .count { color: #4ade80; font-weight: 600; }
+    .progress-status { color: #737373; margin-top: 4px; }
+
+    .status {
+      margin-top: 10px; font-size: 12px; text-align: center; min-height: 16px;
+    }
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
+    .status.info { color: #737373; }
+
+    .settings {
+      margin-top: 12px; padding-top: 10px; border-top: 1px solid #1a1a1a;
+    }
+    .settings label { display: block; font-size: 11px; color: #525252; margin-bottom: 4px; }
+    .settings input {
+      width: 100%; padding: 6px 8px; background: #1a1a1a; border: 1px solid #262626;
+      border-radius: 4px; color: #e5e5e5; font-size: 12px; font-family: monospace;
+    }
+    .settings input:focus { outline: none; border-color: #525252; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">Zillow Scraper</div>
+    <div class="subtitle">137 NYC ZIP codes across 4 boroughs</div>
+  </div>
+
+  <button id="scrape-btn">Scrape Zillow</button>
+
+  <div class="progress" id="progress">
+    <div class="progress-status" id="progress-status">Starting...</div>
+    <div class="progress-bar">
+      <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+    </div>
+    <div class="progress-row">
+      <span><span id="progress-zips">0</span> / 137 ZIPs</span>
+      <span><span id="progress-listings" class="count">0</span> listings</span>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="settings">
+    <label>Portal URL</label>
+    <input type="text" id="portal-url" placeholder="http://localhost:3000" />
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

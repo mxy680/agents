@@ -38,12 +38,6 @@ type rawTagSection struct {
 	} `json:"layout_content"`
 }
 
-// tagActionResponse is a generic response for follow/unfollow.
-type tagActionResponse struct {
-	Result string `json:"result"`
-	Status string `json:"status"`
-}
-
 // followingTagsResponse is the response for GET /api/v1/users/self/following_tag_list/.
 type followingTagsResponse struct {
 	Tags   []rawTag `json:"tags"`
@@ -63,13 +57,11 @@ type relatedTagsResponse struct {
 func newTagsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "tags",
-		Short:   "Browse and follow hashtags",
+		Short:   "Browse hashtags",
 		Aliases: []string{"tag", "hashtag"},
 	}
 	cmd.AddCommand(newTagsGetCmd(factory))
 	cmd.AddCommand(newTagsFeedCmd(factory))
-	cmd.AddCommand(newTagsFollowCmd(factory))
-	cmd.AddCommand(newTagsUnfollowCmd(factory))
 	cmd.AddCommand(newTagsFollowingCmd(factory))
 	cmd.AddCommand(newTagsRelatedCmd(factory))
 	return cmd
@@ -187,94 +179,6 @@ func makeRunTagsFeed(factory ClientFactory) func(*cobra.Command, []string) error
 		if result.MoreAvailable && result.NextMaxID != "" {
 			fmt.Printf("Next cursor: %s\n", result.NextMaxID)
 		}
-		return nil
-	}
-}
-
-func newTagsFollowCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "follow",
-		Short: "Follow a hashtag",
-		RunE:  makeRunTagsFollow(factory),
-	}
-	cmd.Flags().String("name", "", "Hashtag name (without #)")
-	_ = cmd.MarkFlagRequired("name")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunTagsFollow(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		name, _ := cmd.Flags().GetString("name")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("follow tag #%s", name), map[string]string{"tag": name})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/tags/follow/"+url.PathEscape(name)+"/", nil)
-		if err != nil {
-			return fmt.Errorf("following tag #%s: %w", name, err)
-		}
-
-		var result tagActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding tag follow response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Followed tag #%s\n", name)
-		return nil
-	}
-}
-
-func newTagsUnfollowCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "unfollow",
-		Short: "Unfollow a hashtag",
-		RunE:  makeRunTagsUnfollow(factory),
-	}
-	cmd.Flags().String("name", "", "Hashtag name (without #)")
-	_ = cmd.MarkFlagRequired("name")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunTagsUnfollow(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		name, _ := cmd.Flags().GetString("name")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("unfollow tag #%s", name), map[string]string{"tag": name})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/tags/unfollow/"+url.PathEscape(name)+"/", nil)
-		if err != nil {
-			return fmt.Errorf("unfollowing tag #%s: %w", name, err)
-		}
-
-		var result tagActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding tag unfollow response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Unfollowed tag #%s\n", name)
 		return nil
 	}
 }

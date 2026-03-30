@@ -1462,7 +1462,6 @@ func newTestRootCmd() *cobra.Command {
 func buildTestProfileCmd(factory ClientFactory) *cobra.Command {
 	profileCmd := &cobra.Command{Use: "profile", Aliases: []string{"prof"}}
 	profileCmd.AddCommand(newProfileGetCmd(factory))
-	profileCmd.AddCommand(newProfileEditFormCmd(factory))
 	return profileCmd
 }
 

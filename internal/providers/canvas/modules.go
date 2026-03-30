@@ -20,10 +20,10 @@ func newModulesCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newModulesListCmd(factory))
 	cmd.AddCommand(newModulesGetCmd(factory))
+	cmd.AddCommand(newModulesItemsCmd(factory))
 	cmd.AddCommand(newModulesCreateCmd(factory))
 	cmd.AddCommand(newModulesUpdateCmd(factory))
 	cmd.AddCommand(newModulesDeleteCmd(factory))
-	cmd.AddCommand(newModulesItemsCmd(factory))
 	cmd.AddCommand(newModulesAddItemCmd(factory))
 	cmd.AddCommand(newModulesRemoveItemCmd(factory))
 
@@ -145,193 +145,6 @@ func newModulesGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func newModulesCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new module in a course",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			name, _ := cmd.Flags().GetString("name")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if name == "" {
-				return fmt.Errorf("--name is required")
-			}
-
-			position, _ := cmd.Flags().GetInt("position")
-			unlockAt, _ := cmd.Flags().GetString("unlock-at")
-			requireSeq, _ := cmd.Flags().GetBool("require-sequential-progress")
-
-			moduleParams := map[string]any{
-				"name": name,
-			}
-			if position > 0 {
-				moduleParams["position"] = position
-			}
-			if unlockAt != "" {
-				moduleParams["unlock_at"] = unlockAt
-			}
-			if requireSeq {
-				moduleParams["require_sequential_progress"] = true
-			}
-			body := map[string]any{"module": moduleParams}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create module %q in course %s", name, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/modules", body)
-			if err != nil {
-				return err
-			}
-
-			var module ModuleSummary
-			if err := json.Unmarshal(data, &module); err != nil {
-				return fmt.Errorf("parse module: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(module)
-			}
-			fmt.Printf("Module created: %d  %s\n", module.ID, module.Name)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("name", "", "Module name (required)")
-	cmd.Flags().Int("position", 0, "Position of module in the course (1-based)")
-	cmd.Flags().String("unlock-at", "", "Date/time to unlock the module (RFC3339)")
-	cmd.Flags().Bool("require-sequential-progress", false, "Require sequential progress through module items")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newModulesUpdateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update a module",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			moduleID, _ := cmd.Flags().GetString("module-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if moduleID == "" {
-				return fmt.Errorf("--module-id is required")
-			}
-
-			moduleParams := map[string]any{}
-			if cmd.Flags().Changed("name") {
-				name, _ := cmd.Flags().GetString("name")
-				moduleParams["name"] = name
-			}
-			if cmd.Flags().Changed("published") {
-				published, _ := cmd.Flags().GetBool("published")
-				moduleParams["published"] = published
-			}
-			if len(moduleParams) == 0 {
-				return fmt.Errorf("at least one of --name or --published is required")
-			}
-			body := map[string]any{"module": moduleParams}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update module %s in course %s", moduleID, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Put(ctx, "/courses/"+courseID+"/modules/"+moduleID, body)
-			if err != nil {
-				return err
-			}
-
-			var module ModuleSummary
-			if err := json.Unmarshal(data, &module); err != nil {
-				return fmt.Errorf("parse module: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(module)
-			}
-			fmt.Printf("Module updated: %d  %s\n", module.ID, module.Name)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
-	cmd.Flags().String("name", "", "New module name")
-	cmd.Flags().Bool("published", false, "Set module published state")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newModulesDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a module",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			moduleID, _ := cmd.Flags().GetString("module-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if moduleID == "" {
-				return fmt.Errorf("--module-id is required")
-			}
-
-			if err := confirmDestructive(cmd, "this will permanently delete the module"); err != nil {
-				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete module %s in course %s", moduleID, courseID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Delete(ctx, "/courses/"+courseID+"/modules/"+moduleID)
-			if err != nil {
-				return err
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "module_id": moduleID})
-			}
-			fmt.Printf("Module %s deleted.\n", moduleID)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
 func newModulesItemsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "items",
@@ -390,6 +203,150 @@ func newModulesItemsCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+func newModulesCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new module in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			name, _ := cmd.Flags().GetString("name")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if name == "" {
+				return fmt.Errorf("--name is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create module: "+name, map[string]any{"course_id": courseID, "name": name})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{"name": name}
+			if position, _ := cmd.Flags().GetInt("position"); position > 0 {
+				body["position"] = position
+			}
+
+			data, err := client.Post(ctx, "/courses/"+courseID+"/modules", body)
+			if err != nil {
+				return err
+			}
+
+			var module ModuleSummary
+			if err := json.Unmarshal(data, &module); err != nil {
+				return fmt.Errorf("parse module: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(module)
+			}
+			fmt.Printf("Module %d created: %s\n", module.ID, module.Name)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("name", "", "Module name (required)")
+	cmd.Flags().Int("position", 0, "Module position")
+	return cmd
+}
+
+func newModulesUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a module",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			moduleID, _ := cmd.Flags().GetString("module-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if moduleID == "" {
+				return fmt.Errorf("--module-id is required")
+			}
+
+			body := map[string]any{}
+			if name, _ := cmd.Flags().GetString("name"); name != "" {
+				body["name"] = name
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/modules/"+moduleID, body)
+			if err != nil {
+				return err
+			}
+
+			var module ModuleSummary
+			if err := json.Unmarshal(data, &module); err != nil {
+				return fmt.Errorf("parse module: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(module)
+			}
+			fmt.Printf("Module %s updated\n", moduleID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
+	cmd.Flags().String("name", "", "New name")
+	return cmd
+}
+
+func newModulesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a module",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			moduleID, _ := cmd.Flags().GetString("module-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if moduleID == "" {
+				return fmt.Errorf("--module-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the module"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/modules/"+moduleID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Module %s deleted\n", moduleID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
 func newModulesAddItemCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-item",
@@ -407,30 +364,22 @@ func newModulesAddItemCmd(factory ClientFactory) *cobra.Command {
 			if moduleID == "" {
 				return fmt.Errorf("--module-id is required")
 			}
-			if itemType == "" {
-				return fmt.Errorf("--type is required")
-			}
-
-			itemParams := map[string]any{
-				"type": itemType,
-			}
-			if contentID != "" {
-				itemParams["content_id"] = contentID
-			}
-			if cmd.Flags().Changed("title") {
-				title, _ := cmd.Flags().GetString("title")
-				itemParams["title"] = title
-			}
-			body := map[string]any{"module_item": itemParams}
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("add %s item to module %s in course %s", itemType, moduleID, courseID), body)
+				return dryRunResult(cmd, "add item (type: "+itemType+")", map[string]any{
+					"course_id": courseID, "module_id": moduleID, "type": itemType, "content_id": contentID,
+				})
 			}
 
 			client, err := factory(ctx)
 			if err != nil {
 				return err
+			}
+
+			body := map[string]any{"type": itemType}
+			if contentID != "" {
+				body["content_id"] = contentID
 			}
 
 			path := "/courses/" + courseID + "/modules/" + moduleID + "/items"
@@ -447,17 +396,15 @@ func newModulesAddItemCmd(factory ClientFactory) *cobra.Command {
 			if cli.IsJSONOutput(cmd) {
 				return cli.PrintJSON(item)
 			}
-			fmt.Printf("Item added: %d  %s  %s\n", item.ID, item.Type, item.Title)
+			fmt.Printf("Item %d added to module %s: %s\n", item.ID, moduleID, item.Title)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
-	cmd.Flags().String("type", "", "Item type: File|Page|Discussion|Assignment|Quiz|SubHeader|ExternalUrl|ExternalTool (required)")
-	cmd.Flags().String("content-id", "", "ID of the content item to link")
-	cmd.Flags().String("title", "", "Display title for the item")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("type", "", "Item type (e.g. Assignment, Page, File)")
+	cmd.Flags().String("content-id", "", "Content ID to add")
 	return cmd
 }
 
@@ -481,13 +428,8 @@ func newModulesRemoveItemCmd(factory ClientFactory) *cobra.Command {
 				return fmt.Errorf("--item-id is required")
 			}
 
-			if err := confirmDestructive(cmd, "this will permanently remove the item from the module"); err != nil {
+			if err := confirmDestructive(cmd, "this will remove the item from the module"); err != nil {
 				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("remove item %s from module %s in course %s", itemID, moduleID, courseID), nil)
 			}
 
 			client, err := factory(ctx)
@@ -496,15 +438,11 @@ func newModulesRemoveItemCmd(factory ClientFactory) *cobra.Command {
 			}
 
 			path := "/courses/" + courseID + "/modules/" + moduleID + "/items/" + itemID
-			_, err = client.Delete(ctx, path)
-			if err != nil {
+			if _, err := client.Delete(ctx, path); err != nil {
 				return err
 			}
 
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "item_id": itemID})
-			}
-			fmt.Printf("Module item %s removed.\n", itemID)
+			fmt.Printf("Item %s removed from module %s\n", itemID, moduleID)
 			return nil
 		},
 	}
@@ -512,7 +450,6 @@ func newModulesRemoveItemCmd(factory ClientFactory) *cobra.Command {
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("module-id", "", "Canvas module ID (required)")
 	cmd.Flags().String("item-id", "", "Canvas module item ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm removal")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }

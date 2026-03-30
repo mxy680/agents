@@ -1,3 +1,5 @@
+export const maxDuration = 1800 // 30 minutes
+
 import { NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -234,12 +236,86 @@ export async function POST(
             systemPrompt,
             sessionId,
             signal: abortController.signal,
-            timeoutMs: 300_000, // #6: 5-minute timeout for chat conversations
+            timeoutMs: 1_800_000, // 30-minute timeout for agent tasks
           })
+
+          // Track files created by Write tool for auto-upload
+          const pendingWriteFiles: Map<string, string> = new Map() // toolId -> filePath
 
           for await (const sseEvent of localGen) {
             send(sseEvent.event, sseEvent.data)
             trackBlock(sseEvent, assistantBlocks, activeToolId, (id) => { activeToolId = id }, conversationId, admin)
+
+            // Detect Write tool creating downloadable files
+            if (sseEvent.event === "tool_start") {
+              try {
+                const { name, id } = JSON.parse(sseEvent.data) as { name: string; id: string }
+                if (name === "Write") {
+                  pendingWriteFiles.set(id, "")
+                }
+              } catch { /* ignore */ }
+            }
+
+            if (sseEvent.event === "tool_input" && activeToolId && pendingWriteFiles.has(activeToolId)) {
+              // tool_input for Write contains the file_path
+              try {
+                const input = JSON.parse(sseEvent.data) as { file_path?: string }
+                if (input.file_path) {
+                  pendingWriteFiles.set(activeToolId, input.file_path)
+                }
+              } catch {
+                // Input might come as partial JSON — try extracting file_path
+                const match = sseEvent.data.match(/"file_path"\s*:\s*"([^"]+)"/)
+                if (match) {
+                  pendingWriteFiles.set(activeToolId, match[1])
+                }
+              }
+            }
+
+            if (sseEvent.event === "tool_result" && activeToolId && pendingWriteFiles.has(activeToolId)) {
+              const filePath = pendingWriteFiles.get(activeToolId)
+              pendingWriteFiles.delete(activeToolId)
+
+              if (filePath) {
+                // Check if it's a downloadable file type
+                const ext = filePath.split(".").pop()?.toLowerCase() ?? ""
+                const downloadableExts = ["pdf", "xlsx", "xls", "csv", "json", "html", "tex", "txt", "png", "jpg", "jpeg", "gif", "svg"]
+                if (downloadableExts.includes(ext)) {
+                  try {
+                    const { readFileSync, statSync } = await import("fs")
+                    const stat = statSync(filePath)
+                    const fileBuffer = readFileSync(filePath)
+                    const fileName = filePath.split("/").pop() ?? "file"
+                    const storagePath = `${conversationId ?? "agent"}/${Date.now()}_${fileName}`
+
+                    const { error: upErr } = await admin.storage
+                      .from("chat-files")
+                      .upload(storagePath, fileBuffer, {
+                        contentType: ext === "pdf" ? "application/pdf"
+                          : ext === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                          : ext === "csv" ? "text/csv"
+                          : ext === "json" ? "application/json"
+                          : ext === "html" ? "text/html"
+                          : "application/octet-stream",
+                        upsert: false,
+                      })
+
+                    if (!upErr) {
+                      const { data: urlData } = admin.storage.from("chat-files").getPublicUrl(storagePath)
+                      // Send file block to the client
+                      send("file", JSON.stringify({
+                        name: fileName,
+                        url: urlData.publicUrl,
+                        size: stat.size,
+                        fileType: ext,
+                      }))
+                    }
+                  } catch {
+                    // File might not exist yet or be unreadable — skip
+                  }
+                }
+              }
+            }
           }
         } else {
           // ── Orchestrator path (Docker / Kubernetes) ──────────────────────────

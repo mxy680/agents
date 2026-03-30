@@ -112,9 +112,34 @@ func processIntegration(ui *UserIntegration, hexKey string, env map[string]strin
 			"all_cookies": "ZILLOW_COOKIES",
 			"proxy_url":   "ZILLOW_PROXY_URL",
 		})
-	case "streeteasy":
+	case "vercel":
 		mapCredentials(creds, env, map[string]string{
-			"all_cookies": "STREETEASY_COOKIES",
+			"token":   "VERCEL_TOKEN",
+			"team_id": "VERCEL_TEAM_ID",
+		})
+	case "cloudflare":
+		mapCredentials(creds, env, map[string]string{
+			"token":      "CLOUDFLARE_API_TOKEN",
+			"account_id": "CLOUDFLARE_ACCOUNT_ID",
+		})
+	case "linear":
+		mapCredentials(creds, env, map[string]string{
+			"token": "LINEAR_API_KEY",
+		})
+	case "fly":
+		mapCredentials(creds, env, map[string]string{
+			"token": "FLY_API_TOKEN",
+		})
+	case "gcp":
+		mapCredentials(creds, env, map[string]string{
+			"token":                "GCP_ACCESS_TOKEN",
+			"service_account_json": "GCP_SERVICE_ACCOUNT_JSON",
+			"project_id":           "GCP_PROJECT_ID",
+		})
+	case "gcp-console":
+		mapCredentials(creds, env, map[string]string{
+			"all_cookies": "GCP_CONSOLE_ALL_COOKIES",
+			"SAPISID":     "GCP_CONSOLE_SAPISID",
 		})
 	}
 	return nil

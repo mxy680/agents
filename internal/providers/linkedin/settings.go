@@ -71,22 +71,6 @@ func newSettingsPrivacyCmd(factory ClientFactory) *cobra.Command {
 	}
 }
 
-// newSettingsVisibilityCmd builds the "settings visibility" command.
-func newSettingsVisibilityCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "visibility",
-		Short: "Update a profile setting",
-		Long:  "Update a named profile setting field to a new value.",
-		RunE:  makeRunSettingsVisibility(factory),
-	}
-	cmd.Flags().String("field", "", "Setting field name to update (e.g. profileVisibility)")
-	_ = cmd.MarkFlagRequired("field")
-	cmd.Flags().String("value", "", "New value for the setting field")
-	_ = cmd.MarkFlagRequired("value")
-	cmd.Flags().Bool("dry-run", false, "Print what would be sent without updating")
-	return cmd
-}
-
 func makeRunSettingsGet(_ ClientFactory) func(*cobra.Command, []string) error {
 	return func(_ *cobra.Command, _ []string) error {
 		return errEndpointDeprecated
@@ -99,16 +83,29 @@ func makeRunSettingsPrivacy(_ ClientFactory) func(*cobra.Command, []string) erro
 	}
 }
 
+// newSettingsVisibilityCmd builds the "settings visibility" command.
+func newSettingsVisibilityCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "visibility",
+		Short: "Update a profile visibility setting",
+		RunE:  makeRunSettingsVisibility(factory),
+	}
+	cmd.Flags().String("field", "", "Setting field name (required)")
+	cmd.Flags().String("value", "", "New value for the setting (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("field")
+	_ = cmd.MarkFlagRequired("value")
+	return cmd
+}
+
 func makeRunSettingsVisibility(factory ClientFactory) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		field, _ := cmd.Flags().GetString("field")
 		value, _ := cmd.Flags().GetString("value")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-		body := map[string]string{field: value}
-
-		if dryRun {
-			return dryRunResult(cmd, fmt.Sprintf("update setting %q to %q", field, value), body)
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("set %s to %s", field, value),
+				map[string]string{"field": field, "value": value})
 		}
 
 		ctx := cmd.Context()
@@ -117,16 +114,14 @@ func makeRunSettingsVisibility(factory ClientFactory) func(*cobra.Command, []str
 			return err
 		}
 
-		resp, err := client.PostJSON(ctx, "/voyager/api/identity/profileSettings", body)
+		body := map[string]any{field: value}
+		_, err = client.PostJSON(ctx, "/voyager/api/identity/profileSettings", body)
 		if err != nil {
-			return fmt.Errorf("updating setting %q: %w", field, err)
+			return fmt.Errorf("updating setting %s: %w", field, err)
 		}
-		resp.Body.Close()
 
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]string{"status": "updated", "field": field, "value": value})
-		}
-		fmt.Printf("Setting %q updated to %q\n", field, value)
+		fmt.Printf("Updated %s to %s\n", field, value)
 		return nil
 	}
 }
+

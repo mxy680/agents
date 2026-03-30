@@ -27,11 +27,6 @@ type rawUserSettings struct {
 	ProfilePicURL     string `json:"profile_pic_url"`
 }
 
-// accountActionResponse is a generic response for set-private/set-public.
-type accountActionResponse struct {
-	Status string `json:"status"`
-}
-
 // loginActivityResponse is the response for GET /api/v1/session/login_activity/.
 type loginActivityResponse struct {
 	LoginActivity []map[string]any `json:"login_activity"`
@@ -42,12 +37,10 @@ type loginActivityResponse struct {
 func newSettingsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "settings",
-		Short:   "View and manage account settings",
+		Short:   "View account settings",
 		Aliases: []string{"setting", "account"},
 	}
 	cmd.AddCommand(newSettingsGetCmd(factory))
-	cmd.AddCommand(newSettingsSetPrivateCmd(factory))
-	cmd.AddCommand(newSettingsSetPublicCmd(factory))
 	cmd.AddCommand(newSettingsLoginActivityCmd(factory))
 	return cmd
 }
@@ -94,86 +87,6 @@ func makeRunSettingsGet(factory ClientFactory) func(*cobra.Command, []string) er
 			fmt.Sprintf("Website:     %s", result.User.ExternalURL),
 		}
 		cli.PrintText(lines)
-		return nil
-	}
-}
-
-func newSettingsSetPrivateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "set-private",
-		Short: "Make your account private",
-		RunE:  makeRunSettingsSetPrivate(factory),
-	}
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunSettingsSetPrivate(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, "set account to private", map[string]string{})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/accounts/set_private/", nil)
-		if err != nil {
-			return fmt.Errorf("setting account private: %w", err)
-		}
-
-		var result accountActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding set private response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Println("Account set to private.")
-		return nil
-	}
-}
-
-func newSettingsSetPublicCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "set-public",
-		Short: "Make your account public",
-		RunE:  makeRunSettingsSetPublic(factory),
-	}
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunSettingsSetPublic(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, "set account to public", map[string]string{})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/accounts/set_public/", nil)
-		if err != nil {
-			return fmt.Errorf("setting account public: %w", err)
-		}
-
-		var result accountActionResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding set public response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Println("Account set to public.")
 		return nil
 	}
 }

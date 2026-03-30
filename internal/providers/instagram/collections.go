@@ -41,12 +41,6 @@ type collectionFeedResponse struct {
 	Status        string         `json:"status"`
 }
 
-// collectionMutateResponse is a generic response for create/edit/delete.
-type collectionMutateResponse struct {
-	Collection *rawCollection `json:"collection,omitempty"`
-	Status     string         `json:"status"`
-}
-
 // savedFeedResponse is the response for GET /api/v1/feed/saved/posts/.
 type savedFeedResponse struct {
 	Items         []rawSavedItem `json:"items"`
@@ -79,14 +73,11 @@ func toCollectionSummary(c rawCollection) CollectionSummary {
 func newCollectionsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "collections",
-		Short:   "Manage saved media collections",
+		Short:   "View saved media collections",
 		Aliases: []string{"collection", "saved"},
 	}
 	cmd.AddCommand(newCollectionsListCmd(factory))
 	cmd.AddCommand(newCollectionsGetCmd(factory))
-	cmd.AddCommand(newCollectionsCreateCmd(factory))
-	cmd.AddCommand(newCollectionsEditCmd(factory))
-	cmd.AddCommand(newCollectionsDeleteCmd(factory))
 	cmd.AddCommand(newCollectionsSavedCmd(factory))
 	return cmd
 }
@@ -215,154 +206,6 @@ func makeRunCollectionsGet(factory ClientFactory) func(*cobra.Command, []string)
 		if result.MoreAvailable && result.NextMaxID != "" {
 			fmt.Printf("Next cursor: %s\n", result.NextMaxID)
 		}
-		return nil
-	}
-}
-
-func newCollectionsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new collection",
-		RunE:  makeRunCollectionsCreate(factory),
-	}
-	cmd.Flags().String("name", "", "Collection name")
-	_ = cmd.MarkFlagRequired("name")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunCollectionsCreate(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		name, _ := cmd.Flags().GetString("name")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("create collection %q", name), map[string]string{"name": name})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := url.Values{}
-		body.Set("name", name)
-		body.Set("module_name", "feed_contextual_post")
-
-		resp, err := client.MobilePost(ctx, "/api/v1/collections/create/", body)
-		if err != nil {
-			return fmt.Errorf("creating collection: %w", err)
-		}
-
-		var result collectionMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding create collection response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Created collection %q\n", name)
-		return nil
-	}
-}
-
-func newCollectionsEditCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "edit",
-		Short: "Rename a collection",
-		RunE:  makeRunCollectionsEdit(factory),
-	}
-	cmd.Flags().String("collection-id", "", "Collection ID")
-	_ = cmd.MarkFlagRequired("collection-id")
-	cmd.Flags().String("name", "", "New collection name")
-	_ = cmd.MarkFlagRequired("name")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunCollectionsEdit(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		collectionID, _ := cmd.Flags().GetString("collection-id")
-		name, _ := cmd.Flags().GetString("name")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("rename collection %s to %q", collectionID, name),
-				map[string]string{"collection_id": collectionID, "name": name})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := url.Values{}
-		body.Set("name", name)
-
-		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+url.PathEscape(collectionID)+"/edit/", body)
-		if err != nil {
-			return fmt.Errorf("editing collection %s: %w", collectionID, err)
-		}
-
-		var result collectionMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding edit collection response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Renamed collection %s to %q\n", collectionID, name)
-		return nil
-	}
-}
-
-func newCollectionsDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a collection",
-		RunE:  makeRunCollectionsDelete(factory),
-	}
-	cmd.Flags().String("collection-id", "", "Collection ID")
-	_ = cmd.MarkFlagRequired("collection-id")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion (required)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunCollectionsDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		collectionID, _ := cmd.Flags().GetString("collection-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("delete collection %s", collectionID),
-				map[string]string{"collection_id": collectionID})
-		}
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/collections/"+url.PathEscape(collectionID)+"/delete/", nil)
-		if err != nil {
-			return fmt.Errorf("deleting collection %s: %w", collectionID, err)
-		}
-
-		var result collectionMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding delete collection response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Deleted collection %s\n", collectionID)
 		return nil
 	}
 }

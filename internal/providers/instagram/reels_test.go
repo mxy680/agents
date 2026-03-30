@@ -166,43 +166,6 @@ func TestReelsFeedJSON(t *testing.T) {
 	}
 }
 
-func TestReelsDeleteDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestReelsCmd(factory))
-	out := runCmd(t, root, "reels", "delete", "--reel-id=reel_111", "--dry-run")
-
-	mustContain(t, out, "[DRY RUN]")
-	mustContain(t, out, "delete reel reel_111")
-}
-
-func TestReelsDeleteNoConfirm(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestReelsCmd(factory))
-	err := runCmdErr(t, root, "reels", "delete", "--reel-id=reel_111")
-	if err == nil {
-		t.Error("expected error when --confirm not provided")
-	}
-}
-
-func TestReelsDeleteConfirmed(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestReelsCmd(factory))
-	out := runCmd(t, root, "reels", "delete", "--reel-id=reel_111", "--confirm")
-
-	mustContain(t, out, "Deleted reel reel_111")
-}
 
 func TestReelsReelAlias(t *testing.T) {
 	server := newFullMockServer(t)

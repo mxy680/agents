@@ -1,0 +1,86 @@
+package nysla
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"time"
+)
+
+const defaultBaseURL = "https://data.ny.gov/resource/hrvs-fxs2.json"
+
+// Client wraps net/http for the NY SLA Socrata Open Data API.
+// No authentication is required — this is a public API.
+type Client struct {
+	httpClient *http.Client
+	baseURL    string
+}
+
+// ClientFactory is the function signature for creating a Client.
+type ClientFactory func(ctx context.Context) (*Client, error)
+
+// DefaultClientFactory returns a ClientFactory using standard net/http.
+func DefaultClientFactory() ClientFactory {
+	return func(ctx context.Context) (*Client, error) {
+		return &Client{
+			httpClient: &http.Client{Timeout: 30 * time.Second},
+			baseURL:    defaultBaseURL,
+		}, nil
+	}
+}
+
+// newClientWithBase creates a Client targeting a custom base URL (used in tests).
+func newClientWithBase(httpClient *http.Client, base string) *Client {
+	return &Client{
+		httpClient: httpClient,
+		baseURL:    base,
+	}
+}
+
+// Get performs a Socrata query. params are added as query string.
+func (c *Client) Get(ctx context.Context, params url.Values) ([]byte, error) {
+	reqURL := c.baseURL
+	if len(params) > 0 {
+		reqURL += "?" + params.Encode()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Emdash-Agents/1.0")
+	req.Header.Set("Accept", "application/json")
+	// Socrata app token for authenticated access (some NY.gov datasets require it)
+	if token := os.Getenv("SOCRATA_NY_APP_TOKEN"); token != "" {
+		req.Header.Set("X-App-Token", token)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http get: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("http %d: %s", resp.StatusCode, truncateBody(body))
+	}
+
+	return body, nil
+}
+
+// truncateBody returns the first 200 chars of a response body for error messages.
+func truncateBody(body []byte) string {
+	s := string(body)
+	if len(s) > 200 {
+		return s[:200] + "..."
+	}
+	return s
+}

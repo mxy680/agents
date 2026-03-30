@@ -3,7 +3,6 @@ package instagram
 import (
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/emdash-projects/agents/internal/cli"
 	"github.com/spf13/cobra"
@@ -34,12 +33,6 @@ type highlightMediaResponse struct {
 	Status string         `json:"status"`
 }
 
-// highlightMutateResponse is a generic response for create/edit/delete.
-type highlightMutateResponse struct {
-	Reel   *rawHighlight `json:"reel,omitempty"`
-	Status string        `json:"status"`
-}
-
 // toHighlightSummary converts a rawHighlight to HighlightSummary.
 func toHighlightSummary(h rawHighlight) HighlightSummary {
 	coverURL := ""
@@ -59,14 +52,11 @@ func toHighlightSummary(h rawHighlight) HighlightSummary {
 func newHighlightsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "highlights",
-		Short:   "Manage story highlights",
+		Short:   "View story highlights",
 		Aliases: []string{"highlight", "hl"},
 	}
 	cmd.AddCommand(newHighlightsListCmd(factory))
 	cmd.AddCommand(newHighlightsGetCmd(factory))
-	cmd.AddCommand(newHighlightsCreateCmd(factory))
-	cmd.AddCommand(newHighlightsEditCmd(factory))
-	cmd.AddCommand(newHighlightsDeleteCmd(factory))
 	return cmd
 }
 
@@ -173,199 +163,4 @@ func makeRunHighlightsGet(factory ClientFactory) func(*cobra.Command, []string) 
 		fmt.Printf("Highlight %s retrieved.\n", highlightID)
 		return nil
 	}
-}
-
-func newHighlightsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new story highlight",
-		RunE:  makeRunHighlightsCreate(factory),
-	}
-	cmd.Flags().String("title", "", "Highlight title")
-	_ = cmd.MarkFlagRequired("title")
-	cmd.Flags().String("story-ids", "", "Comma-separated story media IDs to add")
-	_ = cmd.MarkFlagRequired("story-ids")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunHighlightsCreate(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		title, _ := cmd.Flags().GetString("title")
-		storyIDs, _ := cmd.Flags().GetString("story-ids")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("create highlight %q with stories %s", title, storyIDs),
-				map[string]string{"title": title, "story_ids": storyIDs})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		ids := strings.Split(storyIDs, ",")
-		reelIDs := make([]string, 0, len(ids))
-		for _, id := range ids {
-			id = strings.TrimSpace(id)
-			if id != "" {
-				reelIDs = append(reelIDs, id)
-			}
-		}
-
-		body := url.Values{}
-		body.Set("title", title)
-		for _, id := range reelIDs {
-			body.Add("reel_ids[]", id)
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/highlights/create_reel/", body)
-		if err != nil {
-			return fmt.Errorf("creating highlight: %w", err)
-		}
-
-		var result highlightMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding create highlight response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Created highlight %q\n", title)
-		return nil
-	}
-}
-
-func newHighlightsEditCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "edit",
-		Short: "Edit a story highlight",
-		RunE:  makeRunHighlightsEdit(factory),
-	}
-	cmd.Flags().String("highlight-id", "", "Highlight ID")
-	_ = cmd.MarkFlagRequired("highlight-id")
-	cmd.Flags().String("title", "", "New title (optional)")
-	cmd.Flags().String("add-stories", "", "Comma-separated story IDs to add (optional)")
-	cmd.Flags().String("remove-stories", "", "Comma-separated story IDs to remove (optional)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunHighlightsEdit(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		highlightID, _ := cmd.Flags().GetString("highlight-id")
-		title, _ := cmd.Flags().GetString("title")
-		addStories, _ := cmd.Flags().GetString("add-stories")
-		removeStories, _ := cmd.Flags().GetString("remove-stories")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("edit highlight %s", highlightID),
-				map[string]string{
-					"highlight_id":   highlightID,
-					"title":          title,
-					"add_stories":    addStories,
-					"remove_stories": removeStories,
-				})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := url.Values{}
-		if title != "" {
-			body.Set("title", title)
-		}
-		for _, id := range parseCSV(addStories) {
-			body.Add("added_reel_ids[]", id)
-		}
-		for _, id := range parseCSV(removeStories) {
-			body.Add("removed_reel_ids[]", id)
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/highlights/"+url.PathEscape(highlightID)+"/edit_reel/", body)
-		if err != nil {
-			return fmt.Errorf("editing highlight %s: %w", highlightID, err)
-		}
-
-		var result highlightMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding edit highlight response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Edited highlight %s\n", highlightID)
-		return nil
-	}
-}
-
-func newHighlightsDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a story highlight",
-		RunE:  makeRunHighlightsDelete(factory),
-	}
-	cmd.Flags().String("highlight-id", "", "Highlight ID")
-	_ = cmd.MarkFlagRequired("highlight-id")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion (required)")
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunHighlightsDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		highlightID, _ := cmd.Flags().GetString("highlight-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("delete highlight %s", highlightID),
-				map[string]string{"highlight_id": highlightID})
-		}
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/highlights/"+url.PathEscape(highlightID)+"/delete_reel/", nil)
-		if err != nil {
-			return fmt.Errorf("deleting highlight %s: %w", highlightID, err)
-		}
-
-		var result highlightMutateResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding delete highlight response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Deleted highlight %s\n", highlightID)
-		return nil
-	}
-}
-
-// parseCSV splits a comma-separated string into trimmed, non-empty parts.
-func parseCSV(s string) []string {
-	if s == "" {
-		return nil
-	}
-	parts := strings.Split(s, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			result = append(result, p)
-		}
-	}
-	return result
 }

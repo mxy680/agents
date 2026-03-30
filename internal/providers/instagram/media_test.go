@@ -118,97 +118,6 @@ func TestMediaGetMissingFlag(t *testing.T) {
 	}
 }
 
-func TestMediaDeleteDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "delete", "--media-id=111222333", "--dry-run")
-
-	mustContain(t, out, "[DRY RUN]")
-	mustContain(t, out, "delete media 111222333")
-}
-
-func TestMediaDeleteNoConfirm(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	err := runCmdErr(t, root, "media", "delete", "--media-id=111222333")
-	if err == nil {
-		t.Error("expected error when --confirm not provided")
-	}
-}
-
-func TestMediaDeleteConfirmed(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "delete", "--media-id=111222333", "--confirm")
-
-	mustContain(t, out, "Deleted media 111222333")
-}
-
-func TestMediaDeleteJSON(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "delete", "--media-id=111222333", "--confirm", "--json")
-
-	var result mediaDeleteResponse
-	if err := json.Unmarshal([]byte(out), &result); err != nil {
-		t.Fatalf("invalid JSON: %v\noutput: %s", err, out)
-	}
-	if !result.DidDelete {
-		t.Error("expected did_delete=true")
-	}
-}
-
-func TestMediaArchiveDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "archive", "--media-id=111222333", "--dry-run")
-
-	mustContain(t, out, "[DRY RUN]")
-}
-
-func TestMediaArchive(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "archive", "--media-id=111222333")
-
-	mustContain(t, out, "Archived media 111222333")
-}
-
-func TestMediaUnarchive(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "unarchive", "--media-id=111222333")
-
-	mustContain(t, out, "Unarchived media 111222333")
-}
 
 func TestMediaLikersText(t *testing.T) {
 	server := newFullMockServer(t)
@@ -244,41 +153,6 @@ func TestMediaLikersJSON(t *testing.T) {
 	}
 }
 
-func TestMediaSaveDryRun(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "save", "--media-id=111222333", "--dry-run")
-
-	mustContain(t, out, "[DRY RUN]")
-}
-
-func TestMediaSave(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "save", "--media-id=111222333")
-
-	mustContain(t, out, "Saved media 111222333")
-}
-
-func TestMediaUnsave(t *testing.T) {
-	server := newFullMockServer(t)
-	defer server.Close()
-	factory := newTestClientFactory(server)
-
-	root := newTestRootCmd()
-	root.AddCommand(buildTestMediaCmd(factory))
-	out := runCmd(t, root, "media", "unsave", "--media-id=111222333")
-
-	mustContain(t, out, "Unsaved media 111222333")
-}
 
 func TestMediaPostAlias(t *testing.T) {
 	server := newFullMockServer(t)

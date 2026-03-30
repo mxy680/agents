@@ -148,32 +148,17 @@ func newSectionsCreateCmd(factory ClientFactory) *cobra.Command {
 			ctx := cmd.Context()
 
 			courseID, _ := cmd.Flags().GetString("course-id")
+			name, _ := cmd.Flags().GetString("name")
 			if courseID == "" {
 				return fmt.Errorf("--course-id is required")
 			}
-			name, _ := cmd.Flags().GetString("name")
 			if name == "" {
 				return fmt.Errorf("--name is required")
 			}
 
-			startAt, _ := cmd.Flags().GetString("start-at")
-			endAt, _ := cmd.Flags().GetString("end-at")
-
-			sectionBody := map[string]any{
-				"name": name,
-			}
-			if startAt != "" {
-				sectionBody["start_at"] = startAt
-			}
-			if endAt != "" {
-				sectionBody["end_at"] = endAt
-			}
-
-			body := map[string]any{"course_section": sectionBody}
-
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create section %q in course %s", name, courseID), body)
+				return dryRunResult(cmd, "create section: "+name, map[string]any{"course_id": courseID, "name": name})
 			}
 
 			client, err := factory(ctx)
@@ -181,93 +166,71 @@ func newSectionsCreateCmd(factory ClientFactory) *cobra.Command {
 				return err
 			}
 
-			data, err := client.Post(ctx, "/courses/"+courseID+"/sections", body)
+			body := map[string]any{"name": name}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/sections", map[string]any{"course_section": body})
 			if err != nil {
 				return err
 			}
 
 			var section SectionSummary
 			if err := json.Unmarshal(data, &section); err != nil {
-				return fmt.Errorf("parse created section: %w", err)
+				return fmt.Errorf("parse section: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
 				return cli.PrintJSON(section)
 			}
-			fmt.Printf("Section created: %d — %s\n", section.ID, section.Name)
+			fmt.Printf("Section %d created: %s\n", section.ID, section.Name)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("name", "", "Section name (required)")
-	cmd.Flags().String("start-at", "", "Section start date (RFC3339)")
-	cmd.Flags().String("end-at", "", "Section end date (RFC3339)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }
 
 func newSectionsUpdateCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update an existing section",
+		Short: "Update a section",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
 
 			sectionID, _ := cmd.Flags().GetString("section-id")
 			if sectionID == "" {
 				return fmt.Errorf("--section-id is required")
 			}
 
-			sectionBody := map[string]any{}
-			if cmd.Flags().Changed("name") {
-				v, _ := cmd.Flags().GetString("name")
-				sectionBody["name"] = v
-			}
-			if cmd.Flags().Changed("start-at") {
-				v, _ := cmd.Flags().GetString("start-at")
-				sectionBody["start_at"] = v
-			}
-			if cmd.Flags().Changed("end-at") {
-				v, _ := cmd.Flags().GetString("end-at")
-				sectionBody["end_at"] = v
+			section := map[string]any{}
+			if name, _ := cmd.Flags().GetString("name"); name != "" {
+				section["name"] = name
 			}
 
-			body := map[string]any{"course_section": sectionBody}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update section %s", sectionID), body)
-			}
-
-			client, err := factory(ctx)
+			data, err := client.Put(ctx, "/sections/"+sectionID, map[string]any{"course_section": section})
 			if err != nil {
 				return err
 			}
 
-			data, err := client.Put(ctx, "/sections/"+sectionID, body)
-			if err != nil {
-				return err
-			}
-
-			var section SectionSummary
-			if err := json.Unmarshal(data, &section); err != nil {
-				return fmt.Errorf("parse updated section: %w", err)
+			var s SectionSummary
+			if err := json.Unmarshal(data, &s); err != nil {
+				return fmt.Errorf("parse section: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(section)
+				return cli.PrintJSON(s)
 			}
-			fmt.Printf("Section %d updated.\n", section.ID)
+			fmt.Printf("Section %s updated\n", sectionID)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("section-id", "", "Canvas section ID (required)")
-	cmd.Flags().String("name", "", "New section name")
-	cmd.Flags().String("start-at", "", "New start date (RFC3339)")
-	cmd.Flags().String("end-at", "", "New end date (RFC3339)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("name", "", "New name")
 	return cmd
 }
 
@@ -287,41 +250,35 @@ func newSectionsDeleteCmd(factory ClientFactory) *cobra.Command {
 				return err
 			}
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete section %s", sectionID), nil)
-			}
-
 			client, err := factory(ctx)
 			if err != nil {
 				return err
 			}
 
-			_, err = client.Delete(ctx, "/sections/"+sectionID)
-			if err != nil {
+			if _, err := client.Delete(ctx, "/sections/"+sectionID); err != nil {
 				return err
 			}
 
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "section_id": sectionID})
-			}
-			fmt.Printf("Section %s deleted.\n", sectionID)
+			fmt.Printf("Section %s deleted\n", sectionID)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("section-id", "", "Canvas section ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }
 
 func newSectionsCrosslistCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "crosslist",
-		Short: "Cross-list a section into a different course",
+		Short: "Cross-list a section into another course",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
 
 			sectionID, _ := cmd.Flags().GetString("section-id")
 			newCourseID, _ := cmd.Flags().GetString("new-course-id")
@@ -332,37 +289,27 @@ func newSectionsCrosslistCmd(factory ClientFactory) *cobra.Command {
 				return fmt.Errorf("--new-course-id is required")
 			}
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("crosslist section %s into course %s", sectionID, newCourseID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/sections/"+sectionID+"/crosslist/"+newCourseID, nil)
+			path := "/sections/" + sectionID + "/crosslist/" + newCourseID
+			data, err := client.Post(ctx, path, nil)
 			if err != nil {
 				return err
 			}
 
 			var section SectionSummary
 			if err := json.Unmarshal(data, &section); err != nil {
-				return fmt.Errorf("parse crosslist result: %w", err)
+				return fmt.Errorf("parse section: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
 				return cli.PrintJSON(section)
 			}
-			fmt.Printf("Section %d cross-listed into course %s.\n", section.ID, newCourseID)
+			fmt.Printf("Section %s cross-listed into course %s\n", sectionID, newCourseID)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("section-id", "", "Canvas section ID (required)")
-	cmd.Flags().String("new-course-id", "", "Destination course ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
+	cmd.Flags().String("new-course-id", "", "Target course ID (required)")
 	return cmd
 }
 
@@ -372,41 +319,35 @@ func newSectionsUncrosslistCmd(factory ClientFactory) *cobra.Command {
 		Short: "Remove a section from cross-listing",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
 
 			sectionID, _ := cmd.Flags().GetString("section-id")
 			if sectionID == "" {
 				return fmt.Errorf("--section-id is required")
 			}
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("uncrosslist section %s", sectionID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Delete(ctx, "/sections/"+sectionID+"/crosslist")
+			path := "/sections/" + sectionID + "/crosslist"
+			data, err := client.Delete(ctx, path)
 			if err != nil {
 				return err
 			}
 
 			var section SectionSummary
 			if err := json.Unmarshal(data, &section); err != nil {
-				return fmt.Errorf("parse uncrosslist result: %w", err)
+				return fmt.Errorf("parse section: %w", err)
 			}
 
 			if cli.IsJSONOutput(cmd) {
 				return cli.PrintJSON(section)
 			}
-			fmt.Printf("Section %d removed from cross-listing.\n", section.ID)
+			fmt.Printf("Section %s removed from cross-listing\n", sectionID)
 			return nil
 		},
 	}
 
 	cmd.Flags().String("section-id", "", "Canvas section ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }

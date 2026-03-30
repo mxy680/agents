@@ -88,11 +88,6 @@ type topSearchResponse struct {
 	Status     string            `json:"status"`
 }
 
-// clearSearchResponse is the response for POST /api/v1/fbsearch/clear_search_history/.
-type clearSearchResponse struct {
-	Status string `json:"status"`
-}
-
 // exploreResponse is the response for GET /api/v1/discover/explore/.
 type exploreResponse struct {
 	Items      []map[string]any `json:"items"`
@@ -112,7 +107,6 @@ func newSearchCmd(factory ClientFactory) *cobra.Command {
 	cmd.AddCommand(newSearchTagsCmd(factory))
 	cmd.AddCommand(newSearchLocationsCmd(factory))
 	cmd.AddCommand(newSearchTopCmd(factory))
-	cmd.AddCommand(newSearchClearCmd(factory))
 	cmd.AddCommand(newSearchExploreCmd(factory))
 	return cmd
 }
@@ -401,46 +395,6 @@ func makeRunSearchTop(factory ClientFactory) func(*cobra.Command, []string) erro
 			lines = append(lines, fmt.Sprintf("%-5d  %-10s  %-30s", item.Position, itemType, truncate(name, 30)))
 		}
 		cli.PrintText(lines)
-		return nil
-	}
-}
-
-func newSearchClearCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "clear",
-		Short: "Clear search history",
-		RunE:  makeRunSearchClear(factory),
-	}
-	cmd.Flags().Bool("dry-run", false, "Print what would be done without making changes")
-	return cmd
-}
-
-func makeRunSearchClear(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, "clear search history", map[string]string{})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		resp, err := client.MobilePost(ctx, "/api/v1/fbsearch/clear_search_history/", nil)
-		if err != nil {
-			return fmt.Errorf("clearing search history: %w", err)
-		}
-
-		var result clearSearchResponse
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding clear search response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Println("Search history cleared.")
 		return nil
 	}
 }

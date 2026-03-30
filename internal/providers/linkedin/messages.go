@@ -290,260 +290,6 @@ func makeRunMessagesList(factory ClientFactory) func(*cobra.Command, []string) e
 	}
 }
 
-// newMessagesSendCmd builds the "messages send" command.
-func newMessagesSendCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "send",
-		Short: "Send a message in an existing conversation",
-		RunE:  makeRunMessagesSend(factory),
-	}
-	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
-	cmd.Flags().String("text", "", "Message text (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without sending")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("conversation-id")
-	_ = cmd.MarkFlagRequired("text")
-	return cmd
-}
-
-func makeRunMessagesSend(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		conversationID, _ := cmd.Flags().GetString("conversation-id")
-		text, _ := cmd.Flags().GetString("text")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would send message to conversation %s", conversationID), map[string]any{
-				"action":          "send",
-				"conversation_id": conversationID,
-				"text":            text,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		body := map[string]any{
-			"eventCreate": map[string]any{
-				"value": map[string]any{
-					"com.linkedin.voyager.messaging.create.MessageCreate": map[string]any{
-						"body":        text,
-						"attachments": []any{},
-					},
-				},
-			},
-		}
-
-		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID) + "/events"
-		resp, err := client.PostJSON(ctx, path, body)
-		if err != nil {
-			return fmt.Errorf("sending message to conversation %s: %w", conversationID, err)
-		}
-
-		var result map[string]any
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding send response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Printf("Message sent to conversation %s\n", conversationID)
-		return nil
-	}
-}
-
-// newMessagesNewCmd builds the "messages new" command.
-func newMessagesNewCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "new",
-		Short: "Create a new conversation and send a message",
-		RunE:  makeRunMessagesNew(factory),
-	}
-	cmd.Flags().String("recipients", "", "Comma-separated list of recipient URNs (required)")
-	cmd.Flags().String("text", "", "Message text (required)")
-	cmd.Flags().String("subject", "", "Conversation subject (optional)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without sending")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("recipients")
-	_ = cmd.MarkFlagRequired("text")
-	return cmd
-}
-
-func makeRunMessagesNew(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		recipientsStr, _ := cmd.Flags().GetString("recipients")
-		text, _ := cmd.Flags().GetString("text")
-		subject, _ := cmd.Flags().GetString("subject")
-
-		recipients := strings.Split(recipientsStr, ",")
-		for i, r := range recipients {
-			recipients[i] = strings.TrimSpace(r)
-		}
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would create new conversation with %s", recipientsStr), map[string]any{
-				"action":     "new_conversation",
-				"recipients": recipients,
-				"text":       text,
-				"subject":    subject,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		recipientList := make([]map[string]any, 0, len(recipients))
-		for _, r := range recipients {
-			recipientList = append(recipientList, map[string]any{
-				"com.linkedin.voyager.messaging.MessagingMember": map[string]any{
-					"miniProfile": map[string]any{
-						"entityUrn": r,
-					},
-				},
-			})
-		}
-
-		body := map[string]any{
-			"keyVersion": "LEGACY_INBOX",
-			"conversationCreate": map[string]any{
-				"eventCreate": map[string]any{
-					"value": map[string]any{
-						"com.linkedin.voyager.messaging.create.MessageCreate": map[string]any{
-							"body":        text,
-							"attachments": []any{},
-						},
-					},
-				},
-				"recipients": recipientList,
-				"subtype":    "MEMBER_TO_MEMBER",
-			},
-		}
-		if subject != "" {
-			convCreate := body["conversationCreate"].(map[string]any)
-			convCreate["subject"] = subject
-		}
-
-		resp, err := client.PostJSON(ctx, "/voyager/api/messaging/conversations", body)
-		if err != nil {
-			return fmt.Errorf("creating new conversation: %w", err)
-		}
-
-		var result map[string]any
-		if err := client.DecodeJSON(resp, &result); err != nil {
-			return fmt.Errorf("decoding new conversation response: %w", err)
-		}
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(result)
-		}
-		fmt.Println("New conversation created.")
-		return nil
-	}
-}
-
-// newMessagesDeleteCmd builds the "messages delete" command.
-func newMessagesDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a conversation",
-		RunE:  makeRunMessagesDelete(factory),
-	}
-	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without deleting")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("conversation-id")
-	return cmd
-}
-
-func makeRunMessagesDelete(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		conversationID, _ := cmd.Flags().GetString("conversation-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would delete conversation %s", conversationID), map[string]any{
-				"action":          "delete",
-				"conversation_id": conversationID,
-			})
-		}
-
-		if err := confirmDestructive(cmd); err != nil {
-			return err
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID)
-		resp, err := client.Delete(ctx, path)
-		if err != nil {
-			return fmt.Errorf("deleting conversation %s: %w", conversationID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"deleted": true, "conversation_id": conversationID})
-		}
-		fmt.Printf("Deleted conversation %s\n", conversationID)
-		return nil
-	}
-}
-
-// newMessagesMarkReadCmd builds the "messages mark-read" command.
-func newMessagesMarkReadCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "mark-read",
-		Short: "Mark a conversation as read",
-		RunE:  makeRunMessagesMarkRead(factory),
-	}
-	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
-	cmd.Flags().Bool("dry-run", false, "Preview the action without marking")
-	cmd.Flags().Bool("json", false, "Output as JSON")
-	_ = cmd.MarkFlagRequired("conversation-id")
-	return cmd
-}
-
-func makeRunMessagesMarkRead(factory ClientFactory) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, _ []string) error {
-		conversationID, _ := cmd.Flags().GetString("conversation-id")
-
-		if cli.IsDryRun(cmd) {
-			return dryRunResult(cmd, fmt.Sprintf("Would mark conversation %s as read", conversationID), map[string]any{
-				"action":          "mark_read",
-				"conversation_id": conversationID,
-			})
-		}
-
-		ctx := cmd.Context()
-		client, err := factory(ctx)
-		if err != nil {
-			return err
-		}
-
-		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID)
-		resp, err := client.Patch(ctx, path, map[string]any{"patch": map[string]any{"read": true}})
-		if err != nil {
-			return fmt.Errorf("marking conversation %s as read: %w", conversationID, err)
-		}
-		resp.Body.Close()
-
-		if cli.IsJSONOutput(cmd) {
-			return cli.PrintJSON(map[string]any{"read": true, "conversation_id": conversationID})
-		}
-		fmt.Printf("Marked conversation %s as read\n", conversationID)
-		return nil
-	}
-}
-
 // printConversationSummaries outputs conversation summaries as JSON or text.
 func printConversationSummaries(cmd *cobra.Command, convs []ConversationSummary) error {
 	if cli.IsJSONOutput(cmd) {
@@ -591,4 +337,217 @@ func printMessageSummaries(cmd *cobra.Command, msgs []MessageSummary) error {
 	}
 	cli.PrintText(lines)
 	return nil
+}
+
+// newMessagesSendCmd builds the "messages send" command for sending a message
+// in an existing conversation.
+func newMessagesSendCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "send",
+		Short: "Send a message in an existing conversation",
+		RunE:  makeRunMessagesSend(factory),
+	}
+	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
+	cmd.Flags().String("text", "", "Message text (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("conversation-id")
+	_ = cmd.MarkFlagRequired("text")
+	return cmd
+}
+
+func makeRunMessagesSend(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		conversationID, _ := cmd.Flags().GetString("conversation-id")
+		text, _ := cmd.Flags().GetString("text")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("send message to conversation %s", conversationID),
+				map[string]string{"conversation_id": conversationID, "text": text})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{
+			"eventCreate": map[string]any{
+				"value": map[string]any{
+					"com.linkedin.voyager.messaging.create.MessageCreate": map[string]any{
+						"attributedBody": map[string]any{
+							"text":       text,
+							"attributes": []any{},
+						},
+						"attachments": []any{},
+					},
+				},
+			},
+		}
+		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID) + "/events"
+		_, err = client.PostJSON(ctx, path, body)
+		if err != nil {
+			return fmt.Errorf("sending message to conversation %s: %w", conversationID, err)
+		}
+
+		fmt.Printf("Message sent to conversation %s\n", conversationID)
+		return nil
+	}
+}
+
+// newMessagesNewCmd builds the "messages new" command for starting a new conversation.
+func newMessagesNewCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "new",
+		Short: "Start a new conversation with one or more recipients",
+		RunE:  makeRunMessagesNew(factory),
+	}
+	cmd.Flags().String("recipients", "", "Comma-separated recipient URNs (required)")
+	cmd.Flags().String("text", "", "Message text (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("recipients")
+	_ = cmd.MarkFlagRequired("text")
+	return cmd
+}
+
+func makeRunMessagesNew(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		recipients, _ := cmd.Flags().GetString("recipients")
+		text, _ := cmd.Flags().GetString("text")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("start conversation with %s", recipients),
+				map[string]string{"recipients": recipients, "text": text})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		recipientList := strings.Split(recipients, ",")
+		recipientURNs := make([]map[string]any, 0, len(recipientList))
+		for _, r := range recipientList {
+			recipientURNs = append(recipientURNs, map[string]any{"com.linkedin.voyager.messaging.MessagingMember": map[string]any{
+				"miniProfile": strings.TrimSpace(r),
+			}})
+		}
+
+		body := map[string]any{
+			"keyVersion": "LEGACY_INBOX",
+			"conversationCreate": map[string]any{
+				"eventCreate": map[string]any{
+					"value": map[string]any{
+						"com.linkedin.voyager.messaging.create.MessageCreate": map[string]any{
+							"attributedBody": map[string]any{
+								"text":       text,
+								"attributes": []any{},
+							},
+							"attachments": []any{},
+						},
+					},
+				},
+				"recipients": recipientURNs,
+			},
+		}
+		resp, err := client.PostJSON(ctx, "/voyager/api/messaging/conversations", body)
+		if err != nil {
+			return fmt.Errorf("creating conversation: %w", err)
+		}
+
+		var result struct {
+			ConversationID string `json:"conversationId"`
+		}
+		if err := client.DecodeJSON(resp, &result); err == nil && result.ConversationID != "" {
+			fmt.Printf("New conversation created: %s\n", result.ConversationID)
+		} else {
+			fmt.Println("New conversation created successfully")
+		}
+		return nil
+	}
+}
+
+// newMessagesDeleteCmd builds the "messages delete" command for deleting a conversation.
+func newMessagesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a conversation",
+		RunE:  makeRunMessagesDelete(factory),
+	}
+	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm the delete action")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("conversation-id")
+	return cmd
+}
+
+func makeRunMessagesDelete(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		conversationID, _ := cmd.Flags().GetString("conversation-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("delete conversation %s", conversationID),
+				map[string]string{"conversation_id": conversationID})
+		}
+
+		if err := confirmDestructive(cmd); err != nil {
+			return err
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID)
+		_, err = client.Delete(ctx, path)
+		if err != nil {
+			return fmt.Errorf("deleting conversation %s: %w", conversationID, err)
+		}
+
+		fmt.Printf("Deleted conversation %s\n", conversationID)
+		return nil
+	}
+}
+
+// newMessagesMarkReadCmd builds the "messages mark-read" command.
+func newMessagesMarkReadCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mark-read",
+		Short: "Mark a conversation as read",
+		RunE:  makeRunMessagesMarkRead(factory),
+	}
+	cmd.Flags().String("conversation-id", "", "Conversation ID (required)")
+	cmd.Flags().Bool("dry-run", false, "Preview action without executing it")
+	_ = cmd.MarkFlagRequired("conversation-id")
+	return cmd
+}
+
+func makeRunMessagesMarkRead(factory ClientFactory) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		conversationID, _ := cmd.Flags().GetString("conversation-id")
+
+		if cli.IsDryRun(cmd) {
+			return dryRunResult(cmd, fmt.Sprintf("mark conversation %s as read", conversationID),
+				map[string]string{"conversation_id": conversationID})
+		}
+
+		ctx := cmd.Context()
+		client, err := factory(ctx)
+		if err != nil {
+			return err
+		}
+
+		body := map[string]any{"read": true}
+		path := "/voyager/api/messaging/conversations/" + url.PathEscape(conversationID)
+		_, err = client.Patch(ctx, path, body)
+		if err != nil {
+			return fmt.Errorf("marking conversation %s as read: %w", conversationID, err)
+		}
+
+		fmt.Printf("Marked conversation %s as read\n", conversationID)
+		return nil
+	}
 }

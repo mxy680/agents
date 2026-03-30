@@ -28,6 +28,162 @@ func newAnnouncementsCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+func newAnnouncementsCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new announcement in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			title, _ := cmd.Flags().GetString("title")
+			message, _ := cmd.Flags().GetString("message")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create announcement: "+title, map[string]any{
+					"course_id": courseID, "title": title, "message": message,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{
+				"title":              title,
+				"message":            message,
+				"is_announcement":    true,
+			}
+			data, err := client.Post(ctx, "/courses/"+courseID+"/discussion_topics", body)
+			if err != nil {
+				return err
+			}
+
+			var announcement AnnouncementSummary
+			if err := json.Unmarshal(data, &announcement); err != nil {
+				return fmt.Errorf("parse announcement: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(announcement)
+			}
+			fmt.Printf("Announcement %d created: %s\n", announcement.ID, announcement.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("title", "", "Announcement title (required)")
+	cmd.Flags().String("message", "", "Announcement body/message")
+	return cmd
+}
+
+func newAnnouncementsUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update an existing announcement",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			announcementID, _ := cmd.Flags().GetString("announcement-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if announcementID == "" {
+				return fmt.Errorf("--announcement-id is required")
+			}
+
+			body := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				body["title"] = title
+			}
+			if message, _ := cmd.Flags().GetString("message"); message != "" {
+				body["message"] = message
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/discussion_topics/"+announcementID, body)
+			if err != nil {
+				return err
+			}
+
+			var announcement AnnouncementSummary
+			if err := json.Unmarshal(data, &announcement); err != nil {
+				return fmt.Errorf("parse announcement: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(announcement)
+			}
+			fmt.Printf("Announcement %s updated\n", announcementID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("announcement-id", "", "Canvas announcement ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("message", "", "New message")
+	return cmd
+}
+
+func newAnnouncementsDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete an announcement",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			announcementID, _ := cmd.Flags().GetString("announcement-id")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if announcementID == "" {
+				return fmt.Errorf("--announcement-id is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "delete announcement "+announcementID, nil)
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the announcement"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/discussion_topics/"+announcementID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Announcement %s deleted\n", announcementID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("announcement-id", "", "Canvas announcement ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
 func newAnnouncementsListCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -162,182 +318,5 @@ func newAnnouncementsGetCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("announcement-id", "", "Canvas announcement (discussion topic) ID (required)")
-	return cmd
-}
-
-func newAnnouncementsCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new announcement",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			title, _ := cmd.Flags().GetString("title")
-			if title == "" {
-				return fmt.Errorf("--title is required")
-			}
-			message, _ := cmd.Flags().GetString("message")
-			if message == "" {
-				return fmt.Errorf("--message is required")
-			}
-
-			published, _ := cmd.Flags().GetBool("published")
-
-			body := map[string]any{
-				"title":           title,
-				"message":         message,
-				"is_announcement": true,
-				"published":       published,
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create announcement %q in course %s", title, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/discussion_topics", body)
-			if err != nil {
-				return err
-			}
-
-			var announcement AnnouncementSummary
-			if err := json.Unmarshal(data, &announcement); err != nil {
-				return fmt.Errorf("parse created announcement: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(announcement)
-			}
-			fmt.Printf("Announcement created: %d — %s\n", announcement.ID, announcement.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("title", "", "Announcement title (required)")
-	cmd.Flags().String("message", "", "Announcement body (required)")
-	cmd.Flags().Bool("published", false, "Publish the announcement immediately")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newAnnouncementsUpdateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update an existing announcement",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			announcementID, _ := cmd.Flags().GetString("announcement-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if announcementID == "" {
-				return fmt.Errorf("--announcement-id is required")
-			}
-
-			body := map[string]any{}
-			if cmd.Flags().Changed("title") {
-				v, _ := cmd.Flags().GetString("title")
-				body["title"] = v
-			}
-			if cmd.Flags().Changed("message") {
-				v, _ := cmd.Flags().GetString("message")
-				body["message"] = v
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update announcement %s in course %s", announcementID, courseID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Put(ctx, "/courses/"+courseID+"/discussion_topics/"+announcementID, body)
-			if err != nil {
-				return err
-			}
-
-			var announcement AnnouncementSummary
-			if err := json.Unmarshal(data, &announcement); err != nil {
-				return fmt.Errorf("parse updated announcement: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(announcement)
-			}
-			fmt.Printf("Announcement %d updated.\n", announcement.ID)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("announcement-id", "", "Canvas announcement (discussion topic) ID (required)")
-	cmd.Flags().String("title", "", "New title")
-	cmd.Flags().String("message", "", "New body/message")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newAnnouncementsDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete an announcement",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			announcementID, _ := cmd.Flags().GetString("announcement-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if announcementID == "" {
-				return fmt.Errorf("--announcement-id is required")
-			}
-
-			if err := confirmDestructive(cmd, "this will permanently delete the announcement"); err != nil {
-				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete announcement %s in course %s", announcementID, courseID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Delete(ctx, "/courses/"+courseID+"/discussion_topics/"+announcementID)
-			if err != nil {
-				return err
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "announcement_id": announcementID})
-			}
-			fmt.Printf("Announcement %s deleted.\n", announcementID)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("announcement-id", "", "Canvas announcement (discussion topic) ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }

@@ -28,6 +28,164 @@ func newCalendarCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
+func newCalendarCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new calendar event",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			contextCode, _ := cmd.Flags().GetString("context-code")
+			title, _ := cmd.Flags().GetString("title")
+			startAt, _ := cmd.Flags().GetString("start-at")
+			endAt, _ := cmd.Flags().GetString("end-at")
+			description, _ := cmd.Flags().GetString("description")
+
+			if contextCode == "" {
+				return fmt.Errorf("--context-code is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create calendar event: "+title, map[string]any{
+					"context_code": contextCode, "title": title, "start_at": startAt,
+				})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			body := map[string]any{
+				"calendar_event": map[string]any{
+					"context_code": contextCode,
+					"title":        title,
+					"start_at":     startAt,
+					"end_at":       endAt,
+					"description":  description,
+				},
+			}
+			data, err := client.Post(ctx, "/calendar_events", body)
+			if err != nil {
+				return err
+			}
+
+			var event CalendarEventSummary
+			if err := json.Unmarshal(data, &event); err != nil {
+				return fmt.Errorf("parse calendar event: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(event)
+			}
+			fmt.Printf("Calendar event %d created: %s\n", event.ID, event.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("context-code", "", "Context code (e.g. course_123) (required)")
+	cmd.Flags().String("title", "", "Event title (required)")
+	cmd.Flags().String("start-at", "", "Start time in RFC3339 format")
+	cmd.Flags().String("end-at", "", "End time in RFC3339 format")
+	cmd.Flags().String("description", "", "Event description")
+	return cmd
+}
+
+func newCalendarUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a calendar event",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			eventID, _ := cmd.Flags().GetString("event-id")
+			if eventID == "" {
+				return fmt.Errorf("--event-id is required")
+			}
+
+			inner := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				inner["title"] = title
+			}
+			if startAt, _ := cmd.Flags().GetString("start-at"); startAt != "" {
+				inner["start_at"] = startAt
+			}
+			if endAt, _ := cmd.Flags().GetString("end-at"); endAt != "" {
+				inner["end_at"] = endAt
+			}
+			if description, _ := cmd.Flags().GetString("description"); description != "" {
+				inner["description"] = description
+			}
+
+			data, err := client.Put(ctx, "/calendar_events/"+eventID, map[string]any{"calendar_event": inner})
+			if err != nil {
+				return err
+			}
+
+			var event CalendarEventSummary
+			if err := json.Unmarshal(data, &event); err != nil {
+				return fmt.Errorf("parse calendar event: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(event)
+			}
+			fmt.Printf("Calendar event %s updated\n", eventID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("event-id", "", "Canvas calendar event ID (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("start-at", "", "New start time")
+	cmd.Flags().String("end-at", "", "New end time")
+	cmd.Flags().String("description", "", "New description")
+	return cmd
+}
+
+func newCalendarDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a calendar event",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			eventID, _ := cmd.Flags().GetString("event-id")
+			if eventID == "" {
+				return fmt.Errorf("--event-id is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the calendar event"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/calendar_events/"+eventID); err != nil {
+				return err
+			}
+
+			fmt.Printf("Calendar event %s deleted\n", eventID)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("event-id", "", "Canvas calendar event ID (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
+	return cmd
+}
+
 func newCalendarListCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -152,206 +310,5 @@ func newCalendarGetCmd(factory ClientFactory) *cobra.Command {
 	}
 
 	cmd.Flags().String("event-id", "", "Canvas calendar event ID (required)")
-	return cmd
-}
-
-func newCalendarCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new calendar event",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			contextCode, _ := cmd.Flags().GetString("context-code")
-			title, _ := cmd.Flags().GetString("title")
-			startAt, _ := cmd.Flags().GetString("start-at")
-			endAt, _ := cmd.Flags().GetString("end-at")
-			if contextCode == "" {
-				return fmt.Errorf("--context-code is required")
-			}
-			if title == "" {
-				return fmt.Errorf("--title is required")
-			}
-			if startAt == "" {
-				return fmt.Errorf("--start-at is required")
-			}
-			if endAt == "" {
-				return fmt.Errorf("--end-at is required")
-			}
-
-			description, _ := cmd.Flags().GetString("description")
-			locationName, _ := cmd.Flags().GetString("location-name")
-			allDay, _ := cmd.Flags().GetBool("all-day")
-
-			eventBody := map[string]any{
-				"context_code": contextCode,
-				"title":        title,
-				"start_at":     startAt,
-				"end_at":       endAt,
-			}
-			if description != "" {
-				eventBody["description"] = description
-			}
-			if locationName != "" {
-				eventBody["location_name"] = locationName
-			}
-			if allDay {
-				eventBody["all_day"] = true
-			}
-
-			body := map[string]any{"calendar_event": eventBody}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create calendar event %q in %s", title, contextCode), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/calendar_events", body)
-			if err != nil {
-				return err
-			}
-
-			var event CalendarEventSummary
-			if err := json.Unmarshal(data, &event); err != nil {
-				return fmt.Errorf("parse calendar event: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(event)
-			}
-
-			fmt.Printf("Created calendar event %d: %s\n", event.ID, event.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("context-code", "", "Context code for the event, e.g. course_123 (required)")
-	cmd.Flags().String("title", "", "Event title (required)")
-	cmd.Flags().String("start-at", "", "Start time in RFC3339 format (required)")
-	cmd.Flags().String("end-at", "", "End time in RFC3339 format (required)")
-	cmd.Flags().String("description", "", "Event description")
-	cmd.Flags().String("location-name", "", "Location name")
-	cmd.Flags().Bool("all-day", false, "Mark as an all-day event")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newCalendarUpdateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update an existing calendar event",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			eventID, _ := cmd.Flags().GetString("event-id")
-			if eventID == "" {
-				return fmt.Errorf("--event-id is required")
-			}
-
-			eventBody := map[string]any{}
-			if cmd.Flags().Changed("title") {
-				v, _ := cmd.Flags().GetString("title")
-				eventBody["title"] = v
-			}
-			if cmd.Flags().Changed("start-at") {
-				v, _ := cmd.Flags().GetString("start-at")
-				eventBody["start_at"] = v
-			}
-			if cmd.Flags().Changed("end-at") {
-				v, _ := cmd.Flags().GetString("end-at")
-				eventBody["end_at"] = v
-			}
-			if cmd.Flags().Changed("description") {
-				v, _ := cmd.Flags().GetString("description")
-				eventBody["description"] = v
-			}
-
-			body := map[string]any{"calendar_event": eventBody}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update calendar event %s", eventID), body)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Put(ctx, "/calendar_events/"+eventID, body)
-			if err != nil {
-				return err
-			}
-
-			var event CalendarEventSummary
-			if err := json.Unmarshal(data, &event); err != nil {
-				return fmt.Errorf("parse calendar event: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(event)
-			}
-
-			fmt.Printf("Updated calendar event %d: %s\n", event.ID, event.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("event-id", "", "Canvas calendar event ID (required)")
-	cmd.Flags().String("title", "", "New event title")
-	cmd.Flags().String("start-at", "", "New start time in RFC3339 format")
-	cmd.Flags().String("end-at", "", "New end time in RFC3339 format")
-	cmd.Flags().String("description", "", "New event description")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newCalendarDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a calendar event",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			eventID, _ := cmd.Flags().GetString("event-id")
-			if eventID == "" {
-				return fmt.Errorf("--event-id is required")
-			}
-
-			if err := confirmDestructive(cmd, "this will permanently delete the calendar event"); err != nil {
-				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete calendar event %s", eventID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Delete(ctx, "/calendar_events/"+eventID)
-			if err != nil {
-				return err
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "event_id": eventID})
-			}
-			fmt.Printf("Calendar event %s deleted.\n", eventID)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("event-id", "", "Canvas calendar event ID (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
 	return cmd
 }

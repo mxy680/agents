@@ -11,16 +11,14 @@ import {
   xConfig,
   canvasConfig,
   zillowConfig,
-  streeteasyConfig,
   mapInstagramCookies,
   mapLinkedinCookies,
   mapXCookies,
   mapCanvasCookies,
   mapZillowCookies,
-  mapStreetEasyCookies,
   type ProviderConfig,
 } from "@/lib/playwright";
-import { encrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
 
 type ProviderEntry = {
   config: () => ProviderConfig;
@@ -39,7 +37,6 @@ const PROVIDER_CONFIGS: Record<string, ProviderEntry> = {
     mapCookies: mapCanvasCookies,
   },
   zillow: { config: () => zillowConfig, mapCookies: mapZillowCookies },
-  streeteasy: { config: () => streeteasyConfig, mapCookies: mapStreetEasyCookies },
 };
 
 export async function POST(request: NextRequest) {
@@ -70,16 +67,40 @@ export async function POST(request: NextRequest) {
 
   const accountLabel = label?.trim() || `${provider} Account`;
 
-  // Canvas requires a base URL
-  if (provider === "canvas" && !baseUrl?.trim()) {
-    return NextResponse.json(
-      { error: "Canvas base URL is required (e.g. https://canvas.university.edu)" },
-      { status: 400 }
-    );
+  // Canvas requires a base URL — if not provided, look it up from existing credentials
+  let resolvedBaseUrl = baseUrl?.trim() ?? "";
+  if (provider === "canvas" && !resolvedBaseUrl) {
+    const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("user_integrations")
+      .select("credentials")
+      .eq("user_id", user.id)
+      .eq("provider", "canvas")
+      .eq("label", accountLabel)
+      .maybeSingle();
+
+    if (existing?.credentials) {
+      try {
+        const raw = typeof existing.credentials === "string"
+          ? Buffer.from(existing.credentials.replace(/^\\x/, ""), "hex")
+          : Buffer.from(existing.credentials);
+        const creds = JSON.parse(decrypt(raw));
+        if (creds.base_url) resolvedBaseUrl = creds.base_url;
+      } catch {
+        // Ignore decrypt errors — fall through to the error below
+      }
+    }
+
+    if (!resolvedBaseUrl) {
+      return NextResponse.json(
+        { error: "Canvas base URL is required (e.g. https://canvas.university.edu)" },
+        { status: 400 }
+      );
+    }
   }
 
   // Normalize base URL: ensure https:// prefix, strip trailing slashes
-  let normalizedBaseUrl = baseUrl?.trim().replace(/\/+$/, "") ?? "";
+  let normalizedBaseUrl = resolvedBaseUrl.replace(/\/+$/, "");
   if (normalizedBaseUrl && !/^https?:\/\//i.test(normalizedBaseUrl)) {
     normalizedBaseUrl = `https://${normalizedBaseUrl}`;
   }

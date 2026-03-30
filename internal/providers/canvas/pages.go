@@ -20,10 +20,10 @@ func newPagesCmd(factory ClientFactory) *cobra.Command {
 
 	cmd.AddCommand(newPagesListCmd(factory))
 	cmd.AddCommand(newPagesGetCmd(factory))
+	cmd.AddCommand(newPagesRevisionsCmd(factory))
 	cmd.AddCommand(newPagesCreateCmd(factory))
 	cmd.AddCommand(newPagesUpdateCmd(factory))
 	cmd.AddCommand(newPagesDeleteCmd(factory))
-	cmd.AddCommand(newPagesRevisionsCmd(factory))
 
 	return cmd
 }
@@ -172,200 +172,6 @@ func newPagesGetCmd(factory ClientFactory) *cobra.Command {
 	return cmd
 }
 
-func newPagesCreateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new wiki page",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			title, _ := cmd.Flags().GetString("title")
-			if title == "" {
-				return fmt.Errorf("--title is required")
-			}
-
-			body, _ := cmd.Flags().GetString("body")
-			published, _ := cmd.Flags().GetBool("published")
-			frontPage, _ := cmd.Flags().GetBool("front-page")
-			editingRoles, _ := cmd.Flags().GetString("editing-roles")
-
-			wikiPage := map[string]any{
-				"title":     title,
-				"published": published,
-			}
-			if body != "" {
-				wikiPage["body"] = body
-			}
-			if frontPage {
-				wikiPage["front_page"] = true
-			}
-			if editingRoles != "" {
-				wikiPage["editing_roles"] = editingRoles
-			}
-
-			requestBody := map[string]any{"wiki_page": wikiPage}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("create page %q in course %s", title, courseID), requestBody)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Post(ctx, "/courses/"+courseID+"/pages", requestBody)
-			if err != nil {
-				return err
-			}
-
-			var page PageSummary
-			if err := json.Unmarshal(data, &page); err != nil {
-				return fmt.Errorf("parse created page: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(page)
-			}
-			fmt.Printf("Page created: %s — %s\n", page.URL, page.Title)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("title", "", "Page title (required)")
-	cmd.Flags().String("body", "", "Page HTML body content")
-	cmd.Flags().Bool("published", false, "Publish the page immediately")
-	cmd.Flags().Bool("front-page", false, "Set as the course front page")
-	cmd.Flags().String("editing-roles", "", "Who can edit: teachers, students, members, public")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newPagesUpdateCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update an existing wiki page",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			pageURL, _ := cmd.Flags().GetString("url")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if pageURL == "" {
-				return fmt.Errorf("--url is required")
-			}
-
-			wikiPage := map[string]any{}
-			if cmd.Flags().Changed("title") {
-				v, _ := cmd.Flags().GetString("title")
-				wikiPage["title"] = v
-			}
-			if cmd.Flags().Changed("body") {
-				v, _ := cmd.Flags().GetString("body")
-				wikiPage["body"] = v
-			}
-			if cmd.Flags().Changed("published") {
-				v, _ := cmd.Flags().GetBool("published")
-				wikiPage["published"] = v
-			}
-
-			requestBody := map[string]any{"wiki_page": wikiPage}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("update page %s in course %s", pageURL, courseID), requestBody)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			data, err := client.Put(ctx, "/courses/"+courseID+"/pages/"+pageURL, requestBody)
-			if err != nil {
-				return err
-			}
-
-			var page PageSummary
-			if err := json.Unmarshal(data, &page); err != nil {
-				return fmt.Errorf("parse updated page: %w", err)
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(page)
-			}
-			fmt.Printf("Page %s updated.\n", page.URL)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("url", "", "Page URL slug (required)")
-	cmd.Flags().String("title", "", "New title")
-	cmd.Flags().String("body", "", "New HTML body content")
-	cmd.Flags().Bool("published", false, "Set published state")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
-func newPagesDeleteCmd(factory ClientFactory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a wiki page",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			courseID, _ := cmd.Flags().GetString("course-id")
-			pageURL, _ := cmd.Flags().GetString("url")
-			if courseID == "" {
-				return fmt.Errorf("--course-id is required")
-			}
-			if pageURL == "" {
-				return fmt.Errorf("--url is required")
-			}
-
-			if err := confirmDestructive(cmd, "this will permanently delete the page"); err != nil {
-				return err
-			}
-
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if dryRun {
-				return dryRunResult(cmd, fmt.Sprintf("delete page %s in course %s", pageURL, courseID), nil)
-			}
-
-			client, err := factory(ctx)
-			if err != nil {
-				return err
-			}
-
-			_, err = client.Delete(ctx, "/courses/"+courseID+"/pages/"+pageURL)
-			if err != nil {
-				return err
-			}
-
-			if cli.IsJSONOutput(cmd) {
-				return cli.PrintJSON(map[string]any{"deleted": true, "url": pageURL})
-			}
-			fmt.Printf("Page %s deleted.\n", pageURL)
-			return nil
-		},
-	}
-
-	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
-	cmd.Flags().String("url", "", "Page URL slug (required)")
-	cmd.Flags().Bool("confirm", false, "Confirm deletion")
-	cmd.Flags().Bool("dry-run", false, "Preview without executing")
-	return cmd
-}
-
 func newPagesRevisionsCmd(factory ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revisions",
@@ -425,5 +231,157 @@ func newPagesRevisionsCmd(factory ClientFactory) *cobra.Command {
 	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
 	cmd.Flags().String("url", "", "Page URL slug (required)")
 	cmd.Flags().Int("limit", 0, "Maximum number of revisions to return")
+	return cmd
+}
+
+func newPagesCreateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new wiki page in a course",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			title, _ := cmd.Flags().GetString("title")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if title == "" {
+				return fmt.Errorf("--title is required")
+			}
+
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			if dryRun {
+				return dryRunResult(cmd, "create page: "+title, map[string]any{"course_id": courseID, "title": title})
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			wikiPage := map[string]any{"title": title}
+			if body, _ := cmd.Flags().GetString("body"); body != "" {
+				wikiPage["body"] = body
+			}
+			if published, _ := cmd.Flags().GetBool("published"); published {
+				wikiPage["published"] = true
+			}
+
+			data, err := client.Post(ctx, "/courses/"+courseID+"/pages", map[string]any{"wiki_page": wikiPage})
+			if err != nil {
+				return err
+			}
+
+			var page PageSummary
+			if err := json.Unmarshal(data, &page); err != nil {
+				return fmt.Errorf("parse page: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(page)
+			}
+			fmt.Printf("Page %s created: %s\n", page.URL, page.Title)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("title", "", "Page title (required)")
+	cmd.Flags().String("body", "", "Page body HTML")
+	cmd.Flags().Bool("published", false, "Publish immediately")
+	return cmd
+}
+
+func newPagesUpdateCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update a wiki page",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			pageURL, _ := cmd.Flags().GetString("url")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if pageURL == "" {
+				return fmt.Errorf("--url is required")
+			}
+
+			wikiPage := map[string]any{}
+			if title, _ := cmd.Flags().GetString("title"); title != "" {
+				wikiPage["title"] = title
+			}
+			if body, _ := cmd.Flags().GetString("body"); body != "" {
+				wikiPage["body"] = body
+			}
+
+			data, err := client.Put(ctx, "/courses/"+courseID+"/pages/"+pageURL, map[string]any{"wiki_page": wikiPage})
+			if err != nil {
+				return err
+			}
+
+			var page PageSummary
+			if err := json.Unmarshal(data, &page); err != nil {
+				return fmt.Errorf("parse page: %w", err)
+			}
+
+			if cli.IsJSONOutput(cmd) {
+				return cli.PrintJSON(page)
+			}
+			fmt.Printf("Page %s updated\n", page.URL)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("url", "", "Page URL slug (required)")
+	cmd.Flags().String("title", "", "New title")
+	cmd.Flags().String("body", "", "New body HTML")
+	return cmd
+}
+
+func newPagesDeleteCmd(factory ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a wiki page",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			courseID, _ := cmd.Flags().GetString("course-id")
+			pageURL, _ := cmd.Flags().GetString("url")
+			if courseID == "" {
+				return fmt.Errorf("--course-id is required")
+			}
+			if pageURL == "" {
+				return fmt.Errorf("--url is required")
+			}
+
+			if err := confirmDestructive(cmd, "this will permanently delete the page"); err != nil {
+				return err
+			}
+
+			client, err := factory(ctx)
+			if err != nil {
+				return err
+			}
+
+			if _, err := client.Delete(ctx, "/courses/"+courseID+"/pages/"+pageURL); err != nil {
+				return err
+			}
+
+			fmt.Printf("Page %s deleted\n", pageURL)
+			return nil
+		},
+	}
+
+	cmd.Flags().String("course-id", "", "Canvas course ID (required)")
+	cmd.Flags().String("url", "", "Page URL slug (required)")
+	cmd.Flags().Bool("confirm", false, "Confirm destructive action")
 	return cmd
 }

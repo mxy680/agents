@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Emdash Zillow Scraper",
+  "description": "Scrape Zillow search results for the Emdash real estate agent",
+  "version": "3.0.0",
+  "permissions": ["tabs", "scripting", "storage"],
+  "host_permissions": ["https://www.zillow.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Emdash Zillow Scraper"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
