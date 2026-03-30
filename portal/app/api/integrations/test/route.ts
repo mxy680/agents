@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isAdmin } from "@/lib/admin"
-import { decrypt } from "@/lib/crypto"
-import { credentialsToEnv } from "@/lib/credentials"
+import { credentialsToEnv, decryptAndRefresh } from "@/lib/credentials"
 import { execFile } from "child_process"
 import { promisify } from "util"
 import path from "path"
@@ -91,21 +90,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `No test for provider: ${integration.provider}` }, { status: 400 })
   }
 
-  // Decrypt credentials → env vars
+  // Decrypt credentials, refresh if expired, then map to env vars
   let env: Record<string, string> = {}
   try {
-    const raw = integration.credentials
-    let buf: Buffer
-    if (typeof raw === "string") {
-      const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
-      buf = Buffer.from(hex, "hex")
-    } else if (Buffer.isBuffer(raw)) {
-      buf = raw
-    } else {
-      buf = Buffer.from(raw as ArrayBuffer)
-    }
-    const decrypted = decrypt(buf)
-    const credJson = JSON.parse(decrypted) as Record<string, string>
+    const credJson = await decryptAndRefresh(integration)
     env = credentialsToEnv(integration.provider, credJson)
   } catch {
     return NextResponse.json({ ok: false, error: "Failed to decrypt credentials" })

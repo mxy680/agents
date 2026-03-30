@@ -79,6 +79,7 @@ export async function GET(request: NextRequest) {
   const payload = JSON.stringify({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
+    token_expiry: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
   })
 
   console.log("[supabase-cb] Encrypting credentials, userId:", userId, "label:", label)
