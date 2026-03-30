@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
   const hasSession = request.cookies.has("engagent_session")
 
   // Root → redirect based on session
@@ -17,6 +17,11 @@ export function middleware(request: NextRequest) {
   // Unauthenticated user trying to access protected pages → redirect to auth
   if ((pathname.startsWith("/chat") || pathname.startsWith("/agents")) && !hasSession) {
     return NextResponse.redirect(new URL("/auth", request.url))
+  }
+
+  // Chat page without agent param → redirect to agents selection
+  if (pathname === "/chat" && !searchParams.get("agent")) {
+    return NextResponse.redirect(new URL("/agents", request.url))
   }
 
   return NextResponse.next()
