@@ -5,12 +5,15 @@ You are running as a background learning job. Your goal is to read Mark's recent
 ## Step 1: Load Current State
 
 1. Read `memory/README.md` to understand the memory system
-2. Read `memory/active-threads.md` to get the **last processed** email timestamp
+2. Read `memory/active-threads.md` to get:
+   - The **last processed email timestamp**
+   - The **last processed message ID** (Gmail message ID)
+   - The **cursor log** to see previous run history
 3. Read all other memory files to know what you already know — avoid duplicates
 
 ## Step 2: Fetch Recent Emails
 
-If this is the first run (last processed = "never"), scan the last 7 days:
+If this is the first run (last processed timestamp = "never"), scan the last 7 days:
 ```bash
 integrations gmail messages list --since=7d --limit=200 --json
 ```
@@ -24,6 +27,10 @@ Also check for unread emails specifically:
 ```bash
 integrations gmail messages list --query="is:unread" --json
 ```
+
+### Deduplication
+
+Gmail message IDs are stable and unique. After fetching, compare each message ID against the **Last Message ID** from `active-threads.md`. Skip any message with an ID you've already seen. Gmail returns messages in reverse chronological order, so once you hit the last processed ID, you can stop — everything after it was already processed on a previous run.
 
 ## Step 3: Triage and Read
 
@@ -70,15 +77,23 @@ For each piece of significant information, update the appropriate memory file:
 - **Update, don't duplicate**: If you already have an entry about this topic, update it rather than adding a new one
 - **Retire stale entries**: If an active thread is resolved, mark it as resolved with the date
 
-## Step 5: Update Timestamps
+## Step 5: Update Cursor
 
-Update `memory/active-threads.md` with the new last-processed timestamp:
+Update the **Email** section in `memory/active-threads.md`:
 
 ```markdown
-## Last Processed
-- **Email**: 2026-03-30T14:00:00Z
-- **iMessage**: [leave unchanged]
+### Email
+- **Timestamp**: 2026-03-30T14:00:00Z
+- **Last Message ID**: 18f3a2b1c4d5e6f7
+- **Messages processed this run**: 42
 ```
+
+Also append a line to the **Cursor Log**:
+```markdown
+- [2026-03-30T14:00:00Z] email | processed 42 messages | last ID: 18f3a2b1c4d5e6f7
+```
+
+**Important**: Only update the cursor AFTER all memory files have been successfully written. If the job fails mid-run, the cursor stays at the old position and the next run will reprocess — that's safe because we deduplicate by message ID.
 
 ## Step 6: Summary
 

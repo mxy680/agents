@@ -5,12 +5,15 @@ You are running as a background learning job. Your goal is to read Mark's recent
 ## Step 1: Load Current State
 
 1. Read `memory/README.md` to understand the memory system
-2. Read `memory/active-threads.md` to get the **last processed** iMessage timestamp
+2. Read `memory/active-threads.md` to get:
+   - The **last processed iMessage timestamp**
+   - The **last processed message GUID**
+   - The **cursor log** to see previous run history
 3. Read all other memory files to know what you already know — avoid duplicates
 
 ## Step 2: Fetch Recent Messages
 
-If this is the first run (last processed = "never"), scan the last 7 days:
+If this is the first run (last processed timestamp = "never"), scan the last 7 days:
 ```bash
 integrations imessage messages query --after="2026-03-23T00:00:00Z" --limit=200 --sort=DESC --json
 ```
@@ -24,6 +27,10 @@ Also get the list of active chats to understand who Mark talks to:
 ```bash
 integrations imessage chats list --limit=50 --json
 ```
+
+### Deduplication
+
+iMessage GUIDs are stable and unique. After fetching, compare each message GUID against the **Last Message GUID** from `active-threads.md`. Skip any message you've already seen. Messages are returned in reverse chronological order (DESC), so once you hit the last processed GUID, stop — everything after was already processed.
 
 ## Step 3: Analyze Conversations
 
@@ -71,15 +78,23 @@ iMessages are often more personal and candid than emails. Pay special attention 
 - **Look for what's unsaid**: If Mark usually texts someone daily and suddenly stops, that's worth noting
 - **Update, don't duplicate**: If you already have an entry about this relationship/topic, update it
 
-## Step 5: Update Timestamps
+## Step 5: Update Cursor
 
-Update `memory/active-threads.md` with the new last-processed timestamp:
+Update the **iMessage** section in `memory/active-threads.md`:
 
 ```markdown
-## Last Processed
-- **Email**: [leave unchanged]
-- **iMessage**: 2026-03-30T14:15:00Z
+### iMessage
+- **Timestamp**: 2026-03-30T14:15:00Z
+- **Last Message GUID**: p:0/abc-def-123
+- **Messages processed this run**: 18
 ```
+
+Also append a line to the **Cursor Log**:
+```markdown
+- [2026-03-30T14:15:00Z] texts | processed 18 messages | last GUID: p:0/abc-def-123
+```
+
+**Important**: Only update the cursor AFTER all memory files have been successfully written. If the job fails mid-run, the cursor stays at the old position and the next run will reprocess — that's safe because we deduplicate by message GUID.
 
 ## Step 6: Summary
 
