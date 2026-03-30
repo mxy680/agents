@@ -7,8 +7,27 @@ import { credentialsToEnv } from "@/lib/credentials"
 import { execFile } from "child_process"
 import { promisify } from "util"
 import path from "path"
+import { execFileSync } from "child_process"
 
 const execFileAsync = promisify(execFile)
+
+/** Resolve the integrations binary: env var → PATH → local dev fallback */
+function resolveIntegrationsBin(): string {
+  if (process.env.INTEGRATIONS_BIN_PATH) {
+    return process.env.INTEGRATIONS_BIN_PATH
+  }
+  // Check if `integrations` is on PATH (production Docker image)
+  try {
+    const resolved = execFileSync("which", ["integrations"], {
+      encoding: "utf-8",
+    }).trim()
+    if (resolved) return resolved
+  } catch {
+    // not on PATH
+  }
+  // Local dev fallback: ../bin/integrations relative to portal/
+  return path.resolve(process.cwd(), "..", "bin", "integrations")
+}
 
 /**
  * Simple read-only test command for each provider.
@@ -103,10 +122,7 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Find the integrations binary — configurable via env for worktrees / production
-  const binPath =
-    process.env.INTEGRATIONS_BIN_PATH ||
-    path.resolve(process.cwd(), "..", "bin", "integrations")
+  const binPath = resolveIntegrationsBin()
 
   try {
     await execFileAsync(binPath, testArgs, {
