@@ -1,10 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { verifySession } from "@/lib/session"
+
+// Lightweight session check for Edge runtime — just verify cookie format (has a dot separator)
+// Full HMAC verification happens in each API route on the Node.js runtime
+function hasValidSessionCookie(request: NextRequest): boolean {
+  const signed = request.cookies.get("engagent_session")?.value
+  if (!signed) return false
+  // Signed cookies have format: CODE.HMAC_HEX (64 char hex after the last dot)
+  const lastDot = signed.lastIndexOf(".")
+  if (lastDot === -1) return false
+  const sig = signed.substring(lastDot + 1)
+  return sig.length === 64 && /^[0-9a-f]+$/.test(sig)
+}
 
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
-  const signed = request.cookies.get("engagent_session")?.value
-  const hasSession = signed ? verifySession(signed) !== null : false
+  const hasSession = hasValidSessionCookie(request)
 
   // Root → redirect based on session
   if (pathname === "/") {
