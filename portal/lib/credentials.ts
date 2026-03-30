@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/crypto"
+import { needsRefresh, refreshOAuthToken, persistRefreshedCredentials } from "@/lib/token-refresh"
 
 /**
  * Maps decrypted credential JSON to environment variables for a given provider.
@@ -86,6 +87,43 @@ export function credentialsToEnv(provider: string, credJson: Record<string, stri
   return env
 }
 
+/** Parses the raw credentials column into a Buffer for decryption. */
+export function parseCredentialsBuffer(raw: unknown): Buffer {
+  if (typeof raw === "string") {
+    const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
+    return Buffer.from(hex, "hex")
+  }
+  if (Buffer.isBuffer(raw)) return raw
+  return Buffer.from(raw as ArrayBuffer)
+}
+
+/**
+ * Decrypts credentials and refreshes OAuth tokens if expired.
+ * Returns the (possibly refreshed) credential JSON.
+ */
+export async function decryptAndRefresh(
+  integration: { id: string; provider: string; credentials: unknown }
+): Promise<Record<string, string>> {
+  const buf = parseCredentialsBuffer(integration.credentials)
+  const credJson = JSON.parse(decrypt(buf)) as Record<string, string>
+
+  if (needsRefresh(integration.provider, credJson)) {
+    try {
+      const refreshed = await refreshOAuthToken(integration.provider, credJson)
+      if (refreshed) {
+        console.log(`[credentials] Refreshed ${integration.provider} token for integration ${integration.id}`)
+        await persistRefreshedCredentials(integration.id, credJson, refreshed)
+        return { ...credJson, ...refreshed }
+      }
+    } catch (err) {
+      console.error(`[credentials] Token refresh failed for ${integration.provider}:`, err)
+      // Fall through to return existing (possibly expired) credentials
+    }
+  }
+
+  return credJson
+}
+
 /**
  * Resolves all active integration credentials for the admin user.
  * Single-tenant: all integrations are owned centrally.
@@ -99,7 +137,7 @@ export async function resolveAdminCredentials(): Promise<Record<string, string>>
   const admin = createAdminClient()
   const { data: integrations, error } = await admin
     .from("user_integrations")
-    .select("provider, credentials, status")
+    .select("id, provider, credentials, status")
     .eq("status", "active")
 
   if (error) {
@@ -109,18 +147,7 @@ export async function resolveAdminCredentials(): Promise<Record<string, string>>
   const credEnv: Record<string, string> = {}
   for (const integration of integrations ?? []) {
     try {
-      const raw = integration.credentials
-      let buf: Buffer
-      if (typeof raw === "string") {
-        const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
-        buf = Buffer.from(hex, "hex")
-      } else if (Buffer.isBuffer(raw)) {
-        buf = raw
-      } else {
-        buf = Buffer.from(raw as ArrayBuffer)
-      }
-      const decrypted = decrypt(buf)
-      const credJson = JSON.parse(decrypted) as Record<string, string>
+      const credJson = await decryptAndRefresh(integration)
       const envVars = credentialsToEnv(integration.provider, credJson)
       Object.assign(credEnv, envVars)
     } catch {
@@ -139,7 +166,7 @@ export async function resolveUserCredentials(userId: string): Promise<Record<str
   const admin = createAdminClient()
   const { data: integrations, error } = await admin
     .from("user_integrations")
-    .select("provider, credentials, status")
+    .select("id, provider, credentials, status")
     .eq("user_id", userId)
     .eq("status", "active")
 
@@ -150,18 +177,7 @@ export async function resolveUserCredentials(userId: string): Promise<Record<str
   const credEnv: Record<string, string> = {}
   for (const integration of integrations ?? []) {
     try {
-      const raw = integration.credentials
-      let buf: Buffer
-      if (typeof raw === "string") {
-        const hex = raw.startsWith("\\x") ? raw.slice(2) : raw
-        buf = Buffer.from(hex, "hex")
-      } else if (Buffer.isBuffer(raw)) {
-        buf = raw
-      } else {
-        buf = Buffer.from(raw as ArrayBuffer)
-      }
-      const decrypted = decrypt(buf)
-      const credJson = JSON.parse(decrypted) as Record<string, string>
+      const credJson = await decryptAndRefresh(integration)
       const envVars = credentialsToEnv(integration.provider, credJson)
       Object.assign(credEnv, envVars)
     } catch {

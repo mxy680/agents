@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -80,6 +81,8 @@ func newSupabaseToken() (*oauth2.Token, error) {
 	return &oauth2.Token{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		// Set Expiry to the past so the oauth2 library always refreshes on first use.
+		Expiry: time.Now().Add(-time.Minute),
 	}, nil
 }
 
