@@ -1,6 +1,6 @@
-// export-creds prints shell export statements for a user's integration credentials.
-// Usage: export-creds --user-id UUID --provider google [--account personal]
-// Example: eval $(export-creds --user-id abc --provider google --account personal)
+// export-creds prints shell export statements for integration credentials.
+// Usage: export-creds --provider google [--account personal]
+// Example: eval $(export-creds --provider google --account personal)
 package main
 
 import (
@@ -19,13 +19,12 @@ import (
 )
 
 func main() {
-	userID := flag.String("user-id", "", "User UUID")
 	provider := flag.String("provider", "", "Provider name (google, github, instagram)")
 	account := flag.String("account", "", "Account label (empty = first found)")
 	flag.Parse()
 
-	if *userID == "" || *provider == "" {
-		fmt.Fprintln(os.Stderr, "Usage: export-creds --user-id UUID --provider PROVIDER [--account LABEL]")
+	if *provider == "" {
+		fmt.Fprintln(os.Stderr, "Usage: export-creds --provider PROVIDER [--account LABEL]")
 		os.Exit(1)
 	}
 
@@ -51,11 +50,11 @@ func main() {
 	query := `
 		SELECT credentials
 		FROM user_integrations
-		WHERE user_id = $1 AND provider = $2 AND status = 'active'`
-	args := []any{*userID, *provider}
+		WHERE provider = $1 AND status = 'active'`
+	args := []any{*provider}
 
 	if *account != "" {
-		query += " AND label = $3"
+		query += " AND label = $2"
 		args = append(args, *account)
 	}
 	query += " ORDER BY updated_at DESC LIMIT 1"

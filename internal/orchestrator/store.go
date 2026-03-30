@@ -108,14 +108,13 @@ func (s *Store) GetInstance(ctx context.Context, id string) (AgentInstance, erro
 	return scanInstanceRow(row)
 }
 
-// ListInstances returns all instances for a user.
-func (s *Store) ListInstances(ctx context.Context, userID string) ([]AgentInstance, error) {
+// ListInstances returns all instances.
+func (s *Store) ListInstances(ctx context.Context) ([]AgentInstance, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, user_id, template_id, status, k8s_pod_name, k8s_namespace,
 		        config_overrides, error_message, started_at, stopped_at, created_at, updated_at
 		 FROM agent_instances
-		 WHERE user_id = $1
-		 ORDER BY created_at DESC`, userID)
+		 ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("query instances: %w", err)
 	}
@@ -188,9 +187,9 @@ func (s *Store) ListRunningInstances(ctx context.Context) ([]AgentInstance, erro
 	return instances, rows.Err()
 }
 
-// CheckUserIntegrations verifies a user has all required integrations connected.
+// CheckIntegrations verifies all required integrations are connected.
 // Returns the slice of missing provider names (nil if all connected).
-func (s *Store) CheckUserIntegrations(ctx context.Context, userID string, required []string) ([]string, error) {
+func (s *Store) CheckIntegrations(ctx context.Context, required []string) ([]string, error) {
 	if len(required) == 0 {
 		return nil, nil
 	}
@@ -198,8 +197,8 @@ func (s *Store) CheckUserIntegrations(ctx context.Context, userID string, requir
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT DISTINCT provider
 		 FROM user_integrations
-		 WHERE user_id = $1 AND status = 'active' AND provider = ANY($2)`,
-		userID, pq.Array(required))
+		 WHERE status = 'active' AND provider = ANY($1)`,
+		pq.Array(required))
 	if err != nil {
 		return nil, fmt.Errorf("check integrations: %w", err)
 	}

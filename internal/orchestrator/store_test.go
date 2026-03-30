@@ -330,36 +330,32 @@ func TestGetInstance(t *testing.T) {
 func TestListInstances(t *testing.T) {
 	tests := []struct {
 		name      string
-		userID    string
 		setup     func(mock sqlmock.Sqlmock)
 		wantCount int
 		wantErr   bool
 	}{
 		{
-			name:   "success with results",
-			userID: "user-1",
+			name: "success with results",
 			setup: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows(instanceColumns)
 				addInstanceRow(rows, "inst-1", "user-1", "tmpl-1", StatusRunning)
 				addInstanceRow(rows, "inst-2", "user-1", "tmpl-2", StatusPending)
-				mock.ExpectQuery("SELECT").WithArgs("user-1").WillReturnRows(rows)
+				mock.ExpectQuery("SELECT").WillReturnRows(rows)
 			},
 			wantCount: 2,
 		},
 		{
-			name:   "empty result",
-			userID: "user-nobody",
+			name: "empty result",
 			setup: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows(instanceColumns)
-				mock.ExpectQuery("SELECT").WithArgs("user-nobody").WillReturnRows(rows)
+				mock.ExpectQuery("SELECT").WillReturnRows(rows)
 			},
 			wantCount: 0,
 		},
 		{
-			name:   "query error",
-			userID: "user-1",
+			name: "query error",
 			setup: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery("SELECT").WithArgs("user-1").WillReturnError(fmt.Errorf("timeout"))
+				mock.ExpectQuery("SELECT").WillReturnError(fmt.Errorf("timeout"))
 			},
 			wantErr: true,
 		},
@@ -370,7 +366,7 @@ func TestListInstances(t *testing.T) {
 			store, mock := newMockStore(t)
 			tt.setup(mock)
 
-			instances, err := store.ListInstances(context.Background(), tt.userID)
+			instances, err := store.ListInstances(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ListInstances() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -532,12 +528,11 @@ func TestListRunningInstances(t *testing.T) {
 	}
 }
 
-// ---- CheckUserIntegrations ----
+// ---- CheckIntegrations ----
 
-func TestCheckUserIntegrations(t *testing.T) {
+func TestCheckIntegrations(t *testing.T) {
 	tests := []struct {
 		name        string
-		userID      string
 		required    []string
 		setup       func(mock sqlmock.Sqlmock)
 		wantMissing []string
@@ -545,36 +540,32 @@ func TestCheckUserIntegrations(t *testing.T) {
 	}{
 		{
 			name:     "none required",
-			userID:   "user-1",
 			required: nil,
 			setup:    func(mock sqlmock.Sqlmock) {},
 		},
 		{
 			name:     "all connected",
-			userID:   "user-1",
 			required: []string{"google", "github"},
 			setup: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows([]string{"provider"}).
 					AddRow("google").
 					AddRow("github")
-				mock.ExpectQuery("SELECT DISTINCT provider").WithArgs("user-1", pq.Array([]string{"google", "github"})).WillReturnRows(rows)
+				mock.ExpectQuery("SELECT DISTINCT provider").WithArgs(pq.Array([]string{"google", "github"})).WillReturnRows(rows)
 			},
 			wantMissing: nil,
 		},
 		{
 			name:     "some missing",
-			userID:   "user-1",
 			required: []string{"google", "github", "instagram"},
 			setup: func(mock sqlmock.Sqlmock) {
 				rows := sqlmock.NewRows([]string{"provider"}).
 					AddRow("google")
-				mock.ExpectQuery("SELECT DISTINCT provider").WithArgs("user-1", pq.Array([]string{"google", "github", "instagram"})).WillReturnRows(rows)
+				mock.ExpectQuery("SELECT DISTINCT provider").WithArgs(pq.Array([]string{"google", "github", "instagram"})).WillReturnRows(rows)
 			},
 			wantMissing: []string{"github", "instagram"},
 		},
 		{
 			name:     "query error",
-			userID:   "user-1",
 			required: []string{"google"},
 			setup: func(mock sqlmock.Sqlmock) {
 				mock.ExpectQuery("SELECT DISTINCT provider").WillReturnError(fmt.Errorf("timeout"))
@@ -588,9 +579,9 @@ func TestCheckUserIntegrations(t *testing.T) {
 			store, mock := newMockStore(t)
 			tt.setup(mock)
 
-			missing, err := store.CheckUserIntegrations(context.Background(), tt.userID, tt.required)
+			missing, err := store.CheckIntegrations(context.Background(), tt.required)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("CheckUserIntegrations() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("CheckIntegrations() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if !tt.wantErr {
 				if len(missing) != len(tt.wantMissing) {

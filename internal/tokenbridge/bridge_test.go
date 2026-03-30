@@ -239,7 +239,7 @@ func TestProcessIntegrationDecryptError(t *testing.T) {
 	}
 }
 
-func TestExportEnvForUser(t *testing.T) {
+func TestExportEnv(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
@@ -261,11 +261,11 @@ func TestExportEnvForUser(t *testing.T) {
 		AddRow("github", ghCreds).
 		AddRow("instagram", igCreds)
 
-	mock.ExpectQuery("SELECT").WithArgs("user-123").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
-	env, err := ExportEnvForUser(context.Background(), db, "user-123", testKey)
+	env, err := ExportEnv(context.Background(), db, testKey)
 	if err != nil {
-		t.Fatalf("ExportEnvForUser() error = %v", err)
+		t.Fatalf("ExportEnv() error = %v", err)
 	}
 
 	expected := map[string]string{
@@ -287,7 +287,7 @@ func TestExportEnvForUser(t *testing.T) {
 	}
 }
 
-func TestExportEnvForUserQueryError(t *testing.T) {
+func TestExportEnvQueryError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
@@ -296,13 +296,13 @@ func TestExportEnvForUserQueryError(t *testing.T) {
 
 	mock.ExpectQuery("SELECT").WillReturnError(fmt.Errorf("connection refused"))
 
-	_, err = ExportEnvForUser(context.Background(), db, "user-123", testKey)
+	_, err = ExportEnv(context.Background(), db, testKey)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func TestExportEnvForUserEmpty(t *testing.T) {
+func TestExportEnvEmpty(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock.New() error = %v", err)
@@ -310,11 +310,11 @@ func TestExportEnvForUserEmpty(t *testing.T) {
 	defer db.Close()
 
 	rows := sqlmock.NewRows([]string{"provider", "credentials"})
-	mock.ExpectQuery("SELECT").WithArgs("user-456").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT").WillReturnRows(rows)
 
-	env, err := ExportEnvForUser(context.Background(), db, "user-456", testKey)
+	env, err := ExportEnv(context.Background(), db, testKey)
 	if err != nil {
-		t.Fatalf("ExportEnvForUser() error = %v", err)
+		t.Fatalf("ExportEnv() error = %v", err)
 	}
 	if len(env) != 0 {
 		t.Errorf("expected empty env, got %v", env)
