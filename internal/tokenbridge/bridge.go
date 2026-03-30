@@ -18,6 +18,35 @@ type DB interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
 }
 
+// ExportEnv reads all active integrations (single-tenant) and returns
+// a map of environment variable names to decrypted values.
+func ExportEnv(ctx context.Context, db DB, hexKey string) (map[string]string, error) {
+	rows, err := db.QueryContext(ctx,
+		`SELECT DISTINCT ON (provider) provider, credentials
+		 FROM user_integrations
+		 WHERE status = 'active'
+		 ORDER BY provider, updated_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query user_integrations: %w", err)
+	}
+	defer rows.Close()
+
+	env := make(map[string]string)
+	for rows.Next() {
+		var ui UserIntegration
+		if err := rows.Scan(&ui.Provider, &ui.Credentials); err != nil {
+			return nil, fmt.Errorf("scan user_integration: %w", err)
+		}
+
+		if err := processIntegration(&ui, hexKey, env); err != nil {
+			return nil, err
+		}
+	}
+
+	return env, rows.Err()
+}
+
 // ExportEnvForUser reads all connected integrations for a user and returns
 // a map of environment variable names to decrypted values.
 func ExportEnvForUser(ctx context.Context, db DB, userID string, hexKey string) (map[string]string, error) {

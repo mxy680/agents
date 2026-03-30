@@ -16,21 +16,20 @@ import (
 	"github.com/emdash-projects/agents/internal/tokenbridge"
 )
 
-// resolveUserCredentials is a PersistentPreRunE hook that resolves credentials
-// from the user_integrations table when RESOLVE_USER_ID is set.
-func resolveUserCredentials(cmd *cobra.Command, _ []string) error {
-	userID := os.Getenv("RESOLVE_USER_ID")
-	if userID == "" {
+// resolveCredentials is a PersistentPreRunE hook that resolves credentials
+// from the user_integrations table when RESOLVE_CREDENTIALS is set.
+func resolveCredentials(cmd *cobra.Command, _ []string) error {
+	if os.Getenv("RESOLVE_CREDENTIALS") == "" {
 		return nil
 	}
 
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	if dbURL == "" {
-		return fmt.Errorf("RESOLVE_USER_ID is set but SUPABASE_DB_URL is missing")
+		return fmt.Errorf("RESOLVE_CREDENTIALS is set but SUPABASE_DB_URL is missing")
 	}
 	encKey := os.Getenv("ENCRYPTION_MASTER_KEY")
 	if encKey == "" {
-		return fmt.Errorf("RESOLVE_USER_ID is set but ENCRYPTION_MASTER_KEY is missing")
+		return fmt.Errorf("RESOLVE_CREDENTIALS is set but ENCRYPTION_MASTER_KEY is missing")
 	}
 
 	db, err := sql.Open("postgres", dbURL)
@@ -39,7 +38,7 @@ func resolveUserCredentials(cmd *cobra.Command, _ []string) error {
 	}
 	defer db.Close()
 
-	env, err := tokenbridge.ExportEnvForUser(cmd.Context(), db, userID, encKey)
+	env, err := tokenbridge.ExportEnv(cmd.Context(), db, encKey)
 	if err != nil {
 		return fmt.Errorf("resolve credentials: %w", err)
 	}
@@ -79,7 +78,7 @@ func resolveUserCredentials(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "resolved %d credential(s) for user %s\n", len(env), userID)
+	fmt.Fprintf(os.Stderr, "resolved %d credential(s)\n", len(env))
 	return nil
 }
 
