@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { runLocal, buildSystemPrompt } from "@/lib/local-runner"
 import { type ChatSSEEvent } from "@/lib/agent-events"
 import { generateTitle } from "@/lib/auto-title"
+import { verifySession } from "@/lib/session"
 
 type ContentBlock =
   | { type: "text"; content: string }
@@ -17,13 +18,18 @@ export async function POST(request: NextRequest) {
   let requestedAgent: string | undefined
   try {
     const body = await request.json()
-    // Prefer cookie over body for security; fall back to body for backwards compatibility
-    code = request.cookies.get("engagent_session")?.value ?? body.code
+    // Prefer signed cookie over body for security; fall back to body for backwards compatibility
+    const cookieValue = request.cookies.get("engagent_session")?.value
+    code = cookieValue ? (verifySession(cookieValue) ?? undefined) : body.code
     message = body.message
     conversationId = body.conversationId
     requestedAgent = body.agentName
   } catch {
     return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 })
+  }
+
+  if (code === undefined && request.cookies.has("engagent_session")) {
+    return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401 })
   }
 
   if (!code || !message) {

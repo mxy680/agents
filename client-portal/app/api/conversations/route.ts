@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { verifySession } from "@/lib/session"
 
 /**
  * GET /api/conversations?agent=YYY
@@ -7,11 +8,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * List conversations for a client access code (from session cookie) + agent.
  */
 export async function GET(request: NextRequest) {
-  const code = request.cookies.get("engagent_session")?.value
+  const cookieValue = request.cookies.get("engagent_session")?.value
+  const code = cookieValue ? verifySession(cookieValue) : null
   const agent = request.nextUrl.searchParams.get("agent")
 
   if (!code) {
-    return NextResponse.json({ error: "code required" }, { status: 400 })
+    return NextResponse.json({ error: "code required" }, { status: 401 })
   }
 
   const admin = createAdminClient()
@@ -53,10 +55,11 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")
-  const code = request.cookies.get("engagent_session")?.value
+  const cookieValue = request.cookies.get("engagent_session")?.value
+  const code = cookieValue ? verifySession(cookieValue) : null
 
   if (!id || !code) {
-    return NextResponse.json({ error: "id and code required" }, { status: 400 })
+    return NextResponse.json({ error: "id and code required" }, { status: !code ? 401 : 400 })
   }
 
   const admin = createAdminClient()

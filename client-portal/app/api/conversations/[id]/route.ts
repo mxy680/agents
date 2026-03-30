@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { verifySession } from "@/lib/session"
 
 /**
  * GET /api/conversations/[id]
@@ -11,10 +12,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const code = request.cookies.get("engagent_session")?.value
+  const cookieValue = request.cookies.get("engagent_session")?.value
+  const code = cookieValue ? verifySession(cookieValue) : null
 
   if (!code) {
-    return NextResponse.json({ error: "code required" }, { status: 400 })
+    return NextResponse.json({ error: "code required" }, { status: 401 })
   }
 
   const admin = createAdminClient()

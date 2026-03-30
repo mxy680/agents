@@ -1,7 +1,34 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { signSession } from "@/lib/session"
+
+const rateLimiter = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimiter.get(ip)
+
+  if (!entry || now > entry.resetAt) {
+    rateLimiter.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return true
+  }
+
+  entry.count++
+  return entry.count <= RATE_LIMIT
+}
 
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 })
+  }
+
   let code: string | undefined
 
   // Try reading code from request body first, then fall back to session cookie
@@ -51,10 +78,10 @@ export async function POST(request: NextRequest) {
     })),
   })
 
-  response.cookies.set("engagent_session", code.trim(), {
+  response.cookies.set("engagent_session", signSession(code.trim()), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: 60 * 60 * 24 * 30, // 30 days
     path: "/",
   })
