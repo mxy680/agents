@@ -13,3 +13,8 @@ docker/export-creds/bin/
 skills/
 skills-lock.json
 /integrations
+
+# Desktop app
+desktop/node_modules/
+desktop/out/
+desktop/dist/

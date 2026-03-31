@@ -60,3 +60,19 @@ portal-lint:
 
 portal-playwright-install:
 	cd portal && npx playwright install chromium
+
+# Desktop app
+.PHONY: desktop-deps desktop-build desktop-dev cli-install
+
+cli-install: build-cli
+	mkdir -p ~/.ade/bin
+	cp bin/integrations ~/.ade/bin/integrations
+
+desktop-deps:
+	cd desktop && pnpm install
+
+desktop-build: desktop-deps
+	cd desktop && pnpm run build
+
+desktop-dev: cli-install desktop-deps
+	cd desktop && pnpm run dev
